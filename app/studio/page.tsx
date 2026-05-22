@@ -35,7 +35,7 @@ import { useState, useEffect } from "react";
 const initialBlueprintsCatalog = [
   {
     id: "rosewood_ops_v1",
-    name: "Rosewood Lifecycle Blueprint (Static)",
+    name: "Rosewood Sample Setup (Static)",
     version: "1.2.0",
     pipelines: [
       {
@@ -69,11 +69,11 @@ export default function VersionEditor() {
       try {
         const parsedBlueprint = JSON.parse(rawSaved);
         // Label it cleanly so you know it's your live account data stream
-        parsedBlueprint.name = "Live Ingested Architecture Profile";
-        parsedBlueprint.id = "live_ingested_profile";
+        parsedBlueprint.name = "My Live Account Setup";
+        parsedBlueprint.id = "live_account_setup";
 
         setCatalog([parsedBlueprint, ...initialBlueprintsCatalog]);
-        setSelectedBlueprintId("live_ingested_profile");
+        setSelectedBlueprintId("live_account_setup");
         if (parsedBlueprint.pipelines.length > 0) {
           setActivePipelineId(parsedBlueprint.pipelines[0].id);
         }
@@ -200,7 +200,7 @@ export default function VersionEditor() {
       <div className="border-b border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-6 py-4 flex flex-wrap items-center justify-between gap-4 shadow-xs">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center space-x-2">
-            <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Blueprint Manifest:</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Template:</span>
             <select
               value={selectedBlueprintId}
               onChange={(e) => switchBlueprint(e.target.value)}

@@ -10,8 +10,8 @@ export default function Launchpad() {
   const [targetAdmin, setTargetAdmin] = useState<string | null>(null);
   const [selectedBlueprint, setSelectedBlueprint] = useState("rosewood_core_v1.2");
   const [blueprintOptions, setBlueprintOptions] = useState([
-    { value: "rosewood_core_v1.2", label: "Rosewood Standard Architecture Core v1.2" },
-    { value: "rosewood_core_v1.3_beta", label: "Rosewood Standard Architecture Core v1.3 (Beta Evaluation Track)" }
+    { value: "rosewood_core_v1.2", label: "Rosewood Standard Setup v1.2" },
+    { value: "rosewood_core_v1.3_beta", label: "Rosewood Standard Setup v1.3" }
   ]);
   const [selectedBlueprintObj, setSelectedBlueprintObj] = useState<any>(null);
   
@@ -25,21 +25,33 @@ export default function Launchpad() {
   const [isDeploying, setIsDeploying] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
-  // Load custom blueprint from localStorage on mount
+  // Load saved connection parameters and custom template from localStorage on mount
   useEffect(() => {
-    const customBlueprint = localStorage.getItem("rosewood_discovered_blueprint");
-    if (customBlueprint) {
+    // Restore connection state
+    const savedToken = localStorage.getItem("rosewood_api_token");
+    const savedCompany = localStorage.getItem("rosewood_target_company");
+    const savedAdmin = localStorage.getItem("rosewood_target_admin");
+    const savedLogs = localStorage.getItem("rosewood_launchpad_logs");
+
+    if (savedToken) setApiToken(savedToken);
+    if (savedCompany) setTargetCompany(savedCompany);
+    if (savedAdmin) setTargetAdmin(savedAdmin);
+    if (savedLogs) setLogs(JSON.parse(savedLogs));
+
+    // Load custom template if it exists
+    const customTemplate = localStorage.getItem("rosewood_discovered_blueprint");
+    if (customTemplate) {
       try {
-        const parsed = JSON.parse(customBlueprint);
+        const parsed = JSON.parse(customTemplate);
         const customOption = {
-          value: "custom_modified_workbench",
-          label: "Custom Modified Workbench Schema"
+          value: "my_edited_template",
+          label: "My Edited Template"
         };
         setBlueprintOptions(prev => [customOption, ...prev]);
-        setSelectedBlueprint("custom_modified_workbench");
+        setSelectedBlueprint("my_edited_template");
         setSelectedBlueprintObj(parsed);
       } catch (e) {
-        console.error("Failed to parse custom blueprint from storage", e);
+        console.error("Failed to parse custom template from storage", e);
       }
     }
   }, []);
@@ -50,13 +62,13 @@ export default function Launchpad() {
 
   const handleBlueprintSelect = (value: string) => {
     setSelectedBlueprint(value);
-    if (value === "custom_modified_workbench") {
-      const customBlueprint = localStorage.getItem("rosewood_discovered_blueprint");
-      if (customBlueprint) {
+    if (value === "my_edited_template") {
+      const customTemplate = localStorage.getItem("rosewood_discovered_blueprint");
+      if (customTemplate) {
         try {
-          setSelectedBlueprintObj(JSON.parse(customBlueprint));
+          setSelectedBlueprintObj(JSON.parse(customTemplate));
         } catch (e) {
-          console.error("Failed to parse custom blueprint", e);
+          console.error("Failed to parse custom template", e);
         }
       }
     } else {
@@ -64,10 +76,10 @@ export default function Launchpad() {
     }
   };
 
-  // True Server Ingestion & Discovery Loop mapping to localStorage
+  // Connect to live account and save connection state
   const handleVerifyTarget = async () => {
     if (!apiToken) {
-      alert("Please provide a Pipedrive environment authentication token to initialize tunnel.");
+      alert("Please provide a Pipedrive API token to connect.");
       return;
     }
     setIsVerifying(true);
@@ -83,29 +95,36 @@ export default function Launchpad() {
       const result = await response.json();
 
       if (!result.success) {
-        alert(`Discovery Failure: ${result.error}`);
+        alert(`Connection failed: ${result.error}`);
         setIsVerifying(false);
         return;
       }
 
-      // Commit the live reverse-engineered blueprint manifest directly to browser storage
+      // Save template and connection state to localStorage
       localStorage.setItem("rosewood_discovered_blueprint", JSON.stringify(result.blueprint));
+      localStorage.setItem("rosewood_api_token", apiToken);
+      const companyName = "Rosewood Active Environment";
+      const adminStatus = `Discovered: ${result.blueprint.pipelines.length} Active Pipelines`;
+      localStorage.setItem("rosewood_target_company", companyName);
+      localStorage.setItem("rosewood_target_admin", adminStatus);
 
       setIsVerifying(false);
-      setTargetCompany("Rosewood Active Environment");
-      setTargetAdmin(`Discovered: ${result.blueprint.pipelines.length} Active Pipelines`);
+      setTargetCompany(companyName);
+      setTargetAdmin(adminStatus);
       
-      setLogs([
-        "INIT: Live environment infrastructure tunnel successfully established.",
-        "DISCOVERY: Commencing reverse engineering compilation matrices...",
+      const newLogs = [
+        "✓ Connected to your live account successfully.",
+        "→ Analyzing your existing pipelines and stages...",
         ...result.blueprint.pipelines.map((p: any) => 
-          `PARSED: Pipeline [${p.name}] compiled with ${p.stages.length} clean workflow tracking stages.`
+          `✓ Found pipeline: ${p.name} with ${p.stages.length} stages`
         ),
-        "SUCCESS: Target discovery architecture manifest fully serialized and clear for Version Editor review."
-      ]);
+        "✓ Your template is ready to customize in the editor."
+      ];
+      setLogs(newLogs);
+      localStorage.setItem("rosewood_launchpad_logs", JSON.stringify(newLogs));
 
     } catch (err: any) {
-      alert(`Network communications boundary crash: ${err.message}`);
+      alert(`Connection error: ${err.message}`);
       setIsVerifying(false);
     }
   };
@@ -115,25 +134,39 @@ export default function Launchpad() {
     setIsDeploying(true);
     setLogs([]);
 
-    const blueprint = selectedBlueprintObj || { pipelines: [] };
+    const template = selectedBlueprintObj || { pipelines: [] };
     const deploymentSteps: (string | null)[] = [
-      "Initial validation check parsed successfully.",
-      "Established encrypted handshake session with target endpoint routing maps.",
-      ...(blueprint.pipelines && blueprint.pipelines.length > 0 
-        ? blueprint.pipelines.map((pipeline: any) => 
-            `DEPLOYING: Constructing pipeline [${pipeline.name}] with ${pipeline.stages?.length || 0} customized operational stages...`
-          )
-        : ["Mapping global image architecture layer: Rosewood Core v1.2 Standard..."]),
-      "Programmatically deploying custom data dictionary nodes (14 custom deal objects).",
-      "Injecting uniform closed-lost justification keys across dataset metrics.",
-      "Evaluating feature configuration criteria adjustments manifest...",
-      extensions.highVolume ? "Appending Module: High-Volume Velocity Lead Tracking pipeline layout." : null,
-      extensions.outsideSales ? "Appending Module: Outside-Sales Field Mapping Geolocation tracking matrix." : null,
-      extensions.smsAlerts ? "Appending Module: Dispatch logic linkage hooks to external Twilio endpoints." : null,
-      "Activating background serverless REST API callback listeners.",
-      "Compiling configuration operational guides inside internal repository storage blocks.",
-      "Deployment operation complete. Targeted client infrastructure is fully live."
-    ].filter(Boolean) as string[];
+      "✓ Starting deployment...",
+      "✓ Connected to your Pipedrive account."
+    ];
+
+    // Add pipeline and stage construction steps from the active template
+    if (template.pipelines && template.pipelines.length > 0) {
+      template.pipelines.forEach((pipeline: any) => {
+        deploymentSteps.push(
+          `→ DEPLOYING: Building pipeline "${pipeline.name}" with ${pipeline.stages?.length || 0} stages...`
+        );
+        if (pipeline.stages && pipeline.stages.length > 0) {
+          pipeline.stages.forEach((stage: any) => {
+            deploymentSteps.push(`  • Adding stage: ${stage.name}`);
+          });
+        }
+      });
+    }
+
+    // Add extension modules
+    deploymentSteps.push("✓ Configuring optional modules...");
+    if (extensions.highVolume) {
+      deploymentSteps.push("  • Enabled: High-Volume Lead Distribution");
+    }
+    if (extensions.outsideSales) {
+      deploymentSteps.push("  • Enabled: Outside-Sales Field Mapping");
+    }
+    if (extensions.smsAlerts) {
+      deploymentSteps.push("  • Enabled: SMS Alert Notifications");
+    }
+
+    deploymentSteps.push("✓ Deployment complete. Your setup is live.");
 
     deploymentSteps.forEach((step, index) => {
       if (!step) return;
@@ -158,10 +191,10 @@ export default function Launchpad() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Section 01: Connection Tunnel Handshake */}
+          {/* Section 01: Connect Account */}
           <div className="bg-white border border-slate-200 dark:border-zinc-800 dark:bg-zinc-900 rounded-xl shadow-sm p-6 space-y-5 transition-all">
             <div className="flex items-center space-x-2">
-              <span className="text-xs font-mono font-bold uppercase text-slate-600 dark:text-zinc-400 tracking-wider">01 / Connection Tunnel</span>
+              <span className="text-xs font-mono font-bold uppercase text-slate-600 dark:text-zinc-400 tracking-wider">01 / Connect Account</span>
             </div>
             
             <div className="space-y-2">
@@ -185,7 +218,16 @@ export default function Launchpad() {
                   </button>
                 ) : (
                   <button 
-                    onClick={() => { setTargetCompany(null); setTargetAdmin(null); setApiToken(""); setLogs([]); }}
+                    onClick={() => {
+                      setTargetCompany(null);
+                      setTargetAdmin(null);
+                      setApiToken("");
+                      setLogs([]);
+                      localStorage.removeItem("rosewood_api_token");
+                      localStorage.removeItem("rosewood_target_company");
+                      localStorage.removeItem("rosewood_target_admin");
+                      localStorage.removeItem("rosewood_launchpad_logs");
+                    }}
                     className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-all"
                   >
                     Disconnect
@@ -210,14 +252,14 @@ export default function Launchpad() {
             )}
           </div>
 
-          {/* Section 02: Architecture Configuration Selection */}
+          {/* Section 02: Choose Template */}
           <div className="bg-white border border-slate-200 dark:border-zinc-800 dark:bg-zinc-900 rounded-xl shadow-sm p-6 space-y-6 transition-all">
             <div className="flex items-center space-x-2">
-              <span className="text-xs font-mono font-bold uppercase text-slate-600 dark:text-zinc-400 tracking-wider">02 / Configuration Manifest</span>
+              <span className="text-xs font-mono font-bold uppercase text-slate-600 dark:text-zinc-400 tracking-wider">02 / Template Selection</span>
             </div>
             
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-slate-600 dark:text-zinc-300">Universal Core Blueprint Model Base</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-zinc-300">Choose Your Setup Template</label>
               <select 
                 value={selectedBlueprint}
                 onChange={(e) => handleBlueprintSelect(e.target.value)}
@@ -262,10 +304,10 @@ export default function Launchpad() {
           </div>
         </div>
 
-        {/* Right Section: Continuous Integration Deployment Feed Console */}
+        {/* Right Section: Activity Log */}
         <div className="bg-white border border-slate-200 dark:border-zinc-800 dark:bg-zinc-900 rounded-xl shadow-sm p-6 flex flex-col justify-between space-y-6 h-full min-h-[440px] transition-all">
           <div className="space-y-4 flex-1 flex flex-col">
-            <span className="text-xs font-mono font-bold uppercase text-slate-600 dark:text-zinc-400 tracking-wider">03 / Compilation Monitor</span>
+            <span className="text-xs font-mono font-bold uppercase text-slate-600 dark:text-zinc-400 tracking-wider">03 / Activity Log</span>
             
             <div className="flex-1 rounded-xl bg-slate-50 border border-slate-200 dark:bg-zinc-950 dark:border-zinc-800 p-4 overflow-y-auto space-y-3 shadow-inner max-h-[360px]">
               {logs.length === 0 ? (
