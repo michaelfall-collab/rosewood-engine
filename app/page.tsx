@@ -1,16 +1,15 @@
+// app/page.tsx
 "use client";
 
 import { useState } from "react";
 
 export default function Launchpad() {
-  // Application Dynamic Component State
   const [apiToken, setApiToken] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [targetCompany, setTargetCompany] = useState<string | null>(null);
   const [targetAdmin, setTargetAdmin] = useState<string | null>(null);
   const [selectedBlueprint, setSelectedBlueprint] = useState("rosewood_core_v1.2");
   
-  // Extension Settings Matrix
   const [extensions, setExtensions] = useState({
     highVolume: true,
     outsideSales: false,
@@ -18,7 +17,6 @@ export default function Launchpad() {
     retentionCare: false,
   });
 
-  // Logging Streams Monitor State
   const [isDeploying, setIsDeploying] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
@@ -26,10 +24,10 @@ export default function Launchpad() {
     setExtensions(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Real live Ingestion & Discovery trigger via backend route proxy mapping
+  // True Server Ingestion & Discovery Loop mapping to localStorage
   const handleVerifyTarget = async () => {
     if (!apiToken) {
-      alert("Please provide an environment authentication token string.");
+      alert("Please provide a Pipedrive environment authentication token to initialize tunnel.");
       return;
     }
     setIsVerifying(true);
@@ -50,19 +48,20 @@ export default function Launchpad() {
         return;
       }
 
-      // Success Handshake verified! Lock in real values parsed from target env backend response
+      // Commit the live reverse-engineered blueprint manifest directly to browser storage
+      localStorage.setItem("rosewood_discovered_blueprint", JSON.stringify(result.blueprint));
+
       setIsVerifying(false);
-      setTargetCompany(result.blueprint.name);
-      setTargetAdmin(`Discovered Structure Map: (${result.blueprint.pipelines.length} Active Pipelines)`);
+      setTargetCompany("Rosewood Active Environment");
+      setTargetAdmin(`Discovered: ${result.blueprint.pipelines.length} Active Pipelines`);
       
-      // Inject the live real blueprint into our logging tracker log screen stream output frame
       setLogs([
-        `INIT: Live environment infrastructure tunnel successfully established.`,
-        `DISCOVERY: Commencing reverse engineering compilation matrices...`,
+        "INIT: Live environment infrastructure tunnel successfully established.",
+        "DISCOVERY: Commencing reverse engineering compilation matrices...",
         ...result.blueprint.pipelines.map((p: any) => 
           `PARSED: Pipeline [${p.name}] compiled with ${p.stages.length} clean workflow tracking stages.`
         ),
-        `SUCCESS: Target discovery architecture manifest fully serialized and clear for Version Editor review.`
+        "SUCCESS: Target discovery architecture manifest fully serialized and clear for Version Editor review."
       ]);
 
     } catch (err: any) {
@@ -71,7 +70,6 @@ export default function Launchpad() {
     }
   };
 
-  // Compile Deploy Execution Track
   const handleDeploy = () => {
     if (!targetCompany) return;
     setIsDeploying(true);
@@ -104,7 +102,6 @@ export default function Launchpad() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      {/* Title Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-100 font-sans">Deployment Launchpad</h1>
         <p className="text-slate-500 dark:text-zinc-400 text-sm mt-1.5 font-normal max-w-2xl leading-relaxed">
@@ -113,7 +110,6 @@ export default function Launchpad() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* Parameter Assignment Control Column */}
         <div className="lg:col-span-2 space-y-6">
           
           {/* Section 01: Connection Tunnel Handshake */}
@@ -137,9 +133,9 @@ export default function Launchpad() {
                   <button 
                     onClick={handleVerifyTarget}
                     disabled={isVerifying}
-                    className="bg-slate-800 hover:bg-slate-700 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-950 font-medium px-5 py-2.5 rounded-lg text-sm shadow-sm transition-all disabled:opacity-40"
+                    className="bg-slate-800 text-white hover:bg-slate-700 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-950 font-medium px-5 py-2.5 rounded-lg text-sm shadow-sm transition-all disabled:opacity-40"
                   >
-                    {isVerifying ? "Verifying..." : "Connect Target"}
+                    {isVerifying ? "Discovering..." : "Connect Target"}
                   </button>
                 ) : (
                   <button 
@@ -152,7 +148,6 @@ export default function Launchpad() {
               </div>
             </div>
 
-            {/* Verification Target Display Notification Block */}
             {targetCompany && (
               <div className="p-4 bg-slate-50 border border-slate-200 dark:bg-zinc-800/50 dark:border-zinc-700 rounded-xl flex justify-between items-center transition-all duration-200">
                 <div className="flex items-center space-x-3">
@@ -163,7 +158,7 @@ export default function Launchpad() {
                   </div>
                 </div>
                 <div className="text-right text-xs text-slate-700 dark:text-zinc-300 bg-slate-200/50 dark:bg-zinc-800 px-3 py-1.5 border border-slate-200 dark:border-zinc-700 rounded-lg font-mono font-medium">
-                  Verified via: <span className="font-semibold text-slate-900 dark:text-zinc-100">{targetAdmin}</span>
+                  Status: <span className="font-semibold text-slate-900 dark:text-zinc-100">{targetAdmin}</span>
                 </div>
               </div>
             )}
@@ -187,12 +182,9 @@ export default function Launchpad() {
               </select>
             </div>
 
-            {/* Multi-Select Feature Matrix Layout Block */}
             <div className="space-y-3">
               <label className="block text-xs font-medium text-slate-600 dark:text-zinc-300">Declarative Modular Upgrades</label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                {/* Module Item Card 1 */}
                 <div 
                   onClick={() => handleToggle("highVolume")}
                   className={`p-4 rounded-xl border cursor-pointer flex items-center justify-between transition-all duration-150 ${extensions.highVolume ? 'border-slate-700 dark:border-zinc-400 bg-slate-50/60 dark:bg-zinc-800/40 shadow-sm' : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-slate-300 dark:hover:border-zinc-700'}`}
@@ -206,7 +198,6 @@ export default function Launchpad() {
                   </div>
                 </div>
 
-                {/* Module Item Card 2 */}
                 <div 
                   onClick={() => handleToggle("outsideSales")}
                   className={`p-4 rounded-xl border cursor-pointer flex items-center justify-between transition-all duration-150 ${extensions.outsideSales ? 'border-slate-700 dark:border-zinc-400 bg-slate-50/60 dark:bg-zinc-800/40 shadow-sm' : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-slate-300 dark:hover:border-zinc-700'}`}
@@ -219,11 +210,9 @@ export default function Launchpad() {
                     {extensions.outsideSales && <span className="text-xs font-bold">✓</span>}
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
-
         </div>
 
         {/* Right Section: Continuous Integration Deployment Feed Console */}
@@ -231,7 +220,6 @@ export default function Launchpad() {
           <div className="space-y-4 flex-1 flex flex-col">
             <span className="text-xs font-mono font-bold uppercase text-slate-600 dark:text-zinc-400 tracking-wider">03 / Compilation Monitor</span>
             
-            {/* Clean Professional Execution Stream */}
             <div className="flex-1 rounded-xl bg-slate-50 border border-slate-200 dark:bg-zinc-950 dark:border-zinc-800 p-4 overflow-y-auto space-y-3 shadow-inner max-h-[360px]">
               {logs.length === 0 ? (
                 <div className="text-slate-400 dark:text-zinc-600 italic text-xs font-sans text-center mt-12 px-4 leading-relaxed">
@@ -241,9 +229,9 @@ export default function Launchpad() {
                 <div className="space-y-3 font-sans text-xs">
                   {logs.map((log, i) => (
                     <div key={i} className="flex items-start space-x-3 text-slate-600 dark:text-zinc-400 animate-fade-in">
-                      <span className={`h-1.5 w-1.5 rounded-full mt-1.5 shrink-0 ${log.includes("success") || log.includes("live") ? "bg-emerald-500" : "bg-slate-700 dark:bg-zinc-400"}`} />
-                      <span className={log.includes("success") || log.includes("live") ? "text-emerald-700 dark:text-emerald-400 font-medium" : "text-slate-600 dark:text-zinc-300"}>
-                        {step_description(log)}
+                      <span className={`h-1.5 w-1.5 rounded-full mt-1.5 shrink-0 ${log.includes("SUCCESS") || log.includes("PARSED") ? "bg-emerald-500" : "bg-slate-700 dark:bg-zinc-400"}`} />
+                      <span className={log.includes("SUCCESS") || log.includes("PARSED") ? "text-emerald-700 dark:text-emerald-400 font-medium" : "text-slate-600 dark:text-zinc-300"}>
+                        {log}
                       </span>
                     </div>
                   ))}
@@ -258,7 +246,6 @@ export default function Launchpad() {
             </div>
           </div>
 
-          {/* Core Trigger Event Action Button */}
           <button
             onClick={handleDeploy}
             disabled={!targetCompany || isDeploying}
@@ -270,9 +257,4 @@ export default function Launchpad() {
       </div>
     </div>
   );
-}
-
-// Inline formatting helper to clean strings
-function step_description(str: string) {
-  return str;
 }
