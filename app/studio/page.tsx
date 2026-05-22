@@ -47,6 +47,60 @@ const initialBlueprintsCatalog = [
     customFields: [
       { id: "fld_1", name: "Lead Source Detail", type: "dropdown", scope: "Deals", options: ["Google Ads", "Referral Partner", "Organic"] }
     ]
+  },
+  {
+    id: "rosewood_v1.2",
+    name: "Rosewood Standard Setup v1.2",
+    version: "1.2",
+    pipelines: [
+      {
+        id: "pip_leads_v1.2",
+        name: "Lead Management",
+        stages: [
+          { id: "stg_new_1.2", name: "New Leads", rottenDays: null },
+          { id: "stg_qualified_1.2", name: "Qualified", rottenDays: 7 },
+          { id: "stg_contacted_1.2", name: "Contacted", rottenDays: 14 }
+        ]
+      },
+      {
+        id: "pip_sales_v1.2",
+        name: "Sales Pipeline",
+        stages: [
+          { id: "stg_proposal_1.2", name: "Proposal Sent", rottenDays: 21 },
+          { id: "stg_negotiation_1.2", name: "Negotiation", rottenDays: 30 },
+          { id: "stg_closed_1.2", name: "Closed Won", rottenDays: null }
+        ]
+      }
+    ],
+    customFields: []
+  },
+  {
+    id: "rosewood_v1.3",
+    name: "Rosewood Standard Setup v1.3",
+    version: "1.3",
+    pipelines: [
+      {
+        id: "pip_leads_v1.3",
+        name: "Lead Management v3",
+        stages: [
+          { id: "stg_new_1.3", name: "New Leads", rottenDays: null },
+          { id: "stg_screened_1.3", name: "Screened", rottenDays: 5 },
+          { id: "stg_qualified_1.3", name: "Qualified", rottenDays: 10 },
+          { id: "stg_contacted_1.3", name: "Contacted", rottenDays: 15 }
+        ]
+      },
+      {
+        id: "pip_sales_v1.3",
+        name: "Sales Pipeline v3",
+        stages: [
+          { id: "stg_quote_1.3", name: "Quote Sent", rottenDays: 14 },
+          { id: "stg_proposal_1.3", name: "Proposal", rottenDays: 21 },
+          { id: "stg_negotiation_1.3", name: "Negotiation", rottenDays: 30 },
+          { id: "stg_closed_1.3", name: "Closed Won", rottenDays: null }
+        ]
+      }
+    ],
+    customFields: []
   }
 ];
 
@@ -339,7 +393,7 @@ export default function VersionEditor() {
               onChange={(e) => setNewStageName(e.target.value)}
               className="w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded px-2.5 py-1.5 text-xs focus:outline-none"
             />
-            <button type="submit" disabled={!newStageName.trim()} className="w-full bg-slate-900 dark:bg-zinc-100 dark:text-zinc-900 font-sans font-bold py-1.5 px-3 rounded-md text-xs hover:opacity-90 disabled:opacity-30 transition">
+            <button type="submit" disabled={!newStageName.trim()} className="w-full bg-slate-900 text-white hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-950 font-sans font-bold py-1.5 px-3 rounded-md text-xs disabled:opacity-30 transition">
               + Create Stage
             </button>
           </form>

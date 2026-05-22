@@ -9,6 +9,65 @@ export default function Launchpad() {
   const [targetCompany, setTargetCompany] = useState<string | null>(null);
   const [targetAdmin, setTargetAdmin] = useState<string | null>(null);
   const [selectedBlueprint, setSelectedBlueprint] = useState("rosewood_core_v1.2");
+  // Template data for v1.2 and v1.3
+  const templateDataV1_2 = {
+    id: "rosewood_v1.2",
+    name: "Rosewood Standard Setup v1.2",
+    version: "1.2",
+    pipelines: [
+      {
+        id: "pip_leads",
+        name: "Lead Management",
+        order_nr: 1,
+        stages: [
+          { id: "stg_new", name: "New Leads", order_nr: 1, deal_probability: 0, rotten_flag: false, rotten_days: null },
+          { id: "stg_qualified", name: "Qualified", order_nr: 2, deal_probability: 30, rotten_flag: true, rotten_days: 7 },
+          { id: "stg_contacted", name: "Contacted", order_nr: 3, deal_probability: 50, rotten_flag: true, rotten_days: 14 }
+        ]
+      },
+      {
+        id: "pip_sales",
+        name: "Sales Pipeline",
+        order_nr: 2,
+        stages: [
+          { id: "stg_proposal", name: "Proposal Sent", order_nr: 1, deal_probability: 50, rotten_flag: true, rotten_days: 21 },
+          { id: "stg_negotiation", name: "Negotiation", order_nr: 2, deal_probability: 75, rotten_flag: true, rotten_days: 30 },
+          { id: "stg_closed", name: "Closed Won", order_nr: 3, deal_probability: 100, rotten_flag: false, rotten_days: null }
+        ]
+      }
+    ]
+  };
+
+  const templateDataV1_3 = {
+    id: "rosewood_v1.3",
+    name: "Rosewood Standard Setup v1.3",
+    version: "1.3",
+    pipelines: [
+      {
+        id: "pip_leads_v3",
+        name: "Lead Management v3",
+        order_nr: 1,
+        stages: [
+          { id: "stg_new_v3", name: "New Leads", order_nr: 1, deal_probability: 0, rotten_flag: false, rotten_days: null },
+          { id: "stg_screened", name: "Screened", order_nr: 2, deal_probability: 20, rotten_flag: true, rotten_days: 5 },
+          { id: "stg_qualified_v3", name: "Qualified", order_nr: 3, deal_probability: 40, rotten_flag: true, rotten_days: 10 },
+          { id: "stg_contacted_v3", name: "Contacted", order_nr: 4, deal_probability: 60, rotten_flag: true, rotten_days: 15 }
+        ]
+      },
+      {
+        id: "pip_sales_v3",
+        name: "Sales Pipeline v3",
+        order_nr: 2,
+        stages: [
+          { id: "stg_quote", name: "Quote Sent", order_nr: 1, deal_probability: 45, rotten_flag: true, rotten_days: 14 },
+          { id: "stg_proposal_v3", name: "Proposal", order_nr: 2, deal_probability: 60, rotten_flag: true, rotten_days: 21 },
+          { id: "stg_negotiation_v3", name: "Negotiation", order_nr: 3, deal_probability: 80, rotten_flag: true, rotten_days: 30 },
+          { id: "stg_closed_v3", name: "Closed Won", order_nr: 4, deal_probability: 100, rotten_flag: false, rotten_days: null }
+        ]
+      }
+    ]
+  };
+
   const [blueprintOptions, setBlueprintOptions] = useState([
     { value: "rosewood_core_v1.2", label: "Rosewood Standard Setup v1.2" },
     { value: "rosewood_core_v1.3_beta", label: "Rosewood Standard Setup v1.3" }
@@ -71,6 +130,10 @@ export default function Launchpad() {
           console.error("Failed to parse custom template", e);
         }
       }
+    } else if (value === "rosewood_core_v1.2") {
+      setSelectedBlueprintObj(templateDataV1_2);
+    } else if (value === "rosewood_core_v1.3_beta") {
+      setSelectedBlueprintObj(templateDataV1_3);
     } else {
       setSelectedBlueprintObj(null);
     }
@@ -129,54 +192,40 @@ export default function Launchpad() {
     }
   };
 
-  const handleDeploy = () => {
-    if (!targetCompany) return;
+  const handleDeploy = async () => {
+    if (!targetCompany || !apiToken) return;
     setIsDeploying(true);
     setLogs([]);
 
-    const template = selectedBlueprintObj || { pipelines: [] };
-    const deploymentSteps: (string | null)[] = [
-      "✓ Starting deployment...",
-      "✓ Connected to your Pipedrive account."
-    ];
-
-    // Add pipeline and stage construction steps from the active template
-    if (template.pipelines && template.pipelines.length > 0) {
-      template.pipelines.forEach((pipeline: any) => {
-        deploymentSteps.push(
-          `→ DEPLOYING: Building pipeline "${pipeline.name}" with ${pipeline.stages?.length || 0} stages...`
-        );
-        if (pipeline.stages && pipeline.stages.length > 0) {
-          pipeline.stages.forEach((stage: any) => {
-            deploymentSteps.push(`  • Adding stage: ${stage.name}`);
-          });
-        }
+    try {
+      const template = selectedBlueprintObj || { pipelines: [] };
+      
+      const response = await fetch('/api/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: apiToken, template })
       });
-    }
 
-    // Add extension modules
-    deploymentSteps.push("✓ Configuring optional modules...");
-    if (extensions.highVolume) {
-      deploymentSteps.push("  • Enabled: High-Volume Lead Distribution");
-    }
-    if (extensions.outsideSales) {
-      deploymentSteps.push("  • Enabled: Outside-Sales Field Mapping");
-    }
-    if (extensions.smsAlerts) {
-      deploymentSteps.push("  • Enabled: SMS Alert Notifications");
-    }
+      const result = await response.json();
 
-    deploymentSteps.push("✓ Deployment complete. Your setup is live.");
-
-    deploymentSteps.forEach((step, index) => {
-      if (!step) return;
-      setTimeout(() => {
-        setLogs(prev => [...prev, step]);
-        if (index === deploymentSteps.length - 1) {
-          setIsDeploying(false);
-        }
-      }, (index + 1) * 400);
-    });
+      if (result.success && result.logs) {
+        // Stream logs from the deployment response
+        result.logs.forEach((log: string, index: number) => {
+          setTimeout(() => {
+            setLogs(prev => [...prev, log]);
+            if (index === result.logs.length - 1) {
+              setIsDeploying(false);
+            }
+          }, (index + 1) * 400);
+        });
+      } else {
+        setLogs([`✗ Deployment failed: ${result.error || 'Unknown error'}`]);
+        setIsDeploying(false);
+      }
+    } catch (err: any) {
+      setLogs([`✗ Connection error: ${err.message}`]);
+      setIsDeploying(false);
+    }
   };
 
   return (
@@ -272,7 +321,7 @@ export default function Launchpad() {
             </div>
 
             <div className="space-y-3">
-              <label className="block text-xs font-medium text-slate-600 dark:text-zinc-300">Declarative Modular Upgrades</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-zinc-300">Optional Extra Pipelines</label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div 
                   onClick={() => handleToggle("highVolume")}
