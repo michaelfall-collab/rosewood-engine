@@ -115,6 +115,8 @@ export default function VersionEditor() {
   const [newStageName, setNewStageName] = useState("");
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
   const [newFieldOption, setNewFieldOption] = useState("");
+  const [templateNameInput, setTemplateNameInput] = useState("");
+  const [activeFieldsTab, setActiveFieldsTab] = useState("Deals");
 
   // Hydrate custom blueprint files dynamically from browser storage on page mount
   useEffect(() => {
@@ -248,6 +250,41 @@ export default function VersionEditor() {
     }));
   };
 
+  const handleSaveAsNewTemplate = () => {
+    const newName = prompt("Enter name for new setup:");
+    if (!newName || !newName.trim()) return;
+
+    const newId = "template_" + Date.now();
+    const newTemplate = {
+      ...currentBlueprint,
+      id: newId,
+      name: newName.trim()
+    };
+
+    setCatalog(prev => [...prev, newTemplate]);
+    setSelectedBlueprintId(newId);
+  };
+
+  const handleUpdateTemplateName = (newName: string) => {
+    if (!newName.trim()) return;
+    setCatalog(prev => prev.map(b => b.id === selectedBlueprintId ? { ...b, name: newName } : b));
+    setTemplateNameInput("");
+  };
+
+  const fieldTabs = ["Deals", "Person", "Organization", "Product", "Project"];
+  const scopeMap: Record<string, string> = {
+    "Deals": "Deals",
+    "Person": "Person",
+    "Organization": "Organizations",
+    "Product": "Products",
+    "Project": "Projects"
+  };
+
+  const getFieldsForTab = (tab: string) => {
+    const scope = scopeMap[tab];
+    return (currentBlueprint.customFields || []).filter((f: any) => f.scope === scope);
+  };
+
   return (
     <div className="max-w-full mx-auto flex flex-col bg-white dark:bg-zinc-900 min-h-[700px] overflow-hidden rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-md font-sans">
       {/* Top Toolbar */}
@@ -264,6 +301,22 @@ export default function VersionEditor() {
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </select>
+            <input
+              type="text"
+              placeholder="Rename..."
+              value={templateNameInput}
+              onChange={(e) => setTemplateNameInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleUpdateTemplateName(templateNameInput);
+              }}
+              className="bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded px-2 py-1 text-xs focus:outline-none w-24"
+            />
+            <button
+              onClick={() => handleSaveAsNewTemplate()}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-[10px] font-bold transition"
+            >
+              💾 Save As New Setup
+            </button>
           </div>
 
           <div className="flex items-center space-x-2 border-l border-slate-200 dark:border-zinc-800 pl-4">
@@ -403,34 +456,64 @@ export default function VersionEditor() {
       {/* Fields Dictionary Overlay Modal */}
       {isFieldsModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-2xl w-full rounded-xl shadow-xl overflow-hidden flex flex-col h-[520px]">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-3xl w-full rounded-xl shadow-xl overflow-hidden flex flex-col h-[600px]">
             <div className="px-6 py-4 bg-slate-50 dark:bg-zinc-950 border-b border-slate-200 dark:border-zinc-800 flex justify-between items-center">
               <div>
-                <span className="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase">Configuration Metadata Mapping</span>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Custom Fields Options Dictionary</h3>
+                <span className="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase">Custom Fields Manager</span>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Configure Field Categories</h3>
               </div>
               <button onClick={() => { setIsFieldsModalOpen(false); setEditingFieldId(null); }} className="text-slate-400 hover:text-slate-600 text-xs font-mono font-bold bg-slate-200/50 dark:bg-zinc-800 px-2 py-1 rounded">
                 Close
               </button>
             </div>
 
+            <div className="flex border-b border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+              {fieldTabs.map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveFieldsTab(tab)}
+                  className={`flex-1 px-4 py-3 text-xs font-semibold transition-all border-b-2 ${
+                    activeFieldsTab === tab
+                      ? 'border-slate-900 dark:border-zinc-100 text-slate-900 dark:text-zinc-100 bg-slate-50 dark:bg-zinc-800'
+                      : 'border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-300'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
             <div className="flex-1 flex overflow-hidden">
+              {/* Fields List */}
               <div className="w-1/2 border-r border-slate-200 dark:border-zinc-800 p-4 overflow-y-auto space-y-2 bg-slate-50/50 dark:bg-zinc-950/10">
-                {currentBlueprint.customFields?.map((field: any) => (
-                  <div
-                    key={field.id}
-                    onClick={() => setEditingFieldId(field.id)}
-                    className={`p-3 rounded-lg border text-left cursor-pointer transition-all ${editingFieldId === field.id ? 'border-slate-800 dark:border-zinc-400 bg-white dark:bg-zinc-800 shadow-xs font-semibold' : 'border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-slate-200'}`}
-                  >
-                    <div className="text-xs text-slate-900 dark:text-zinc-100 flex items-center justify-between">
-                      <span>{field.name}</span>
-                      {field.type === "dropdown" && <span className="text-[9px] bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 px-1 rounded font-mono font-bold">Options</span>}
+                {getFieldsForTab(activeFieldsTab).length > 0 ? (
+                  getFieldsForTab(activeFieldsTab).map((field: any) => (
+                    <div
+                      key={field.id}
+                      onClick={() => setEditingFieldId(field.id)}
+                      className={`p-3 rounded-lg border text-left cursor-pointer transition-all ${
+                        editingFieldId === field.id
+                          ? 'border-slate-800 dark:border-zinc-400 bg-white dark:bg-zinc-800 shadow-xs font-semibold'
+                          : 'border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-slate-200'
+                      }`}
+                    >
+                      <div className="text-xs text-slate-900 dark:text-zinc-100 flex items-center justify-between">
+                        <span>{field.name}</span>
+                        {field.type === 'dropdown' && (
+                          <span className="text-[9px] bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 px-1 rounded font-mono font-bold">
+                            Options
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono font-normal mt-0.5">{field.scope} • {field.type}</div>
                     </div>
-                    <div className="text-[10px] text-slate-400 font-mono font-normal mt-0.5">{field.scope} • {field.type}</div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <div className="p-4 text-center text-xs text-slate-400 italic">No fields in this category</div>
+                )}
               </div>
 
+              {/* Field Editor */}
               <div className="w-1/2 p-5 overflow-y-auto bg-white dark:bg-zinc-900">
                 {editingFieldId ? (
                   (() => {
@@ -481,7 +564,7 @@ export default function VersionEditor() {
                   })()
                 ) : (
                   <div className="p-4 rounded-xl text-center text-xs text-slate-400 font-sans italic pt-24">
-                    Select an operational dictionary item to explore or alter its data target sub-options tree.
+                    Select a field to explore or modify its options and settings.
                   </div>
                 )}
               </div>
