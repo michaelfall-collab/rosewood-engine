@@ -261,7 +261,13 @@ export default function VersionEditor() {
           </button>
 
           <button
-            onClick={() => setIsEditMode(!isEditMode)}
+            onClick={() => {
+              if (isEditMode) {
+                // Save current blueprint to localStorage before exiting edit mode
+                localStorage.setItem("rosewood_discovered_blueprint", JSON.stringify(currentBlueprint));
+              }
+              setIsEditMode(!isEditMode);
+            }}
             className={`px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition shadow-xs ${isEditMode ? 'bg-amber-600 border border-amber-700 text-white hover:bg-amber-500' : 'bg-[#3cb371] border border-[#2e8b57] text-white hover:opacity-90'}`}
           >
             {isEditMode ? "🔒 Save Changes" : "🛠️ Edit Blueprint"}

@@ -1,7 +1,7 @@
 // app/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Launchpad() {
   const [apiToken, setApiToken] = useState("");
@@ -9,6 +9,11 @@ export default function Launchpad() {
   const [targetCompany, setTargetCompany] = useState<string | null>(null);
   const [targetAdmin, setTargetAdmin] = useState<string | null>(null);
   const [selectedBlueprint, setSelectedBlueprint] = useState("rosewood_core_v1.2");
+  const [blueprintOptions, setBlueprintOptions] = useState([
+    { value: "rosewood_core_v1.2", label: "Rosewood Standard Architecture Core v1.2" },
+    { value: "rosewood_core_v1.3_beta", label: "Rosewood Standard Architecture Core v1.3 (Beta Evaluation Track)" }
+  ]);
+  const [selectedBlueprintObj, setSelectedBlueprintObj] = useState<any>(null);
   
   const [extensions, setExtensions] = useState({
     highVolume: true,
@@ -20,8 +25,43 @@ export default function Launchpad() {
   const [isDeploying, setIsDeploying] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
+  // Load custom blueprint from localStorage on mount
+  useEffect(() => {
+    const customBlueprint = localStorage.getItem("rosewood_discovered_blueprint");
+    if (customBlueprint) {
+      try {
+        const parsed = JSON.parse(customBlueprint);
+        const customOption = {
+          value: "custom_modified_workbench",
+          label: "Custom Modified Workbench Schema"
+        };
+        setBlueprintOptions(prev => [customOption, ...prev]);
+        setSelectedBlueprint("custom_modified_workbench");
+        setSelectedBlueprintObj(parsed);
+      } catch (e) {
+        console.error("Failed to parse custom blueprint from storage", e);
+      }
+    }
+  }, []);
+
   const handleToggle = (key: keyof typeof extensions) => {
     setExtensions(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleBlueprintSelect = (value: string) => {
+    setSelectedBlueprint(value);
+    if (value === "custom_modified_workbench") {
+      const customBlueprint = localStorage.getItem("rosewood_discovered_blueprint");
+      if (customBlueprint) {
+        try {
+          setSelectedBlueprintObj(JSON.parse(customBlueprint));
+        } catch (e) {
+          console.error("Failed to parse custom blueprint", e);
+        }
+      }
+    } else {
+      setSelectedBlueprintObj(null);
+    }
   };
 
   // True Server Ingestion & Discovery Loop mapping to localStorage
@@ -75,10 +115,15 @@ export default function Launchpad() {
     setIsDeploying(true);
     setLogs([]);
 
-    const workflowSteps = [
+    const blueprint = selectedBlueprintObj || { pipelines: [] };
+    const deploymentSteps: (string | null)[] = [
       "Initial validation check parsed successfully.",
       "Established encrypted handshake session with target endpoint routing maps.",
-      "Mapping global image architecture layer: Rosewood Core v1.2 Standard...",
+      ...(blueprint.pipelines && blueprint.pipelines.length > 0 
+        ? blueprint.pipelines.map((pipeline: any) => 
+            `DEPLOYING: Constructing pipeline [${pipeline.name}] with ${pipeline.stages?.length || 0} customized operational stages...`
+          )
+        : ["Mapping global image architecture layer: Rosewood Core v1.2 Standard..."]),
       "Programmatically deploying custom data dictionary nodes (14 custom deal objects).",
       "Injecting uniform closed-lost justification keys across dataset metrics.",
       "Evaluating feature configuration criteria adjustments manifest...",
@@ -90,10 +135,10 @@ export default function Launchpad() {
       "Deployment operation complete. Targeted client infrastructure is fully live."
     ].filter(Boolean) as string[];
 
-    workflowSteps.forEach((step, index) => {
+    deploymentSteps.forEach((step, index) => {
       setTimeout(() => {
         setLogs(prev => [...prev, step]);
-        if (index === workflowSteps.length - 1) {
+        if (index === deploymentSteps.length - 1) {
           setIsDeploying(false);
         }
       }, (index + 1) * 400);
@@ -174,11 +219,12 @@ export default function Launchpad() {
               <label className="block text-xs font-medium text-slate-600 dark:text-zinc-300">Universal Core Blueprint Model Base</label>
               <select 
                 value={selectedBlueprint}
-                onChange={(e) => setSelectedBlueprint(e.target.value)}
+                onChange={(e) => handleBlueprintSelect(e.target.value)}
                 className="w-full bg-slate-50/50 border border-slate-200 dark:bg-zinc-800/40 dark:border-zinc-700 rounded-lg px-4 py-3 text-sm font-medium text-slate-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-slate-500/10 focus:border-slate-500 transition-all"
               >
-                <option value="rosewood_core_v1.2">Rosewood Standard Architecture Core v1.2</option>
-                <option value="rosewood_core_v1.3_beta">Rosewood Standard Architecture Core v1.3 (Beta Evaluation Track)</option>
+                {blueprintOptions.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
             </div>
 
