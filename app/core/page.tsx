@@ -1,7 +1,7 @@
 // src/app/core/page.tsx
 "use client";
 
-import coreBlueprint from "@/data/blueprints/rosewood_internal.json";
+import coreBlueprint from "../../data/blueprints/rosewood_internal.json";
 
 export default function CoreImages() {
   return (
