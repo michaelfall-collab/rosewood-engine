@@ -26,19 +26,49 @@ export default function Launchpad() {
     setExtensions(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Three-Factor Handshake Keyhole Protocol Mock
-  const handleVerifyTarget = () => {
+  // Real live Ingestion & Discovery trigger via backend route proxy mapping
+  const handleVerifyTarget = async () => {
     if (!apiToken) {
-      alert("Please provide a Pipedrive environment authentication token to initialize tunnel.");
+      alert("Please provide an environment authentication token string.");
       return;
     }
     setIsVerifying(true);
-    
-    setTimeout(() => {
+    setLogs([]);
+
+    try {
+      const response = await fetch("/api/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: apiToken }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        alert(`Discovery Failure: ${result.error}`);
+        setIsVerifying(false);
+        return;
+      }
+
+      // Success Handshake verified! Lock in real values parsed from target env backend response
       setIsVerifying(false);
-      setTargetCompany("Buckeye Metal Sales");
-      setTargetAdmin("John Doe (System Administrator)");
-    }, 1000);
+      setTargetCompany(result.blueprint.name);
+      setTargetAdmin(`Discovered Structure Map: (${result.blueprint.pipelines.length} Active Pipelines)`);
+      
+      // Inject the live real blueprint into our logging tracker log screen stream output frame
+      setLogs([
+        `INIT: Live environment infrastructure tunnel successfully established.`,
+        `DISCOVERY: Commencing reverse engineering compilation matrices...`,
+        ...result.blueprint.pipelines.map((p: any) => 
+          `PARSED: Pipeline [${p.name}] compiled with ${p.stages.length} clean workflow tracking stages.`
+        ),
+        `SUCCESS: Target discovery architecture manifest fully serialized and clear for Version Editor review.`
+      ]);
+
+    } catch (err: any) {
+      alert(`Network communications boundary crash: ${err.message}`);
+      setIsVerifying(false);
+    }
   };
 
   // Compile Deploy Execution Track
