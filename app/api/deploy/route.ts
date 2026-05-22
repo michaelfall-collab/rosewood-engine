@@ -1,21 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { CRMArchitectureBlueprint, PipelineSpec, PipelineStageSpec } from '@/types/blueprint';
 
 const PIPEDRIVE_API_BASE = 'https://api.pipedrive.com';
 
 interface DeployRequestBody {
   token: string;
-  template: any;
+  template: CRMArchitectureBlueprint;
 }
 
-interface PipelineResponse {
-  success: boolean;
-  data?: any;
-  error?: string;
+interface PipedrivePipeline {
+  id: number;
+  name: string;
 }
 
-interface StageResponse {
+interface PipedriveStage {
+  id: number;
+  name: string;
+  pipeline_id: number;
+}
+
+interface PipedriveAPIResponse<T> {
   success: boolean;
-  data?: any;
+  data: T | null;
   error?: string;
 }
 
@@ -32,136 +38,110 @@ export async function POST(request: NextRequest) {
     }
 
     const logs: string[] = [];
-    const deployedPipelines: any[] = [];
+    const deployedPipelines: { name: string; id: number; stages: { name: string; id: number }[] }[] = [];
 
-    logs.push('→ CHECKING: Analyzing existing Pipedrive account...');
+    // 1. Before creating any new structures, perform a 'GET' request to fetch all existing pipelines and stages
+    const pipelinesRes = await fetch(`${PIPEDRIVE_API_BASE}/v1/pipelines?api_token=${token}`);
+    const pipelinesData: PipedriveAPIResponse<PipedrivePipeline[]> = await pipelinesRes.json();
+    const existingPipelines = pipelinesData.success ? (pipelinesData.data || []) : [];
 
-    // Fetch existing pipelines to check for duplicates
-    const existingPipelinesRes = await fetch(`${PIPEDRIVE_API_BASE}/v1/pipelines?api_token=${token}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const existingPipelinesData = await existingPipelinesRes.json();
-    const existingPipelines = existingPipelinesData.success ? (existingPipelinesData.data || []) : [];
+    const stagesRes = await fetch(`${PIPEDRIVE_API_BASE}/v1/stages?api_token=${token}`);
+    const stagesData: PipedriveAPIResponse<PipedriveStage[]> = await stagesRes.json();
+    const existingStages = stagesData.success ? (stagesData.data || []) : [];
 
-    // Fetch existing stages
-    const existingStagesRes = await fetch(`${PIPEDRIVE_API_BASE}/v1/stages?api_token=${token}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const existingStagesData = await existingStagesRes.json();
-    const existingStages = existingStagesData.success ? (existingStagesData.data || []) : [];
-
-    logs.push('→ BUILDING: Deploying pipelines with intelligence...');
-
-    // Loop through template pipelines
-    for (const pipeline of template.pipelines || []) {
+    // 2. Loop through the incoming 'template.pipelines'
+    for (const pipelineSpec of template.pipelines) {
       try {
-        // Check if pipeline already exists by name
-        let pipelineId: number | null = null;
-        const existingPipeline = existingPipelines.find((p: any) => p.name === pipeline.name);
+        let pipelineId: number;
         
-        if (existingPipeline) {
-          pipelineId = existingPipeline.id;
-          logs.push(`• Reusing: Pipeline "${pipeline.name}" already exists (ID: ${pipelineId})`);
+        // Check if a pipeline with the exact same name already exists
+        const matchedPipeline = existingPipelines.find(p => p.name === pipelineSpec.name);
+
+        if (matchedPipeline) {
+          // If it matches by name, DO NOT create a new one. Reuse the existing pipeline's ID
+          pipelineId = matchedPipeline.id;
+          logs.push(`• Reusing: Pipeline "${pipelineSpec.name}" already exists (ID: ${pipelineId})`);
         } else {
-          // Create new pipeline
-          const pipelineResponse = await fetch(`${PIPEDRIVE_API_BASE}/v1/pipelines?api_token=${token}`, {
+          // If it does not exist, send a 'POST' to create it
+          const createPipelineRes = await fetch(`${PIPEDRIVE_API_BASE}/v1/pipelines?api_token=${token}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              name: pipeline.name,
-              order_nr: pipeline.order_nr || 0,
+              name: pipelineSpec.name,
+              order_nr: pipelineSpec.order_nr,
             }),
           });
+          const createPipelineData: PipedriveAPIResponse<PipedrivePipeline> = await createPipelineRes.json();
 
-          const pipelineData: PipelineResponse = await pipelineResponse.json();
-          if (!pipelineData.success || !pipelineData.data?.id) {
-            throw new Error(`Failed to create pipeline "${pipeline.name}": ${pipelineData.error || 'Unknown error'}`);
+          if (!createPipelineData.success || !createPipelineData.data) {
+            throw new Error(`Failed to create pipeline "${pipelineSpec.name}": ${createPipelineData.error || 'Unknown error'}`);
           }
-          pipelineId = pipelineData.data.id;
-          logs.push(`• Created: Pipeline "${pipeline.name}" (ID: ${pipelineId})`);
+
+          pipelineId = createPipelineData.data.id;
+          logs.push(`• Created: Pipeline "${pipelineSpec.name}" (ID: ${pipelineId})`);
         }
 
-        const deployedStages = [];
+        const deployedStages: { name: string; id: number }[] = [];
 
-        // Loop through stages for this pipeline
-        for (const stage of pipeline.stages || []) {
+        // 3. Inside the stages loop for each pipeline
+        for (const stageSpec of pipelineSpec.stages) {
           try {
-            // Check if stage already exists in this pipeline by name
-            const existingStage = existingStages.find(
-              (s: any) => s.pipeline_id === pipelineId && s.name === stage.name
-            );
+            // Check if a stage with the exact same name already exists specifically within that pipeline channel's ID
+            const matchedStage = existingStages.find(s => s.pipeline_id === pipelineId && s.name === stageSpec.name);
 
-            if (existingStage) {
-              logs.push(`• Skipped: Stage "${stage.name}" already exists in this pipeline`);
-              deployedStages.push({
-                name: stage.name,
-                id: existingStage.id,
-              });
-              continue;
-            }
-
-            // Create new stage
-            const stageResponse = await fetch(
-              `${PIPEDRIVE_API_BASE}/v1/stages?api_token=${token}`,
-              {
+            if (matchedStage) {
+              // If it exists in that pipeline, skip the creation step entirely
+              logs.push(`• Skipped: Stage "${stageSpec.name}" already exists in this pipeline`);
+              deployedStages.push({ name: stageSpec.name, id: matchedStage.id });
+            } else {
+              // If it is entirely unique, issue a 'POST /v1/stages' request
+              const createStageRes = await fetch(`${PIPEDRIVE_API_BASE}/v1/stages?api_token=${token}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  name: stage.name,
+                  name: stageSpec.name,
                   pipeline_id: pipelineId,
-                  order_nr: stage.order_nr || 0,
-                  deal_probability: stage.deal_probability,
-                  rotten_flag: stage.rotten_flag || false,
-                  rotten_days: stage.rotten_days,
+                  order_nr: stageSpec.order_nr,
+                  deal_probability: stageSpec.deal_probability,
+                  rotten_flag: stageSpec.rotten_flag,
+                  rotten_days: stageSpec.rotten_days,
                 }),
-              }
-            );
+              });
+              const createStageData: PipedriveAPIResponse<PipedriveStage> = await createStageRes.json();
 
-            const stageData: StageResponse = await stageResponse.json();
-            if (!stageData.success || !stageData.data?.id) {
-              throw new Error(
-                `Failed to create stage "${stage.name}": ${stageData.error || 'Unknown error'}`
-              );
+              if (!createStageData.success || !createStageData.data) {
+                throw new Error(`Failed to create stage "${stageSpec.name}": ${createStageData.error || 'Unknown error'}`);
+              }
+
+              logs.push(`• Injected: Stage "${stageSpec.name}" into "${pipelineSpec.name}"`);
+              deployedStages.push({ name: stageSpec.name, id: createStageData.data.id });
             }
-            logs.push(`• Injected: Stage "${stage.name}" into "${pipeline.name}"`);
-            deployedStages.push({
-              name: stage.name,
-              id: stageData.data.id,
-            });
           } catch (stageError) {
-            logs.push(`✗ Error with stage "${stage.name}": ${stageError instanceof Error ? stageError.message : String(stageError)}`);
+            logs.push(`✗ Error with stage "${stageSpec.name}": ${stageError instanceof Error ? stageError.message : String(stageError)}`);
           }
         }
 
         deployedPipelines.push({
-          name: pipeline.name,
+          name: pipelineSpec.name,
           id: pipelineId,
           stages: deployedStages,
         });
+
       } catch (pipelineError) {
-        logs.push(`✗ Error with pipeline "${pipeline.name}": ${pipelineError instanceof Error ? pipelineError.message : String(pipelineError)}`);
+        logs.push(`✗ Error with pipeline "${pipelineSpec.name}": ${pipelineError instanceof Error ? pipelineError.message : String(pipelineError)}`);
       }
     }
 
-    logs.push('✓ Complete: Your CRM setup is live and synchronized!');
+    return NextResponse.json({
+      success: true,
+      logs,
+      data: deployedPipelines,
+    }, { status: 200 });
 
-    return NextResponse.json(
-      {
-        success: true,
-        logs,
-        data: deployedPipelines,
-      },
-      { status: 200 }
-    );
   } catch (error) {
-    console.error('Deploy error:', error);
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'An unexpected error occurred',
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'An unexpected error occurred during deployment',
+    }, { status: 500 });
   }
 }
