@@ -136,6 +136,7 @@ export default function Launchpad() {
     ].filter(Boolean) as string[];
 
     deploymentSteps.forEach((step, index) => {
+      if (!step) return;
       setTimeout(() => {
         setLogs(prev => [...prev, step]);
         if (index === deploymentSteps.length - 1) {
