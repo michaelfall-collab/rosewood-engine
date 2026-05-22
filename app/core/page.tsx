@@ -15,12 +15,12 @@ const coreBlueprint = {
       deal_probability: false,
       stages: [
         { name: "Initial Contact & Screening", order_nr: 1, deal_probability: 100, rotten_flag: true, rotten_days: 14 },
-        { name: "Information Sent, Pending Response", "order_nr": 2, "deal_probability": 100, "rotten_flag": true, "rotten_days": 30 },
-        { name: "Discovery Call Scheduling", "order_nr": 3, "deal_probability": 100, "rotten_flag": true, "rotten_days": 7 },
-        { name: "Sales & Qualification Phase", "order_nr": 4, "deal_probability": 100, "rotten_flag": true, "rotten_days": 7 },
-        { name: "\"Won\" Opportunity", "order_nr": 5, "deal_probability": 100, "rotten_flag": true, "rotten_days": 1 },
-        { name: "Long Term Leads", "order_nr": 6, "deal_probability": 100, "rotten_flag": false, "rotten_days": null },
-        { name: "Client Lost", "order_nr": 7, "deal_probability": 100, "rotten_flag": false, "rotten_days": null }
+        { name: "Information Sent, Pending Response", order_nr: 2, deal_probability: 100, rotten_flag: true, rotten_days: 30 },
+        { name: "Discovery Call Scheduling", order_nr: 3, deal_probability: 100, rotten_flag: true, rotten_days: 7 },
+        { name: "Sales & Qualification Phase", order_nr: 4, deal_probability: 100, rotten_flag: true, rotten_days: 7 },
+        { name: "\"Won\" Opportunity", order_nr: 5, deal_probability: 100, rotten_flag: true, rotten_days: 1 },
+        { name: "Long Term Leads", order_nr: 6, deal_probability: 100, rotten_flag: false, rotten_days: null },
+        { name: "Client Lost", order_nr: 7, deal_probability: 100, rotten_flag: false, rotten_days: null }
       ]
     },
     {
@@ -28,12 +28,12 @@ const coreBlueprint = {
       order_nr: 1,
       deal_probability: true,
       stages: [
-        { name: "The Waitlist (Nurture Phase)", "order_nr": 1, "deal_probability": 100, "rotten_flag": false, "rotten_days": null },
-        { name: "Pre-Onboarding & Team Assignment", "order_nr": 2, "deal_probability": 100, "rotten_flag": true, "rotten_days": 7 },
-        { name: "MSC Scheduling & Internal Setup", "order_nr": 3, "deal_probability": 100, "rotten_flag": true, "rotten_days": 21 },
-        { name: "Phase 1 Onboarding - MSC", "order_nr": 4, "deal_probability": 100, "rotten_flag": true, "rotten_days": 35 },
-        { name: "Phase 2 Onboarding - Core Messaging", "order_nr": 5, "deal_probability": 100, "rotten_flag": true, "rotten_days": 14 },
-        { name: "Onboarded Client", "order_nr": 6, "deal_probability": 100, "rotten_flag": true, "rotten_days": 1 }
+        { name: "The Waitlist (Nurture Phase)", order_nr: 1, deal_probability: 100, rotten_flag: false, rotten_days: null },
+        { name: "Pre-Onboarding & Team Assignment", order_nr: 2, deal_probability: 100, rotten_flag: true, rotten_days: 7 },
+        { name: "MSC Scheduling & Internal Setup", order_nr: 3, deal_probability: 100, rotten_flag: true, rotten_days: 21 },
+        { name: "Phase 1 Onboarding - MSC", order_nr: 4, deal_probability: 100, rotten_flag: true, rotten_days: 35 },
+        { name: "Phase 2 Onboarding - Core Messaging", order_nr: 5, deal_probability: 100, rotten_flag: true, rotten_days: 14 },
+        { name: "Onboarded Client", order_nr: 6, deal_probability: 100, rotten_flag: true, rotten_days: 1 }
       ]
     },
     {
@@ -41,11 +41,11 @@ const coreBlueprint = {
       order_nr: 3,
       deal_probability: true,
       stages: [
-        { name: "Ongoing Client Relationship", "order_nr": 1, "deal_probability": 100, "rotten_flag": false, "rotten_days": null },
-        { name: "Strategic Health Review", "order_nr": 2, "deal_probability": 100, "rotten_flag": true, "rotten_days": 7 },
-        { name: "Annual Strategy Refresh", "order_nr": 3, "deal_probability": 100, "rotten_flag": true, "rotten_days": 7 },
-        { name: "Account At-Risk", "order_nr": 4, "deal_probability": 100, "rotten_flag": true, "rotten_days": 3 },
-        { "name": "Graduated Client", "order_nr": 5, "deal_probability": 100, "rotten_flag": true, "rotten_days": 1 }
+        { name: "Ongoing Client Relationship", order_nr: 1, deal_probability: 100, rotten_flag: false, rotten_days: null },
+        { name: "Strategic Health Review", order_nr: 2, deal_probability: 100, rotten_flag: true, rotten_days: 7 },
+        { name: "Annual Strategy Refresh", order_nr: 3, deal_probability: 100, rotten_flag: true, rotten_days: 7 },
+        { name: "Account At-Risk", order_nr: 4, deal_probability: 100, rotten_flag: true, rotten_days: 3 },
+        { name: "Graduated Client", order_nr: 5, deal_probability: 100, rotten_flag: true, rotten_days: 1 }
       ]
     },
     {
@@ -53,11 +53,11 @@ const coreBlueprint = {
       order_nr: 4,
       deal_probability: false,
       stages: [
-        { name: "Graduated - Evaluate Client Status", "order_nr": 1, "deal_probability": 100, "rotten_flag": true, "rotten_days": 3 },
-        { name: "Graduated - Warm Referral Partner", "order_nr": 2, "deal_probability": 100, "rotten_flag": false, "rotten_days": null },
-        { name: "Graduated - Recovery Evaluation", "order_nr": 3, "deal_probability": 100, "rotten_flag": false, "rotten_days": null },
-        { name: "Intermittent Project Work", "order_nr": 4, "deal_probability": 100, "rotten_flag": false, "rotten_days": null },
-        { name: "Inactive - No Further Contact", "order_nr": 5, "deal_probability": 100, "rotten_flag": false, "rotten_days": null }
+        { name: "Graduated - Evaluate Client Status", order_nr: 1, deal_probability: 100, rotten_flag: true, rotten_days: 3 },
+        { name: "Graduated - Warm Referral Partner", order_nr: 2, deal_probability: 100, rotten_flag: false, rotten_days: null },
+        { name: "Graduated - Recovery Evaluation", order_nr: 3, deal_probability: 100, rotten_flag: false, rotten_days: null },
+        { name: "Intermittent Project Work", order_nr: 4, deal_probability: 100, rotten_flag: false, rotten_days: null },
+        { name: "Inactive - No Further Contact", order_nr: 5, deal_probability: 100, rotten_flag: false, rotten_days: null }
       ]
     }
   ]
@@ -65,7 +65,7 @@ const coreBlueprint = {
 
 export default function CoreImages() {
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-fade-in">
+    <div className="max-w-6xl mx-auto space-y-8">
       {/* Title block */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-100 font-sans">Core Standards</h1>
