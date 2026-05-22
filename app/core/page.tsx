@@ -1,7 +1,67 @@
-// src/app/core/page.tsx
+// app/core/page.tsx
 "use client";
 
-import coreBlueprint from "../../data/blueprints/rosewood_internal.json";
+// The Immutable Baseline Architecture configuration is baked directly into the code
+// to guarantee deterministic paths and 100% build reliability on Vercel.
+const coreBlueprint = {
+  id: "rosewood_internal_lifecycle",
+  version: "1.2.0",
+  name: "Rosewood Corporate Core Architecture",
+  description: "Internal multi-pipeline customer journey from intake verification through legacy graduation tracks.",
+  pipelines: [
+    {
+      name: "Lead to Waitlist",
+      order_nr: 0,
+      deal_probability: false,
+      stages: [
+        { name: "Initial Contact & Screening", order_nr: 1, deal_probability: 100, rotten_flag: true, rotten_days: 14 },
+        { name: "Information Sent, Pending Response", "order_nr": 2, "deal_probability": 100, "rotten_flag": true, "rotten_days": 30 },
+        { name: "Discovery Call Scheduling", "order_nr": 3, "deal_probability": 100, "rotten_flag": true, "rotten_days": 7 },
+        { name: "Sales & Qualification Phase", "order_nr": 4, "deal_probability": 100, "rotten_flag": true, "rotten_days": 7 },
+        { name: "\"Won\" Opportunity", "order_nr": 5, "deal_probability": 100, "rotten_flag": true, "rotten_days": 1 },
+        { name: "Long Term Leads", "order_nr": 6, "deal_probability": 100, "rotten_flag": false, "rotten_days": null },
+        { name: "Client Lost", "order_nr": 7, "deal_probability": 100, "rotten_flag": false, "rotten_days": null }
+      ]
+    },
+    {
+      name: "Waitlist to Onboarding",
+      order_nr: 1,
+      deal_probability: true,
+      stages: [
+        { name: "The Waitlist (Nurture Phase)", "order_nr": 1, "deal_probability": 100, "rotten_flag": false, "rotten_days": null },
+        { name: "Pre-Onboarding & Team Assignment", "order_nr": 2, "deal_probability": 100, "rotten_flag": true, "rotten_days": 7 },
+        { name: "MSC Scheduling & Internal Setup", "order_nr": 3, "deal_probability": 100, "rotten_flag": true, "rotten_days": 21 },
+        { name: "Phase 1 Onboarding - MSC", "order_nr": 4, "deal_probability": 100, "rotten_flag": true, "rotten_days": 35 },
+        { name: "Phase 2 Onboarding - Core Messaging", "order_nr": 5, "deal_probability": 100, "rotten_flag": true, "rotten_days": 14 },
+        { name: "Onboarded Client", "order_nr": 6, "deal_probability": 100, "rotten_flag": true, "rotten_days": 1 }
+      ]
+    },
+    {
+      name: "Onboarded Client",
+      order_nr: 3,
+      deal_probability: true,
+      stages: [
+        { name: "Ongoing Client Relationship", "order_nr": 1, "deal_probability": 100, "rotten_flag": false, "rotten_days": null },
+        { name: "Strategic Health Review", "order_nr": 2, "deal_probability": 100, "rotten_flag": true, "rotten_days": 7 },
+        { name: "Annual Strategy Refresh", "order_nr": 3, "deal_probability": 100, "rotten_flag": true, "rotten_days": 7 },
+        { name: "Account At-Risk", "order_nr": 4, "deal_probability": 100, "rotten_flag": true, "rotten_days": 3 },
+        { "name": "Graduated Client", "order_nr": 5, "deal_probability": 100, "rotten_flag": true, "rotten_days": 1 }
+      ]
+    },
+    {
+      name: "Post Graduation & Legacy Clients",
+      order_nr: 4,
+      deal_probability: false,
+      stages: [
+        { name: "Graduated - Evaluate Client Status", "order_nr": 1, "deal_probability": 100, "rotten_flag": true, "rotten_days": 3 },
+        { name: "Graduated - Warm Referral Partner", "order_nr": 2, "deal_probability": 100, "rotten_flag": false, "rotten_days": null },
+        { name: "Graduated - Recovery Evaluation", "order_nr": 3, "deal_probability": 100, "rotten_flag": false, "rotten_days": null },
+        { name: "Intermittent Project Work", "order_nr": 4, "deal_probability": 100, "rotten_flag": false, "rotten_days": null },
+        { name: "Inactive - No Further Contact", "order_nr": 5, "deal_probability": 100, "rotten_flag": false, "rotten_days": null }
+      ]
+    }
+  ]
+};
 
 export default function CoreImages() {
   return (
@@ -27,7 +87,7 @@ export default function CoreImages() {
         </div>
       </div>
 
-      {/* Dynamic Pipelines Iteration Array */}
+      {/* Dynamic Pipelines Grid */}
       <div className="space-y-6">
         <h3 className="text-xs font-mono font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Compiled Pipelines ({coreBlueprint.pipelines.length})</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -43,7 +103,7 @@ export default function CoreImages() {
                 </span>
               </div>
 
-              {/* Loop through individual stages within this specific pipeline array */}
+              {/* Individual Pipeline Stages */}
               <div className="space-y-2">
                 {pipeline.stages.map((stage, j) => (
                   <div key={j} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50/60 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-900 text-xs font-medium">
