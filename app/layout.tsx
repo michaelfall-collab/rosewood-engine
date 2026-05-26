@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Rosewood CRM Engine",
@@ -17,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full bg-slate-50 text-slate-900 dark:bg-zinc-950 dark:text-zinc-50 antialiased transition-colors duration-200">
-      <body className={`${inter.className} h-full flex flex-col`}>
+      <body className="h-full flex flex-col font-sans">
         
         {/* Modern Header Panel - Light & Dark Adaptive */}
         <header className="border-b border-slate-200 bg-white px-8 py-4 flex justify-between items-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900 transition-colors">
@@ -48,10 +45,6 @@ export default function RootLayout({
                   <Link href="/core" className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-all duration-150 group">
                     <span className="text-slate-400 dark:text-zinc-500 group-hover:text-slate-600 dark:group-hover:text-zinc-300 transition">🛡️</span>
                     <span>Core Standards</span>
-                  </Link>
-                  <Link href="/studio" className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-all duration-150 group">
-                    <span className="text-slate-400 dark:text-zinc-500 group-hover:text-slate-600 dark:group-hover:text-zinc-300 transition">🎨</span>
-                    <span>Feature Studio</span>
                   </Link>
                   <Link href="/vault" className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-all duration-150 group">
                     <span className="text-slate-400 dark:text-zinc-500 group-hover:text-slate-600 dark:group-hover:text-zinc-300 transition">📁</span>
