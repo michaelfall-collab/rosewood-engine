@@ -16,7 +16,6 @@ export interface PipelineSpec {
 }
 
 export interface CustomFieldOption {
-  id?: number | string;
   label: string;
 }
 
@@ -32,10 +31,20 @@ export interface ActivityTypeSpec {
   name: string;
   icon_key: string;
   color?: string;
+  is_custom: boolean;
 }
 
 export interface LostReasonSpec {
   reason: string;
+}
+
+export interface SystemFieldMutationSpec {
+  field_key: string; // e.g., 'label'
+  field_type: 'deal' | 'person' | 'organization';
+  custom_options: {
+    label: string;
+    color?: string;
+  }[];
 }
 
 export interface CRMArchitectureBlueprint {
@@ -47,4 +56,5 @@ export interface CRMArchitectureBlueprint {
   customFields?: CustomFieldSpec[];
   activityTypes?: ActivityTypeSpec[];
   lostReasons?: LostReasonSpec[];
+  systemFieldMutations?: SystemFieldMutationSpec[];
 }

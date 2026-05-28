@@ -5,7 +5,8 @@ import {
   PipelineSpec, 
   CustomFieldSpec, 
   ActivityTypeSpec, 
-  LostReasonSpec 
+  LostReasonSpec,
+  SystemFieldMutationSpec
 } from "@/types/blueprint";
 
 const sanitizeKey = (name: string) => `cf_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
       fetchStream(`${baseURL}/lostReasons${auth}`)
     ]);
 
-    // Normalize Pipelines & Stages
+    // 1. Normalize Pipelines & Stages
     const pipelines: PipelineSpec[] = (rawPipelines || []).map((p: any) => ({
       name: p.name,
       order_nr: p.order_nr,
@@ -67,35 +68,66 @@ export async function POST(request: Request) {
         }))
     }));
 
-    // Normalize Custom Fields
-    const fieldMap = (fields: any[], type: CustomFieldSpec['field_type']): CustomFieldSpec[] => 
-      (fields || [])
-        .filter((f: any) => f.custom_field || (f.edit_flag === true && f.filterable_flag === true))
-        .map((f: any) => ({
-          key: sanitizeKey(f.name),
-          name: f.name,
-          type: f.field_type,
-          field_type: type,
-          options: f.options?.map((o: any) => ({ id: o.id, label: o.label }))
-        }));
+    // 2. Normalize Custom Fields & System Mutations
+    const fieldMap = (fields: any[], type: CustomFieldSpec['field_type']): { 
+      custom: CustomFieldSpec[], 
+      mutations: SystemFieldMutationSpec[] 
+    } => {
+      const custom: CustomFieldSpec[] = [];
+      const mutations: SystemFieldMutationSpec[] = [];
+
+      (fields || []).forEach((f: any) => {
+        if (f.custom_field || (f.edit_flag === true && f.filterable_flag === true)) {
+          // Map true custom fields
+          custom.push({
+            key: sanitizeKey(f.name),
+            name: f.name,
+            type: f.field_type,
+            field_type: type,
+            options: f.options?.map((o: any) => ({ label: o.label }))
+          });
+        } else if (!f.custom_field && f.options && (f.key === 'label' || f.key === 'status')) {
+          // Map system field mutations (e.g. custom deal labels)
+          mutations.push({
+            field_key: f.key,
+            field_type: type as any,
+            custom_options: f.options.map((o: any) => ({ label: o.label, color: o.color }))
+          });
+        }
+      });
+
+      return { custom, mutations };
+    };
+
+    const dealResults = fieldMap(rawDealFields, 'deal');
+    const personResults = fieldMap(rawPersonFields, 'person');
+    const orgResults = fieldMap(rawOrgFields, 'organization');
+    const productResults = fieldMap(rawProductFields, 'product');
 
     const customFields: CustomFieldSpec[] = [
-      ...fieldMap(rawDealFields, 'deal'),
-      ...fieldMap(rawPersonFields, 'person'),
-      ...fieldMap(rawOrgFields, 'organization'),
-      ...fieldMap(rawProductFields, 'product')
+      ...dealResults.custom,
+      ...personResults.custom,
+      ...orgResults.custom,
+      ...productResults.custom
     ];
 
-    // Normalize Activity Types
+    const systemFieldMutations: SystemFieldMutationSpec[] = [
+      ...dealResults.mutations,
+      ...personResults.mutations,
+      ...orgResults.mutations
+    ];
+
+    // 3. Normalize Activity Types
     const activityTypes: ActivityTypeSpec[] = (rawActivityTypes || [])
       .filter((t: any) => t.active_flag)
       .map((t: any) => ({
         name: t.name,
         icon_key: t.icon_key,
-        color: t.color
+        color: t.color,
+        is_custom: t.is_custom_flag === true
       }));
 
-    // Normalize Lost Reasons
+    // 4. Normalize Lost Reasons
     const lostReasons: LostReasonSpec[] = (rawLostReasons || []).map((r: any) => ({
       reason: r.label
     }));
@@ -108,7 +140,8 @@ export async function POST(request: Request) {
       pipelines,
       customFields,
       activityTypes,
-      lostReasons
+      lostReasons,
+      systemFieldMutations
     };
 
     return NextResponse.json({ success: true, blueprint });
