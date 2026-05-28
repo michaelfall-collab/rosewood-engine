@@ -185,7 +185,7 @@ export default function ClientCockpitDashboard() {
           const data = await res.json();
           if (data.success) {
             if (flashMode === "rosewood") {
-              setImages(prev => prev.map(img => img.id === id ? { ...img, ...data.blueprint } : img));
+              setImages(prev => prev.map(img => img.id === id ? { ...img, ...data.blueprint, name: img.name } : img));
               setTelemetryLogs(prev => [{ type: 'INBOUND', timestamp: new Date().toLocaleTimeString(), payload: data.blueprint }, ...prev]);
             } else {
               setTelemetryLogs(prev => [{ type: 'OUTBOUND', timestamp: new Date().toLocaleTimeString(), payload: target }, ...prev]);
@@ -241,7 +241,7 @@ export default function ClientCockpitDashboard() {
       {/* 1. UTILITY HEADER BAR */}
       <header className="h-14 flex items-center justify-between px-6 border-b border-slate-300 dark:border-slate-800 bg-[#FFFFFF] dark:bg-[#1E293B] sticky top-0 z-[40] transition-all">
         <div className="flex items-center gap-4">
-          <div className="h-8 w-8 bg-[#004850] rounded flex items-center justify-center shadow-md">
+          <div className="h-8 w-8 bg-[#004850] rounded flex items-center justify-center">
             <i className="ti ti-database text-white text-lg" />
           </div>
           <span className="text-sm font-bold tracking-tight uppercase">Rosewood Image Manager</span>
@@ -261,7 +261,7 @@ export default function ClientCockpitDashboard() {
           </div>
 
           <button 
-            onClick={() => isVerified ? setIsVerified(false) : verifyConnection()}
+            onClick={() => isVerified ? setApiKey("") : verifyConnection()}
             className={`flex items-center gap-2 px-3 py-1.5 rounded border transition-all active:scale-95 ${
               isVerified 
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 cursor-pointer hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-600' 
@@ -287,22 +287,22 @@ export default function ClientCockpitDashboard() {
               {telemetryLogs.length > 0 && <span className="absolute -top-1 -right-1 h-2 w-2 bg-emerald-500 rounded-full border border-white dark:border-slate-900" />}
             </button>
             {showTelemetry && (
-              <div className="absolute right-0 top-10 w-96 max-h-96 bg-slate-900 border border-slate-700 rounded shadow-2xl overflow-hidden z-[60] flex flex-col">
-                <div className="px-4 py-2 border-b border-slate-700 bg-slate-950 flex items-center justify-between">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Execution Telemetry // Local Stack</span>
+              <div className="absolute right-0 top-10 w-96 max-h-[70vh] bg-[#F1F5F9] border-l border-slate-300 rounded  overflow-hidden z-[60] flex flex-col h-full min-h-0 flex-1">
+                <div className="px-4 py-2 border-b border-slate-300 bg-slate-100 flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Execution Telemetry // Local Stack</span>
                   <button onClick={() => setTelemetryLogs([])} className="text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400">Clear</button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-[10px]">
                   {telemetryLogs.length === 0 ? (
-                    <div className="text-slate-600 italic py-8 text-center">No active data streams captured.</div>
+                    <div className="text-slate-400 italic py-8 text-center">No active data streams captured.</div>
                   ) : (
                     telemetryLogs.map((log, i) => (
-                      <div key={i} className="border-l-2 border-slate-700 pl-3 py-1 group">
+                      <div key={i} className="border-l-2 border-slate-300 pl-3 py-1 group">
                         <div className="flex items-center justify-between mb-1">
-                          <span className={`font-bold ${log.type === 'OUTBOUND' ? 'text-emerald-500' : 'text-blue-400'}`}>[{log.type}] {log.timestamp}</span>
-                          <button onClick={() => copyToClipboard(JSON.stringify(log.payload, null, 2))} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white transition-opacity"><i className="ti ti-copy" /></button>
+                          <span className={`font-bold ${log.type === 'OUTBOUND' ? 'text-emerald-600' : 'text-[#004850]'}`}>[{log.type}] {log.timestamp}</span>
+                          <button onClick={() => copyToClipboard(JSON.stringify(log.payload, null, 2))} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-[#004850] transition-opacity"><i className="ti ti-copy" /></button>
                         </div>
-                        <pre className="text-slate-400 overflow-x-auto whitespace-pre-wrap max-h-32 scrollbar-thin scrollbar-thumb-slate-700">
+                        <pre className="text-slate-600 overflow-x-auto whitespace-pre-wrap max-h-32 scrollbar-thin scrollbar-thumb-slate-300">
                           {JSON.stringify(log.payload, null, 1)}
                         </pre>
                       </div>
@@ -317,12 +317,12 @@ export default function ClientCockpitDashboard() {
             <button 
               onClick={() => setOpenMenuId(openMenuId === 'global' ? null : 'global')}
               disabled={isProcessing}
-              className="px-4 py-2 bg-[#004850] text-white rounded text-[11px] font-bold flex items-center gap-2 hover:bg-[#003840] active:scale-95 transition-all shadow-sm"
+              className="px-4 py-2 bg-[#004850] text-white rounded text-[11px] font-bold flex items-center gap-2 hover:bg-[#003840] active:scale-95 transition-all"
             >
               Flash Image <i className="ti ti-chevron-down" />
             </button>
             {openMenuId === 'global' && (
-              <div className="absolute right-0 top-11 w-60 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded shadow-xl overflow-hidden z-[50]">
+              <div className="absolute right-0 top-11 w-60 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded overflow-hidden z-[50]">
                 <div className="p-1 flex flex-col">
                   <button onClick={() => { setFlashMode('pipedrive'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 text-emerald-600 font-bold">
                     <i className="ti ti-bolt" /> Flash to Pipedrive
@@ -360,13 +360,13 @@ export default function ClientCockpitDashboard() {
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded border border-slate-200 dark:border-slate-700">
             <button 
               onClick={() => setViewLayout("grid")}
-              className={`px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-2 transition-all ${viewLayout === 'grid' ? 'bg-white dark:bg-slate-700 shadow-sm text-[#004850]' : 'text-slate-500'}`}
+              className={`px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-2 transition-all ${viewLayout === 'grid' ? 'bg-white dark:bg-slate-700 text-[#004850]' : 'text-slate-500'}`}
             >
               <i className="ti ti-layout-grid" /> Grid
             </button>
             <button 
               onClick={() => setViewLayout("list")}
-              className={`px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-2 transition-all ${viewLayout === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-[#004850]' : 'text-slate-500'}`}
+              className={`px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-2 transition-all ${viewLayout === 'list' ? 'bg-white dark:bg-slate-700 text-[#004850]' : 'text-slate-500'}`}
             >
               <i className="ti ti-list" /> List
             </button>
@@ -381,8 +381,8 @@ export default function ClientCockpitDashboard() {
                 onClick={() => handleCardClick(img.id)}
                 className={`relative group border p-4 cursor-pointer transition-all duration-200 rounded
                   ${viewLayout === 'grid' ? 'h-44 flex flex-col justify-between' : 'flex items-center gap-6 py-2 px-4'}
-                  ${flashMode === 'pipedrive' ? 'border-emerald-500 bg-emerald-50/20 shadow-md ring-1 ring-emerald-500' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-[#004850] hover:shadow-sm'}
-                  ${flashMode === 'rosewood' ? 'border-rose-500 bg-rose-50/20 shadow-md ring-1 ring-rose-500' : ''}
+                  ${flashMode === 'pipedrive' ? 'border-emerald-500 bg-emerald-50/20 ring-1 ring-emerald-500' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-[#004850] '}
+                  ${flashMode === 'rosewood' ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : ''}
                 `}
               >
                 <div className="flex-1 min-w-0">
@@ -421,7 +421,7 @@ export default function ClientCockpitDashboard() {
                       <i className="ti ti-dots" />
                     </button>
                     {openMenuId === img.id && (
-                      <div className="absolute right-0 bottom-8 w-32 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded shadow-xl z-[50] p-1 flex flex-col">
+                      <div className="absolute right-0 bottom-8 w-32 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded z-[50] p-1 flex flex-col">
                         <button onClick={() => { setRenamingId(img.id); setRenameValue(img.name); setOpenMenuId(null); }} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"><i className="ti ti-pencil" /> Rename</button>
                         <button onClick={() => { copyToClipboard(JSON.stringify(img, null, 2)); setOpenMenuId(null); }} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"><i className="ti ti-download" /> Export</button>
                         <button onClick={() => deleteCard(img.id)} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-rose-50 dark:hover:bg-rose-900/30 text-rose-600 font-bold border-t border-slate-200 dark:border-slate-700 mt-1 flex items-center gap-2"><i className="ti ti-trash" /> Delete</button>
@@ -438,7 +438,7 @@ export default function ClientCockpitDashboard() {
       {/* 4. EXPANSIVE INSPECTION MODAL */}
       {detailId && activeDetail && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded w-full max-w-5xl h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded w-full max-w-5xl h-[90vh]  flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
             
             <div className="px-6 py-4 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
               <div className="flex items-center gap-4">
@@ -474,7 +474,7 @@ export default function ClientCockpitDashboard() {
               <div className="flex justify-end mb-4">
                 <button 
                   onClick={() => copyToClipboard(detailTab === 'json' ? JSON.stringify(activeDetail, null, 2) : activeDetail.automationInstructions || "")}
-                  className="px-3 py-1.5 bg-[#004850] text-white rounded text-[10px] font-bold uppercase tracking-tight shadow hover:bg-[#003840] transition-all flex items-center gap-2"
+                  className="px-3 py-1.5 bg-[#004850] text-white rounded text-[10px] font-bold uppercase tracking-tighthover:bg-[#003840] transition-all flex items-center gap-2"
                 >
                   <i className="ti ti-copy" /> Copy to Clipboard
                 </button>
@@ -490,7 +490,7 @@ export default function ClientCockpitDashboard() {
       {/* 5. CUSTOM UI MODALS (Prompt/Alert/Confirm) */}
       {uiModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded w-full max-w-sm shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded w-full max-w-sm  p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
             <h3 className="font-bold uppercase text-xs tracking-widest text-[#004850]">{uiModal.title}</h3>
             <p className="text-sm text-slate-600 dark:text-slate-400">{uiModal.message}</p>
             {uiModal.type === "prompt" && (
@@ -527,7 +527,7 @@ export default function ClientCockpitDashboard() {
 
       {/* 6. CLIPBOARD FEEDBACK */}
       {copyFeedback && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-900 text-white rounded shadow-2xl z-[400] flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 border border-slate-700">
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-900 text-white rounded  z-[400] flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 border border-slate-700">
           <i className="ti ti-check text-emerald-400 text-lg" />
           <span className="text-xs font-bold uppercase tracking-widest">{copyFeedback}</span>
         </div>
@@ -536,7 +536,7 @@ export default function ClientCockpitDashboard() {
       {/* 7. PROCESSING SPINNER */}
       {isProcessing && (
         <div className="fixed inset-0 z-[500] bg-slate-900/20 backdrop-blur-[1px] flex items-center justify-center cursor-wait">
-          <div className="h-10 w-10 border-4 border-[#004850]/20 border-t-[#004850] rounded-full animate-spin shadow-lg" />
+          <div className="h-10 w-10 border-4 border-[#004850]/20 border-t-[#004850] rounded-full animate-spin " />
         </div>
       )}
 

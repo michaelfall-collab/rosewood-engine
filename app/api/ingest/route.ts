@@ -55,22 +55,25 @@ export async function POST(request: Request) {
       fetchStream(`${baseURL}/lostReasons${auth}`)
     ]);
 
-    // 1. Normalize Pipelines & Stages with defensive fallbacks
-    const pipelines: PipelineSpec[] = (rawPipelines || []).map((p: any) => ({
-      name: p.name || "Unnamed Pipeline",
-      order_nr: p.order_nr || 0,
-      deal_probability: p.deal_probability === 1,
-      stages: (rawStages || [])
-        .filter((s: any) => s && s.pipeline_id === p.id && s.active_flag)
-        .sort((a: any, b: any) => (a.order_nr || 0) - (b.order_nr || 0))
-        .map((s: any) => ({
-          name: s.name || "Unnamed Stage",
-          order_nr: s.order_nr || 0,
-          deal_probability: s.deal_probability || 100,
-          rotten_flag: !!s.rotten_flag,
-          rotten_days: s.rotten_flag ? (s.rotten_days || null) : null
-        }))
-    }));
+    // 1. Normalize Pipelines & Stages with defensive fallbacks and type guards
+    const pipelines: PipelineSpec[] = (Array.isArray(rawPipelines) ? rawPipelines : []).map((p: any) => {
+      if (!p || typeof p !== 'object') return null;
+      return {
+        name: p.name || "Unnamed Pipeline",
+        order_nr: p.order_nr || 0,
+        deal_probability: p.deal_probability === 1,
+        stages: (Array.isArray(rawStages) ? rawStages : [])
+          .filter((s: any) => s && typeof s === 'object' && s.pipeline_id === p.id && s.active_flag)
+          .sort((a: any, b: any) => (a.order_nr || 0) - (b.order_nr || 0))
+          .map((s: any) => ({
+            name: s.name || "Unnamed Stage",
+            order_nr: s.order_nr || 0,
+            deal_probability: s.deal_probability || 100,
+            rotten_flag: !!s.rotten_flag,
+            rotten_days: s.rotten_flag ? (s.rotten_days || null) : null
+          }))
+      };
+    }).filter((p): p is PipelineSpec => p !== null);
 
     // 2. Normalize Custom Fields & System Mutations with defensive fallbacks
     const fieldMap = (fields: any[], type: CustomFieldSpec['field_type']): { 
@@ -80,21 +83,21 @@ export async function POST(request: Request) {
       const custom: CustomFieldSpec[] = [];
       const mutations: SystemFieldMutationSpec[] = [];
 
-      (fields || []).forEach((f: any) => {
-        if (!f) return;
+      (Array.isArray(fields) ? fields : []).forEach((f: any) => {
+        if (!f || typeof f !== 'object') return;
         if (f.custom_field || (f.edit_flag === true && f.filterable_flag === true)) {
           custom.push({
             key: sanitizeKey(f.name || "unnamed_field"),
             name: f.name || "Unnamed Field",
             type: f.field_type || "varchar",
             field_type: type,
-            options: Array.isArray(f.options) ? f.options.map((o: any) => ({ label: o.label || "Unnamed Option" })) : undefined
+            options: Array.isArray(f.options) ? f.options.map((o: any) => ({ label: o?.label || "Unnamed Option" })) : undefined
           });
         } else if (!f.custom_field && f.options && (f.key === 'label' || f.key === 'status')) {
           mutations.push({
             field_key: f.key,
             field_type: type as any,
-            custom_options: Array.isArray(f.options) ? f.options.map((o: any) => ({ label: o.label || "Unnamed Option", color: o.color })) : []
+            custom_options: Array.isArray(f.options) ? f.options.map((o: any) => ({ label: o?.label || "Unnamed Option", color: o?.color })) : []
           });
         }
       });

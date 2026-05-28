@@ -20,7 +20,12 @@ export async function POST(request: NextRequest) {
       try {
         const res = await fetch(withToken(`${API_BASE}/${endpoint}`));
         const json = await res.json();
-        return json && json.success && Array.isArray(json.data) ? json.data : [];
+        if (json && json.success && Array.isArray(json.data)) {
+          return json.data;
+        } else {
+          logs.push(`✗ API Error: Failed to fetch ${endpoint.split('?')[0]} - ${json?.error || 'Unknown Error'}`);
+          return [];
+        }
       } catch (e) {
         logs.push(`✗ API Error: Failed to fetch existing ${endpoint.split('?')[0]}`);
         return [];
@@ -82,7 +87,7 @@ export async function POST(request: NextRequest) {
             if (data && data.success) {
               logs.push(`• Mutated Field: Updated system labels for native field '${mutation.field_key}' [${mutation.field_type}]`);
             } else {
-              logs.push(`✗ Mutation Bypassed: Variable '${mutation.field_key}' could not be resolved on target instance.`);
+              logs.push(`✗ Mutation Bypassed: Variable '${mutation.field_key}' could not be resolved - ${data?.error || 'Unknown Error'}`);
             }
           } catch (e) {
             logs.push(`✗ Error: Pass 2 loop execution failed on target ${mutation.field_key} field mutation.`);
@@ -110,6 +115,8 @@ export async function POST(request: NextRequest) {
             const data = await res.json();
             if (data && data.success) {
               logs.push(`• Injected Activity: Unique tracking block '${act.name}' provisioned`);
+            } else {
+              logs.push(`✗ Activity Error: Failed to setup '${act.name}' - ${data?.error || 'Unknown Error'}`);
             }
           } catch (e) {
             logs.push(`✗ Error: Pass 3 interaction pipeline crashed during activity tracking setup.`);
@@ -143,7 +150,7 @@ export async function POST(request: NextRequest) {
               pipelineId = data.data.id;
               logs.push(`• Created Pipeline: Channel "${pipeSpec.name}" provisioned (ID: ${pipelineId})`);
             } else {
-              logs.push(`✗ Error: Channel creation failed for pipeline "${pipeSpec.name}".`);
+              logs.push(`✗ Error: Channel creation failed for pipeline "${pipeSpec.name}" - ${data?.error || 'Unknown Error'}`);
               continue;
             }
           }
