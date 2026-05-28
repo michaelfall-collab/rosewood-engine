@@ -13,9 +13,12 @@ export async function POST(request: NextRequest) {
     const fieldKeyTranslationMap: Record<string, string> = {};
     const auth = `?api_token=${token}`;
 
+    // Helper: Safely append token to URL
+    const withToken = (url: string) => `${url}${url.includes('?') ? '&' : '?'}api_token=${token}`;
+
     const getExisting = async (endpoint: string) => {
       try {
-        const res = await fetch(`${API_BASE}/${endpoint}${auth}`);
+        const res = await fetch(withToken(`${API_BASE}/${endpoint}`));
         const json = await res.json();
         return json && json.success && Array.isArray(json.data) ? json.data : [];
       } catch (e) {
@@ -39,7 +42,7 @@ export async function POST(request: NextRequest) {
           logs.push(`• Resolved Field: Mapped pre-existing custom field '${field.name}' [${field.field_type}] to hash ${match.key}`);
         } else {
           try {
-            const res = await fetch(`${API_BASE}/${endpoint}${auth}`, {
+            const res = await fetch(withToken(`${API_BASE}/${endpoint}`), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name: field.name, field_type: field.type, options: field.options })
@@ -70,7 +73,7 @@ export async function POST(request: NextRequest) {
 
         if (targetField && targetField.id) {
           try {
-            const res = await fetch(`${API_BASE}/${endpoint}/${targetField.id}${auth}`, {
+            const res = await fetch(withToken(`${API_BASE}/${endpoint}/${targetField.id}`), {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ options: mutation.custom_options })
@@ -99,7 +102,7 @@ export async function POST(request: NextRequest) {
         if (!act || !act.is_custom) continue;
         if (!existing.find((e: any) => e && e.name && e.name.toLowerCase() === act.name.toLowerCase())) {
           try {
-            const res = await fetch(`${API_BASE}/activityTypes${auth}`, {
+            const res = await fetch(withToken(`${API_BASE}/activityTypes`), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name: act.name, icon_key: act.icon_key, color: act.color })
@@ -153,22 +156,40 @@ export async function POST(request: NextRequest) {
             const stageSpec = targetStages[i];
             if (!stageSpec) continue;
 
+            // Explicitly map boolean flags to integers for Pipedrive API
+            const payload = {
+              ...stageSpec,
+              pipeline_id: pipelineId,
+              rotten_flag: stageSpec.rotten_flag ? 1 : 0,
+              rotten_days: stageSpec.rotten_flag ? stageSpec.rotten_days : null
+            };
+
             if (i < currentStages.length && currentStages[i] && currentStages[i].id) {
               // OVERWRITE DEFAULT STAGE
-              await fetch(`${API_BASE}/stages/${currentStages[i].id}${auth}`, {
+              const res = await fetch(`${API_BASE}/stages/${currentStages[i].id}?api_token=${token}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...stageSpec, pipeline_id: pipelineId })
+                body: JSON.stringify(payload)
               });
-              logs.push(`  • Overwritten Stage: Renamed default placeholder to '${stageSpec.name}'`);
+              const data = await res.json();
+              if (data && data.success) {
+                logs.push(`  • Overwritten Stage: Renamed default placeholder to '${stageSpec.name}'`);
+              } else {
+                logs.push(`  ✗ Error: Failed to rename stage '${stageSpec.name}' - ${data?.error || "API Validation Error"}`);
+              }
             } else {
               // INJECT NEW STAGE
-              await fetch(`${API_BASE}/stages${auth}`, {
+              const res = await fetch(`${API_BASE}/stages?api_token=${token}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...stageSpec, pipeline_id: pipelineId })
+                body: JSON.stringify(payload)
               });
-              logs.push(`  • Injected Stage: Flow step '${stageSpec.name}' added to sequence`);
+              const data = await res.json();
+              if (data && data.success) {
+                logs.push(`  • Injected Stage: Flow step '${stageSpec.name}' added to sequence`);
+              } else {
+                logs.push(`  ✗ Error: Failed to inject stage '${stageSpec.name}' - ${data?.error || "API Validation Error"}`);
+              }
             }
           }
 
@@ -176,8 +197,13 @@ export async function POST(request: NextRequest) {
           if (currentStages.length > targetStages.length) {
             for (let j = targetStages.length; j < currentStages.length; j++) {
               if (currentStages[j] && currentStages[j].id) {
-                await fetch(`${API_BASE}/stages/${currentStages[j].id}${auth}`, { method: 'DELETE' });
-                logs.push(`  • Pruned Stage: Removed unused default placeholder ID ${currentStages[j].id}`);
+                const res = await fetch(`${API_BASE}/stages/${currentStages[j].id}?api_token=${token}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data && data.success) {
+                  logs.push(`  • Pruned Stage: Removed unused default placeholder ID ${currentStages[j].id}`);
+                } else {
+                  logs.push(`  ✗ Error: Failed to prune stage ID ${currentStages[j].id} - ${data?.error || "API Validation Error"}`);
+                }
               }
             }
           }
@@ -196,14 +222,19 @@ export async function POST(request: NextRequest) {
         if (!lr || !lr.reason) continue;
         if (!existing.find((e: any) => e && e.label && e.label.toLowerCase() === lr.reason.toLowerCase())) {
           try {
-            await fetch(`${API_BASE}/lostReasons${auth}`, {
+            const res = await fetch(withToken(`${API_BASE}/lostReasons`), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ label: lr.reason })
             });
-            logs.push(`• Injected Reason: Churn field value '${lr.reason}' committed`);
+            const data = await res.json();
+            if (data && data.success) {
+              logs.push(`• Injected Reason: Churn field value '${lr.reason}' committed`);
+            } else {
+              logs.push(`✗ Error: Failed to setup lost reason '${lr.reason}' - ${data?.error || "API Validation Error"}`);
+            }
           } catch (e) {
-            logs.push(`✗ Error: Lost reason setup failed.`);
+            logs.push(`✗ Error: Lost reason setup failed for '${lr.reason}'.`);
           }
         }
       }

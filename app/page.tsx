@@ -190,7 +190,7 @@ export default function ClientCockpitDashboard() {
             } else {
               setTelemetryLogs(prev => [{ type: 'OUTBOUND', timestamp: new Date().toLocaleTimeString(), payload: target }, ...prev]);
             }
-            setCopyFeedback("✓ Sync Finished");
+            setCopyFeedback("Sync Finished");
             setTimeout(() => setCopyFeedback(null), 3000);
             setFlashMode("");
           } else {
