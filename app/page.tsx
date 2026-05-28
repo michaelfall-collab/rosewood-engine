@@ -50,6 +50,7 @@ export default function LiveCockpitDashboard() {
   const [renameValue, setRenameValue] = useState("");
   const [activityLogs, setActivityLogs] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Modals & Inspection Layer
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -105,6 +106,13 @@ export default function LiveCockpitDashboard() {
   }, []);
 
   const activeDetailItem = useMemo(() => images.find((i) => i.id === detailId), [images, detailId]);
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   // Command Execution Hub
   const triggerMenu = (e: React.MouseEvent, id: string) => {
@@ -464,7 +472,16 @@ export default function LiveCockpitDashboard() {
                 ) : (
                   <div className="space-y-3">
                     <pre className="p-3 bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-850 rounded-xl text-xs font-mono overflow-x-auto max-h-64 text-slate-600 dark:text-zinc-400">{jsonText}</pre>
-                    <div className="flex justify-end"><button onClick={() => { setConfirmType("editJson"); setConfirmTargetId(activeDetailItem.id); }} className="px-3 py-1.5 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-medium flex items-center gap-1.5 hover:bg-slate-50"><i className="ti ti-edit" /> Edit JSON Structure</button></div>
+                    <div className="flex justify-end gap-2">
+                      <button 
+                        onClick={() => handleCopy(jsonText)} 
+                        className="px-3 py-1.5 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-medium flex items-center gap-1.5 hover:bg-slate-50 transition-colors"
+                      >
+                        <i className={`ti ${copied ? 'ti-check text-emerald-500' : 'ti-copy'}`} />
+                        {copied ? 'Copied' : 'Copy JSON'}
+                      </button>
+                      <button onClick={() => { setConfirmType("editJson"); setConfirmTargetId(activeDetailItem.id); }} className="px-3 py-1.5 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-medium flex items-center gap-1.5 hover:bg-slate-50"><i className="ti ti-edit" /> Edit JSON Structure</button>
+                    </div>
                   </div>
                 )
               ) : (
@@ -476,7 +493,16 @@ export default function LiveCockpitDashboard() {
                 ) : (
                   <div className="space-y-3">
                     <pre className="p-3 bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-850 rounded-xl text-xs font-mono overflow-x-auto max-h-64 whitespace-pre-wrap text-slate-600 dark:text-zinc-400">{activeDetailItem.automationInstructions || "No instructions provided."}</pre>
-                    <div className="flex justify-end gap-2"><button onClick={() => setIsEditingAuto(true)} className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-medium flex items-center gap-1"><i className="ti ti-edit" /> Edit inline</button></div>
+                    <div className="flex justify-end gap-2">
+                      <button 
+                        onClick={() => handleCopy(activeDetailItem.automationInstructions || "")} 
+                        className="px-3 py-1.5 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-medium flex items-center gap-1.5 hover:bg-slate-50 transition-colors"
+                      >
+                        <i className={`ti ${copied ? 'ti-check text-emerald-500' : 'ti-copy'}`} />
+                        {copied ? 'Copied' : 'Copy Instructions'}
+                      </button>
+                      <button onClick={() => setIsEditingAuto(true)} className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-medium flex items-center gap-1"><i className="ti ti-edit" /> Edit inline</button>
+                    </div>
                   </div>
                 )
               )}
