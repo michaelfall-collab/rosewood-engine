@@ -268,7 +268,7 @@ export default function ClientCockpitDashboard() {
                 : 'bg-[#004850] border-[#004850] text-white cursor-pointer hover:bg-[#003840]'
             }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${isVerified ? 'bg-emerald-500 animate-pulse' : 'bg-slate-100'}`} />
+            <span className={`h-1.5 w-1.5 rounded-sm ${isVerified ? 'bg-emerald-500 animate-pulse' : 'bg-slate-100'}`} />
             <span className="text-[10px] font-bold uppercase">
               {isVerified ? "Connected" : "Connect"}
             </span>
@@ -284,15 +284,15 @@ export default function ClientCockpitDashboard() {
               title="Telemetry Terminal"
             >
               <i className="ti ti-terminal-2" />
-              {telemetryLogs.length > 0 && <span className="absolute -top-1 -right-1 h-2 w-2 bg-emerald-500 rounded-full border border-white dark:border-slate-900" />}
+              {telemetryLogs.length > 0 && <span className="absolute -top-1 -right-1 h-2 w-2 bg-emerald-500 rounded-sm border border-white dark:border-slate-900" />}
             </button>
             {showTelemetry && (
-              <div className="absolute right-0 top-10 w-96 max-h-[70vh] bg-[#F1F5F9] border-l border-slate-300 rounded  overflow-hidden z-[60] flex flex-col h-full min-h-0 flex-1">
+              <div className="absolute right-0 top-10 w-96 bg-[#F1F5F9] border-l border-slate-300 rounded overflow-hidden z-[60] flex flex-col h-[80vh] min-h-0">
                 <div className="px-4 py-2 border-b border-slate-300 bg-slate-100 flex items-center justify-between">
                   <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Execution Telemetry // Local Stack</span>
                   <button onClick={() => setTelemetryLogs([])} className="text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400">Clear</button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-[10px]">
+                <div className="flex-1 flex flex-col h-full min-h-0 overflow-y-auto p-4 space-y-3 font-mono text-[10px]">
                   {telemetryLogs.length === 0 ? (
                     <div className="text-slate-400 italic py-8 text-center">No active data streams captured.</div>
                   ) : (
@@ -536,7 +536,7 @@ export default function ClientCockpitDashboard() {
       {/* 7. PROCESSING SPINNER */}
       {isProcessing && (
         <div className="fixed inset-0 z-[500] bg-slate-900/20 backdrop-blur-[1px] flex items-center justify-center cursor-wait">
-          <div className="h-10 w-10 border-4 border-[#004850]/20 border-t-[#004850] rounded-full animate-spin " />
+          <div className="h-10 w-10 border-4 border-[#004850]/20 border-t-[#004850] rounded-sm animate-spin " />
         </div>
       )}
 

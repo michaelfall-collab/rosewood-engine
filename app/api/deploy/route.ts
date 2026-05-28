@@ -5,11 +5,11 @@ import { CRMArchitectureBlueprint } from '@/types/blueprint';
 const API_BASE = 'https://api.pipedrive.com/v1';
 
 export async function POST(request: NextRequest) {
+  const logs: string[] = [];
   try {
     const { token, template }: { token: string; template: CRMArchitectureBlueprint } = await request.json();
-    if (!token || !template) return NextResponse.json({ error: 'Missing token or template' }, { status: 400 });
+    if (!token || !template) return NextResponse.json({ error: 'Missing token or template', logs }, { status: 400 });
 
-    const logs: string[] = [];
     const fieldKeyTranslationMap: Record<string, string> = {};
     const auth = `?api_token=${token}`;
 
@@ -250,6 +250,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, logs, fieldKeyTranslationMap });
 
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message, logs }, { status: 500 });
   }
 }
