@@ -57,6 +57,8 @@ export default function ClientCockpitDashboard() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<"json" | "guide">("json");
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [telemetryLogs, setTelemetryLogs] = useState<{ type: 'OUTBOUND' | 'INBOUND', timestamp: string, payload: any }[]>([]);
+  const [showTelemetry, setShowTelemetry] = useState(false);
 
   // Custom Modal State
   const [uiModal, setUiModal] = useState<ModalProps | null>(null);
@@ -96,7 +98,7 @@ export default function ClientCockpitDashboard() {
       const json = await res.json();
       if (json && json.success) {
         setIsVerified(true);
-        setCopyFeedback("✓ Connection Verified");
+        setCopyFeedback("Connection Verified");
         setTimeout(() => setCopyFeedback(null), 3000);
       } else {
         setIsVerified(false);
@@ -136,6 +138,7 @@ export default function ClientCockpitDashboard() {
           const data = await res.json();
           if (data.success) {
             setImages(prev => [{ ...data.blueprint, name: label, owner: "Live Ingest", deals: 0 }, ...prev]);
+            setTelemetryLogs(prev => [{ type: 'INBOUND', timestamp: new Date().toLocaleTimeString(), payload: data.blueprint }, ...prev]);
           }
         } finally {
           setIsProcessing(false);
@@ -183,6 +186,9 @@ export default function ClientCockpitDashboard() {
           if (data.success) {
             if (flashMode === "rosewood") {
               setImages(prev => prev.map(img => img.id === id ? { ...img, ...data.blueprint } : img));
+              setTelemetryLogs(prev => [{ type: 'INBOUND', timestamp: new Date().toLocaleTimeString(), payload: data.blueprint }, ...prev]);
+            } else {
+              setTelemetryLogs(prev => [{ type: 'OUTBOUND', timestamp: new Date().toLocaleTimeString(), payload: target }, ...prev]);
             }
             setCopyFeedback("✓ Sync Finished");
             setTimeout(() => setCopyFeedback(null), 3000);
@@ -269,30 +275,69 @@ export default function ClientCockpitDashboard() {
           </button>
         </div>
 
-        <div className="relative">
-          <button 
-            onClick={() => setOpenMenuId(openMenuId === 'global' ? null : 'global')}
-            disabled={isProcessing}
-            className="px-4 py-2 bg-[#004850] text-white rounded text-[11px] font-bold flex items-center gap-2 hover:bg-[#003840] active:scale-95 transition-all shadow-sm"
-          >
-            Sync Matrix <i className="ti ti-chevron-down" />
-          </button>
-          {openMenuId === 'global' && (
-            <div className="absolute right-0 top-11 w-60 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded shadow-xl overflow-hidden z-[50]">
-              <div className="p-1 flex flex-col">
-                <button onClick={() => { setFlashMode('pipedrive'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 text-emerald-600 font-bold">
-                  <i className="ti ti-bolt" /> Flash to Pipedrive
-                </button>
-                <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
-                <button onClick={() => { handleInboundNew(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
-                  <i className="ti ti-database-import" /> Capture New Card
-                </button>
-                <button onClick={() => { setFlashMode('rosewood'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 text-rose-600 font-bold">
-                  <i className="ti ti-replace" /> Overwrite Existing
-                </button>
+        <div className="flex items-center gap-2">
+          {/* Telemetry Icon */}
+          <div className="relative">
+            <button 
+              onClick={() => setShowTelemetry(!showTelemetry)}
+              className={`h-8 w-8 flex items-center justify-center rounded border transition-all ${showTelemetry ? 'bg-slate-800 border-slate-700 text-emerald-400' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400 hover:text-[#004850]'}`}
+              title="Telemetry Terminal"
+            >
+              <i className="ti ti-terminal-2" />
+              {telemetryLogs.length > 0 && <span className="absolute -top-1 -right-1 h-2 w-2 bg-emerald-500 rounded-full border border-white dark:border-slate-900" />}
+            </button>
+            {showTelemetry && (
+              <div className="absolute right-0 top-10 w-96 max-h-96 bg-slate-900 border border-slate-700 rounded shadow-2xl overflow-hidden z-[60] flex flex-col">
+                <div className="px-4 py-2 border-b border-slate-700 bg-slate-950 flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Execution Telemetry // Local Stack</span>
+                  <button onClick={() => setTelemetryLogs([])} className="text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400">Clear</button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-[10px]">
+                  {telemetryLogs.length === 0 ? (
+                    <div className="text-slate-600 italic py-8 text-center">No active data streams captured.</div>
+                  ) : (
+                    telemetryLogs.map((log, i) => (
+                      <div key={i} className="border-l-2 border-slate-700 pl-3 py-1 group">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`font-bold ${log.type === 'OUTBOUND' ? 'text-emerald-500' : 'text-blue-400'}`}>[{log.type}] {log.timestamp}</span>
+                          <button onClick={() => copyToClipboard(JSON.stringify(log.payload, null, 2))} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white transition-opacity"><i className="ti ti-copy" /></button>
+                        </div>
+                        <pre className="text-slate-400 overflow-x-auto whitespace-pre-wrap max-h-32 scrollbar-thin scrollbar-thumb-slate-700">
+                          {JSON.stringify(log.payload, null, 1)}
+                        </pre>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          <div className="relative">
+            <button 
+              onClick={() => setOpenMenuId(openMenuId === 'global' ? null : 'global')}
+              disabled={isProcessing}
+              className="px-4 py-2 bg-[#004850] text-white rounded text-[11px] font-bold flex items-center gap-2 hover:bg-[#003840] active:scale-95 transition-all shadow-sm"
+            >
+              Flash Image <i className="ti ti-chevron-down" />
+            </button>
+            {openMenuId === 'global' && (
+              <div className="absolute right-0 top-11 w-60 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded shadow-xl overflow-hidden z-[50]">
+                <div className="p-1 flex flex-col">
+                  <button onClick={() => { setFlashMode('pipedrive'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 text-emerald-600 font-bold">
+                    <i className="ti ti-bolt" /> Flash to Pipedrive
+                  </button>
+                  <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+                  <button onClick={() => { handleInboundNew(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
+                    <i className="ti ti-database-import" /> Capture New Card
+                  </button>
+                  <button onClick={() => { setFlashMode('rosewood'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 text-rose-600 font-bold">
+                    <i className="ti ti-replace" /> Overwrite Existing
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
