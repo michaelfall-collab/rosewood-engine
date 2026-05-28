@@ -1,12 +1,41 @@
+================================================================================
+🎯 TARGET DESTINATIONS: types/blueprint.ts, app/api/ingest/route.ts, app/api/deploy/route.ts
+🧱 LOCAL WORKSPACE FILES TO PIPE: cat types/blueprint.ts app/api/ingest/route.ts app/api/deploy/route.ts prompt.txt | gemini
+================================================================================
+
 Identity & Context:
-You are the Lead Systems Engineer for the Rosewood Engine. Your task is to refactor 'app/page.tsx' to completely eliminate hardcoded dummy records and convert the dashboard into a live, real-time deployment and capture engine that interfaces with our Next.js API endpoints.
+You are the Principal Software Architect for the Rosewood Engine. Your task is to upgrade our type definitions and core API endpoints to ingest and deploy a complete, multi-object database registry including Custom Fields (Deals, Persons, Organizations, Products), Activity Types, and Lost Reasons.
 
-Ecosystem Integrity Constraints:
-1. ZERO DUMMY ARRAYS: Remove the mock 'INITIAL_IMAGES' list completely. Initialize the 'images' state dynamically. On initial launch, if browser 'localStorage' is empty, populate the dashboard collection with a single structural seed image derived from the schema in 'data/blueprints/rosewood_internal.json'.
-2. LIVE OUTBOUND FLASHING (POST /api/deploy): Refactor the outbound flashing action. When an operator selects an image card and confirms the green "...to Pipedrive account" flash command, trigger an active asynchronous fetch request to our live API route '/api/deploy'. Pass an object containing { token: apiKey, template: activeImage }. Collect the resulting 'logs' array from the backend response block and map those real-time execution markers ('• Created...', '• Reusing...', '• Injected...') directly into the Activity Log console pane.
-3. LIVE INBOUND CAPTURE (POST /api/ingest): Refactor the red "...from Pipedrive to Rosewood Database" capture command. Execute a real asynchronous fetch request to our live endpoint '/api/ingest' sending { token: apiKey }. Capture the reverse-engineered blueprint payload returned by the endpoint. If the user chooses 'Create new file', prompt them for a custom string label name; if they choose 'Overwrite existing', swap out the active template card's contents with this new live architecture snapshot.
-4. TOTAL DATA PERSISTENCE: Ensure all inline renaming updates, custom field dictionary revisions, code tab JSON alterations, and AI-compiled automation instructions text manuals are committed immediately to state and synced with 'localStorage' so updates persist across page reloads.
-5. OPERATIONAL FEEDBACK LAYERS: Implement visual processing elements (e.g., animate loading rings inside buttons, disable command interfaces during ongoing network requests, provide clear alert trays for bad tokens or invalid API keys) to deliver a seamless production-ready operator utility tool.
+Strict Engineering Specifications:
 
-Output Specification:
-Return only the complete, updated production code file for 'app/page.tsx'. Ensure all Tailwind styles and sub-modal frames match our favorite interactive layout choices. Include all type casting constraints.
+1. CORE TYPE UPGRADES (types/blueprint.ts):
+- Extend the 'CRMArchitectureBlueprint' interface to natively house three new optional array schemas: 'customFields', 'activityTypes', and 'lostReasons'.
+- Define a 'CustomFieldSpec' interface containing fields: 'key' (a sanitized string, e.g., 'cf_shed_style'), 'name' (the exact user-facing display label), 'type' (e.g., 'text', 'varchar', 'enum', 'monetary'), 'field_type' (identifying the parent object: 'deal', 'person', 'organization', or 'product'), and an optional 'options' array for dropdown selections.
+- Define an 'ActivityTypeSpec' interface with fields: 'name', 'icon_key', and 'color'.
+- Define a 'LostReasonSpec' interface with a string 'reason' array property.
+
+2. MULTI-OBJECT INGESTION ROUTE (app/api/ingest/route.ts):
+- Update the HTTP POST handler to execute concurrent, parallel fetch streams targeting:
+  * /v1/dealFields
+  * /v1/personFields
+  * /v1/organizationFields
+  * /v1/productFields
+  * /v1/activityTypes
+  * /v1/lostReasons
+- Process the incoming metadata streams: filter out all built-in system native fields (where 'edit_flag' or 'custom_field' boolean trackers dictate it is standard) and map only true custom fields into the 'customFields' collection array.
+- For each custom field, generate an internal string 'key' identifier by sanitizing and lowercasing the display name (e.g., "Shed Style" becomes "cf_shed_style") to keep our blueprint independent of environment hashes.
+
+3. DYNAMIC TRANSLATION DEPLOYMENT ROUTE (app/api/deploy/route.ts):
+- Enhance the loop mechanics in the deployment engine to prevent duplicate records: perform safe name matching lookups before executing creation sequences.
+- First Pass - Custom Field Creation: Iterate through 'template.customFields'. Check the target workspace if a field with the exact same name and 'field_type' already exists. If missing, post it to the correct endpoint (e.g., POST /v1/dealFields). 
+- Hash Resolution Memory: Capture the new 40-character alphanumeric hash string returned by the Pipedrive API payload and dynamically populate a memory registry tracking dictionary ('fieldKeyTranslationMap') that maps the clean blueprint key to the new remote system hash.
+- Subsequent Passes - Activity Types & Lost Reasons: Safely loop through and construct missing 'activityTypes' and 'lostReasons' via their respective native API routes.
+- Return Logs: Ensure the 'logs' array captures clear output strings tracking the lifecycle of fields (e.g., "• Injected Custom Deal Field: 'Shed Style' (New Key: abc123xyz...)").
+
+Output Specifications:
+Return your response as three separate, production-ready code files wrapped in distinct markdown code blocks corresponding exactly to:
+- Block 1: types/blueprint.ts
+- Block 2: app/api/ingest/route.ts
+- Block 3: app/api/deploy/route.ts
+
+Ensure all type assertions, response formatting blocks, error catches, and interface validations are explicitly written out with no partial omissions or placeholders.
