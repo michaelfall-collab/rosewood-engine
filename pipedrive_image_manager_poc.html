@@ -1,0 +1,546 @@
+
+<h2 class="sr-only">Pipedrive image manager — interactive proof of concept</h2>
+<style>
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;cursor:pointer;transition:border-color 0.15s;}
+.card:hover{border-color:var(--color-border-secondary);}
+.card.flash-ready{border-color:#1a7a3a !important;}
+.tab-btn{background:none;border:none;border-bottom:2px solid transparent;padding:8px 18px;font-size:13px;cursor:pointer;color:var(--color-text-secondary);font-family:var(--font-sans);}
+.tab-btn.active{color:var(--color-text-primary);border-bottom-color:var(--color-text-primary);}
+.menu-wrap{position:relative;}
+.dropdown{position:absolute;right:0;top:28px;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);z-index:50;min-width:148px;overflow:hidden;}
+.mi{display:block;width:100%;text-align:left;background:none;border:none;padding:7px 14px;font-size:12px;cursor:pointer;color:var(--color-text-primary);font-family:var(--font-sans);}
+.mi:hover{background:var(--color-background-secondary);}
+.mi.danger{color:var(--color-text-danger);}
+.chat-ai{background:var(--color-background-secondary);border-radius:4px 12px 12px 12px;padding:10px 14px;font-size:13px;line-height:1.5;max-width:78%;}
+.chat-user{background:#0084ff;color:#fff;border-radius:12px 4px 12px 12px;padding:10px 14px;font-size:13px;line-height:1.5;max-width:78%;margin-left:auto;}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;border:0.5px solid var(--color-border-secondary);font-size:12px;cursor:pointer;user-select:none;background:var(--color-background-primary);}
+.chip.on{background:var(--color-background-info);border-color:var(--color-border-info);color:var(--color-text-info);}
+.pill-green{background:#e6f4ea;color:#1a7a3a;font-size:10px;padding:2px 8px;border-radius:20px;}
+.pill-gray{background:var(--color-background-secondary);color:var(--color-text-tertiary);font-size:10px;padding:2px 8px;border-radius:20px;}
+.badge{width:36px;height:36px;border-radius:8px;background:var(--color-background-info);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:var(--color-text-info);font-family:var(--font-mono);flex-shrink:0;}
+.badge-sm{width:28px;height:28px;border-radius:50%;background:var(--color-background-secondary);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;}
+.overlay{position:absolute;top:0;left:0;right:0;min-height:900px;z-index:10;}
+@keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--color-text-secondary);display:inline-block;animation:blink 1.2s infinite;}
+.dot:nth-child(2){animation-delay:.2s}
+.dot:nth-child(3){animation-delay:.4s}
+</style>
+
+<div id="root" style="position:relative;min-height:900px;font-size:13px;font-family:var(--font-sans);">
+
+<div id="app-main">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--color-border-tertiary);gap:10px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <i class="ti ti-database" style="font-size:17px;" aria-hidden="true"></i>
+      <span style="font-weight:500;font-size:14px;">Image manager</span>
+      <button onclick="openAB()" style="font-size:12px;display:inline-flex;align-items:center;gap:5px;margin-left:8px;">
+        <i class="ti ti-wand" style="font-size:13px;" aria-hidden="true"></i> Automation builder
+      </button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <input type="password" id="api-key" placeholder="sk-pd-••••••••••••••••" style="width:190px;font-family:var(--font-mono);font-size:11px;" />
+      <div style="position:relative;">
+        <button id="flash-btn" onclick="toggleFlashMenu()" style="font-size:12px;display:inline-flex;align-items:center;gap:5px;min-width:160px;justify-content:space-between;">
+          <span id="flash-label">Flash image...</span>
+          <i class="ti ti-chevron-down" style="font-size:12px;" aria-hidden="true"></i>
+        </button>
+        <div id="flash-menu" style="display:none;position:absolute;right:0;top:32px;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);z-index:60;min-width:220px;overflow:hidden;">
+          <div onclick="setFlash('pipedrive')" style="padding:9px 14px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;background:#f0faf3;color:#1a7a3a;" onmouseenter="this.style.background='#d6f0df'" onmouseleave="this.style.background='#f0faf3'">
+            <i class="ti ti-bolt" style="font-size:13px;" aria-hidden="true"></i> → to Pipedrive account
+          </div>
+          <div onclick="setFlash('rosewood')" style="padding:9px 14px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;background:#fdf1f0;color:#a32d2d;" onmouseenter="this.style.background='#f9dede'" onmouseleave="this.style.background='#fdf1f0'">
+            <i class="ti ti-database-import" style="font-size:13px;" aria-hidden="true"></i> → to Rosewood database
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="flash-banner" style="display:none;background:#ebebeb;border-radius:var(--border-radius-md);margin:10px 16px 0;padding:9px 14px;align-items:center;gap:8px;font-size:12px;">
+    <i class="ti ti-bolt" style="font-size:14px;" aria-hidden="true"></i>
+    <span id="banner-text">Select an image to flash</span>
+    <button onclick="cancelFlash()" style="margin-left:auto;font-size:11px;">Cancel</button>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;margin-top:2px;">
+    <div style="display:flex;gap:6px;">
+      <button id="btn-card" onclick="S.view='card';render()" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;font-weight:500;">
+        <i class="ti ti-layout-grid" style="font-size:13px;" aria-hidden="true"></i> Cards
+      </button>
+      <button id="btn-list" onclick="S.view='list';render()" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+        <i class="ti ti-list" style="font-size:13px;" aria-hidden="true"></i> List
+      </button>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <button onclick="alert('Open file picker → select .json or .pdi')" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;"><i class="ti ti-upload" style="font-size:13px;" aria-hidden="true"></i> Import</button>
+      <button onclick="alert('Packaging all images → download .zip')" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;"><i class="ti ti-download" style="font-size:13px;" aria-hidden="true"></i> Export all</button>
+    </div>
+  </div>
+
+  <div id="img-container" style="padding:0 16px 24px;"></div>
+</div>
+
+<div id="modal-detail" class="overlay" style="display:none;background:rgba(0,0,0,0.45);padding:24px 12px;">
+  <div id="detail-inner" style="background:var(--color-background-primary);border-radius:var(--border-radius-lg);max-width:620px;margin:0 auto;border:0.5px solid var(--color-border-tertiary);"></div>
+</div>
+
+<div id="modal-confirm" class="overlay" style="display:none;background:rgba(0,0,0,0.55);padding:200px 12px;z-index:20;">
+  <div id="confirm-inner" style="background:var(--color-background-primary);border-radius:var(--border-radius-lg);max-width:360px;margin:0 auto;padding:1.25rem 1.5rem;border:0.5px solid var(--color-border-tertiary);"></div>
+</div>
+
+<div id="modal-ab" class="overlay" style="display:none;background:var(--color-background-primary);z-index:30;">
+  <div id="ab-inner" style="height:900px;display:flex;flex-direction:column;overflow:hidden;"></div>
+</div>
+
+</div>
+
+<script>
+const S={
+  view:'card',flashMode:'',openMenuId:null,renamingId:null,
+  detailId:null,detailTab:'json',editingJson:false,
+  confirmType:null,confirmData:null,
+  abOpen:false,abStep:'select',abImageId:null,abIntegrations:[],
+  abChatMsgs:[],abPreview:null,abEditingPreview:false,
+  images:[
+    {id:1,name:'Lead pipeline config',
+     json:{pipeline_id:'pp_001',label:'Lead to Waitlist',stages:['New Lead','Contacted','Qualified','Proposal Sent'],owner:'Trent',created:'2026-05-01',deals:14},
+     automation:'TRIGGER: New deal created\nACTION: Send welcome email via Gmail\nACTION: Post to Slack #new-leads\nCONDITION: stage=Contacted → notify account manager\nACTION: Add to nurture sequence'},
+    {id:2,name:'Waitlist stage map',
+     json:{pipeline_id:'pp_002',label:'Waitlist to Onboarding',stages:['Waitlist Entry','Nurture Touch','Capacity Check','Ready to Onboard'],owner:'Andrew',created:'2026-05-10',deals:8},
+     automation:null},
+    {id:3,name:'Onboarded client flow',
+     json:{pipeline_id:'pp_003',label:'Onboarded Client',stages:['Welcome','Month 1','Month 2','Month 3','Grad Prep'],owner:'Carla',created:'2026-05-15',deals:22},
+     automation:null},
+    {id:4,name:'Post-grad triggers',
+     json:{pipeline_id:'pp_004',label:'Post-Graduation',stages:['Graduated','Alumni Follow-up','Re-Engage'],owner:'Morgan',created:'2026-05-20',deals:6},
+     automation:'TRIGGER: Deal → Graduated\nACTION: Archive deal in Pipedrive\nACTION: Create alumni record in Rosewood DB\nACTION: Send graduation survey\nNOTIFY: Post to Slack #graduations'}
+  ]
+};
+
+function toggleFlashMenu(){
+  const m=document.getElementById('flash-menu');
+  m.style.display=m.style.display==='none'?'block':'none';
+}
+function setFlash(mode){
+  document.getElementById('flash-menu').style.display='none';
+  if(mode==='rosewood'){showConfirm('fromPipedrive',null);return;}
+  S.flashMode=mode;
+  render();
+}
+function cancelFlash(){S.flashMode='';render();}
+
+function clickCard(id){
+  if(S.flashMode==='pipedrive'){showConfirm('flash',id);return;}
+  S.detailId=id;S.detailTab='json';S.editingJson=false;
+  render();
+}
+function closeDetail(){S.detailId=null;S.editingJson=false;render();}
+
+function showConfirm(type,data){
+  S.confirmType=type;S.confirmData=data;
+  renderConfirm();
+  document.getElementById('modal-confirm').style.display='block';
+}
+function closeConfirm(){
+  document.getElementById('modal-confirm').style.display='none';
+  S.confirmType=null;S.confirmData=null;
+}
+
+function renderConfirm(){
+  const el=document.getElementById('confirm-inner');
+  const img=S.images.find(i=>i.id===S.confirmData);
+  if(S.confirmType==='flash'){
+    el.innerHTML=`<div style="font-weight:500;font-size:14px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><i class="ti ti-bolt" aria-hidden="true"></i> Confirm flash</div>
+    <p style="font-size:12px;color:var(--color-text-secondary);margin:0 0 16px;">Flash <strong>${img?.name}</strong> to your Pipedrive account?</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="closeConfirm()" style="font-size:12px;">Cancel</button>
+      <button onclick="doFlash()" style="font-size:12px;background:var(--color-background-success);border-color:var(--color-border-success);color:var(--color-text-success);">Flash now</button>
+    </div>`;
+  }else if(S.confirmType==='delete'){
+    el.innerHTML=`<div style="font-weight:500;font-size:14px;margin-bottom:8px;color:var(--color-text-danger);display:flex;align-items:center;gap:6px;"><i class="ti ti-trash" aria-hidden="true"></i> Delete image</div>
+    <p style="font-size:12px;color:var(--color-text-secondary);margin:0 0 16px;">Delete <strong>${img?.name}</strong>? This cannot be undone.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="closeConfirm()" style="font-size:12px;">Cancel</button>
+      <button onclick="doDelete()" style="font-size:12px;background:var(--color-background-danger);border-color:var(--color-border-danger);color:var(--color-text-danger);">Delete</button>
+    </div>`;
+  }else if(S.confirmType==='fromPipedrive'){
+    el.innerHTML=`<div style="font-weight:500;font-size:14px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><i class="ti ti-database-import" aria-hidden="true"></i> Flash from Pipedrive</div>
+    <p style="font-size:12px;color:var(--color-text-secondary);margin:0 0 16px;">How would you like to receive this image?</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+      <button onclick="closeConfirm()" style="font-size:12px;">Cancel</button>
+      <button onclick="closeConfirm();alert('New image file created from Pipedrive import.')" style="font-size:12px;">Create new file</button>
+      <button onclick="closeConfirm();alert('Existing file overwritten with Pipedrive data.')" style="font-size:12px;">Overwrite existing</button>
+    </div>`;
+  }else if(S.confirmType==='editJson'){
+    el.innerHTML=`<div style="font-weight:500;font-size:14px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><i class="ti ti-code" aria-hidden="true"></i> Edit JSON?</div>
+    <p style="font-size:12px;color:var(--color-text-secondary);margin:0 0 16px;">Editing raw API JSON may cause unexpected pipeline behavior. Are you sure?</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="closeConfirm()" style="font-size:12px;">Cancel</button>
+      <button onclick="closeConfirm();S.editingJson=true;renderDetailModal()" style="font-size:12px;background:var(--color-background-warning);border-color:var(--color-border-warning);color:var(--color-text-warning);">Yes, edit</button>
+    </div>`;
+  }
+}
+
+function doFlash(){closeConfirm();cancelFlash();setTimeout(()=>alert('✓ Image flashed to Pipedrive successfully!'),80);}
+function doDelete(){S.images=S.images.filter(i=>i.id!==S.confirmData);closeConfirm();render();}
+
+function toggleMenu(e,id){e.stopPropagation();S.openMenuId=S.openMenuId===id?null:id;render();}
+function startRename(id){S.renamingId=id;S.openMenuId=null;render();setTimeout(()=>{const inp=document.getElementById('ri'+id);if(inp){inp.focus();inp.select();}},40);}
+function commitRename(id){const inp=document.getElementById('ri'+id);if(inp&&inp.value.trim())S.images.find(i=>i.id===id).name=inp.value.trim();S.renamingId=null;render();}
+function exportImg(id){const img=S.images.find(i=>i.id===id);S.openMenuId=null;render();alert(`Exporting "${img?.name}" → .json download`);}
+
+function renderDetailModal(){
+  const img=S.images.find(i=>i.id===S.detailId);
+  if(!img)return;
+  const el=document.getElementById('detail-inner');
+  const json=JSON.stringify(img.json,null,2);
+  el.innerHTML=`
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:0.5px solid var(--color-border-tertiary);">
+    <div>
+      <div style="font-weight:500;font-size:14px;">${img.name}</div>
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-top:2px;">${img.json.pipeline_id} · ${img.json.owner}</div>
+    </div>
+    <button onclick="closeDetail()" aria-label="Close" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--color-text-secondary);font-size:18px;"><i class="ti ti-x"></i></button>
+  </div>
+  <div style="display:flex;border-bottom:0.5px solid var(--color-border-tertiary);">
+    <button class="tab-btn ${S.detailTab==='json'?'active':''}" onclick="S.detailTab='json';S.editingJson=false;renderDetailModal()">API JSON</button>
+    <button class="tab-btn ${S.detailTab==='auto'?'active':''}" onclick="S.detailTab='auto';renderDetailModal()">Automation instructions</button>
+  </div>
+  <div style="padding:16px 18px;">
+    ${S.detailTab==='json'?renderJsonTab(img,json):renderAutoTab(img)}
+  </div>`;
+}
+
+function renderJsonTab(img,json){
+  if(S.editingJson)return`<textarea id="jedit" style="width:100%;height:240px;font-family:var(--font-mono);font-size:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:10px;resize:vertical;box-sizing:border-box;">${json}</textarea>
+  <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;">
+    <button onclick="S.editingJson=false;renderDetailModal()" style="font-size:12px;">Cancel</button>
+    <button onclick="saveJson(${img.id})" style="font-size:12px;">Save</button>
+  </div>`;
+  return`<pre style="font-family:var(--font-mono);font-size:11px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;overflow:auto;max-height:240px;margin:0;">${json}</pre>
+  <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;">
+    <button onclick="showConfirm('editJson',${img.id})" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;"><i class="ti ti-edit" style="font-size:12px;" aria-hidden="true"></i> Edit JSON</button>
+  </div>`;
+}
+
+function renderAutoTab(img){
+  if(!img.automation)return`<div style="text-align:center;padding:40px 20px;color:var(--color-text-secondary);">
+    <i class="ti ti-file-off" style="font-size:32px;display:block;margin-bottom:12px;" aria-hidden="true"></i>
+    <div style="font-size:13px;margin-bottom:14px;">No automation instructions attached</div>
+    <button onclick="alert('File picker → select .txt or .md')" style="font-size:12px;display:inline-flex;align-items:center;gap:5px;"><i class="ti ti-upload" style="font-size:13px;" aria-hidden="true"></i> Upload instructions</button>
+  </div>`;
+  return`<pre id="auto-pre" style="font-family:var(--font-mono);font-size:11px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;overflow:auto;max-height:200px;margin:0 0 10px;white-space:pre-wrap;">${img.automation}</pre>
+  <div style="display:flex;gap:8px;justify-content:flex-end;">
+    <button onclick="alert('File picker → select replacement')" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;"><i class="ti ti-upload" style="font-size:12px;" aria-hidden="true"></i> Replace file</button>
+    <button onclick="inlineEditAuto(${img.id})" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;"><i class="ti ti-edit" style="font-size:12px;" aria-hidden="true"></i> Edit inline</button>
+  </div>`;
+}
+
+function inlineEditAuto(id){
+  const img=S.images.find(i=>i.id===id);
+  const pre=document.getElementById('auto-pre');
+  if(!pre)return;
+  const ta=document.createElement('textarea');
+  ta.id='aedit';ta.value=img.automation;
+  ta.style.cssText='width:100%;height:200px;font-family:var(--font-mono);font-size:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:10px;resize:vertical;box-sizing:border-box;margin-bottom:10px;';
+  pre.replaceWith(ta);
+  const btns=document.querySelector('[id="detail-inner"] div[style*="justify-content:flex-end"]');
+  if(btns)btns.innerHTML=`<button onclick="renderDetailModal()" style="font-size:12px;">Cancel</button><button onclick="saveAuto(${id})" style="font-size:12px;">Save</button>`;
+}
+function saveJson(id){try{const t=document.getElementById('jedit').value;S.images.find(i=>i.id===id).json=JSON.parse(t);S.editingJson=false;renderDetailModal();}catch{alert('Invalid JSON — fix errors and try again.');}}
+function saveAuto(id){const ta=document.getElementById('aedit');if(ta)S.images.find(i=>i.id===id).automation=ta.value;renderDetailModal();}
+
+const INTEG=['Slack','Trello','Webhooks','Gmail','Google Sheets','Zapier','Notion','HubSpot'];
+const ICONS={Slack:'brand-slack',Trello:'brand-trello',Webhooks:'webhook',Gmail:'mail','Google Sheets':'table',Zapier:'bolt',Notion:'notebook',HubSpot:'building-store'};
+
+function openAB(){S.abOpen=true;S.abStep='select';S.abIntegrations=[];S.abChatMsgs=[];S.abPreview=null;S.abEditingPreview=false;render();}
+function closeAB(){S.abOpen=false;render();}
+
+function renderAB(){
+  const el=document.getElementById('ab-inner');
+  const img=S.images.find(i=>i.id===S.abImageId);
+  const header=`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:0.5px solid var(--color-border-tertiary);flex-shrink:0;">`;
+
+  if(S.abStep==='select'){
+    el.innerHTML=header+`<div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-wand" style="font-size:16px;" aria-hidden="true"></i><span style="font-weight:500;font-size:14px;">Automation builder</span></div>
+    <button onclick="closeAB()" aria-label="Close" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--color-text-secondary);"><i class="ti ti-x"></i></button></div>
+    <div style="flex:1;overflow-y:auto;padding:20px;">
+    <p style="font-size:13px;color:var(--color-text-secondary);margin:0 0 14px;">Pick an image to build automations for:</p>
+    ${S.images.map(im=>`<div onclick="abPickImage(${im.id})" style="cursor:pointer;padding:12px 16px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);margin-bottom:8px;display:flex;align-items:center;gap:12px;background:var(--color-background-primary);" onmouseenter="this.style.borderColor='var(--color-border-secondary)'" onmouseleave="this.style.borderColor='var(--color-border-tertiary)'">
+      <div class="badge">${im.json.pipeline_id.slice(-3)}</div>
+      <div><div style="font-size:13px;font-weight:500;">${im.name}</div><div style="font-size:11px;color:var(--color-text-secondary);">${im.json.stages.length} stages · ${im.json.deals} deals${im.automation?' · automated':''}</div></div>
+      <i class="ti ti-chevron-right" style="margin-left:auto;color:var(--color-text-tertiary);" aria-hidden="true"></i>
+    </div>`).join('')}
+    </div>`;
+    return;
+  }
+
+  if(S.abStep==='chat'){
+    el.innerHTML=header+`<div style="display:flex;align-items:center;gap:8px;">
+      <button onclick="S.abStep='select';renderAB()" style="background:none;border:none;cursor:pointer;padding:2px;"><i class="ti ti-arrow-left" style="font-size:16px;"></i></button>
+      <span style="font-weight:500;font-size:14px;">Automation builder</span>
+    </div>
+    <button onclick="closeAB()" aria-label="Close" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--color-text-secondary);"><i class="ti ti-x"></i></button></div>
+    <div style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;justify-content:flex-end;">
+        <div style="background:var(--color-background-info);border:0.5px solid var(--color-border-info);border-radius:12px 4px 12px 12px;padding:12px 16px;max-width:260px;">
+          <div style="font-size:10px;font-weight:500;color:var(--color-text-info);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Pipeline image</div>
+          <div style="font-size:13px;font-weight:500;">${img.name}</div>
+          <div style="font-size:11px;color:var(--color-text-secondary);margin-top:4px;">${img.json.pipeline_id} · ${img.json.stages.length} stages</div>
+          <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:8px;">${img.json.stages.map(s=>`<span style="font-size:10px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:4px;padding:2px 6px;">${s}</span>`).join('')}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div class="badge-sm">◆</div>
+        <div class="chat-ai">Got it — <strong>${img.name}</strong> with ${img.json.stages.length} stages. Which integrations should I wire in?</div>
+      </div>
+      <div style="padding-left:38px;">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+          ${INTEG.map(o=>`<div class="chip${S.abIntegrations.includes(o)?' on':''}" onclick="toggleInteg('${o}')"><i class="ti ti-${ICONS[o]||'plug'}" style="font-size:12px;" aria-hidden="true"></i>${o}</div>`).join('')}
+        </div>
+        <button onclick="submitInteg()" style="font-size:12px;display:inline-flex;align-items:center;gap:5px;"><i class="ti ti-arrow-right" style="font-size:12px;" aria-hidden="true"></i> Continue</button>
+      </div>
+    </div>`;
+    return;
+  }
+
+  if(S.abStep==='building'){
+    el.innerHTML=header+`<span style="font-weight:500;font-size:14px;">Automation builder</span>
+    <button onclick="closeAB()" aria-label="Close" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--color-text-secondary);"><i class="ti ti-x"></i></button></div>
+    <div style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;">
+      ${chatHistory()}
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div class="badge-sm">◆</div>
+        <div class="chat-ai">Building your automation file with ${S.abIntegrations.length?S.abIntegrations.join(', '):'no extra integrations'}...
+          <div style="margin-top:10px;display:flex;gap:5px;align-items:center;"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+        </div>
+      </div>
+    </div>`;
+    setTimeout(()=>{S.abPreview=buildPreview();S.abStep='preview';renderAB();},2000);
+    return;
+  }
+
+  if(S.abStep==='preview'){
+    el.innerHTML=header+`<span style="font-weight:500;font-size:14px;">Automation builder</span>
+    <button onclick="closeAB()" aria-label="Close" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--color-text-secondary);"><i class="ti ti-x"></i></button></div>
+    <div style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;">
+      ${chatHistory()}
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div class="badge-sm">◆</div>
+        <div style="flex:1;">
+          <div class="chat-ai" style="max-width:100%;display:block;margin-bottom:12px;">Preview ready. Review, edit if needed, then confirm.</div>
+          <div style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;">
+            <div style="padding:10px 16px;background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:12px;font-weight:500;font-family:var(--font-mono);">automation_preview.txt</span>
+              <button onclick="S.abEditingPreview=!S.abEditingPreview;renderAB()" style="font-size:11px;display:inline-flex;align-items:center;gap:4px;">
+                <i class="ti ti-${S.abEditingPreview?'eye':'edit'}" style="font-size:12px;" aria-hidden="true"></i>${S.abEditingPreview?'View':'Edit'}
+              </button>
+            </div>
+            <div style="padding:14px 16px;">${S.abEditingPreview?editPreview():readPreview()}</div>
+          </div>
+          <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;">
+              <input type="checkbox" id="confirm-cb" style="width:14px;height:14px;" /> Looks good — build complete file
+            </label>
+            <button onclick="confirmPreview()" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;"><i class="ti ti-arrow-right" style="font-size:12px;" aria-hidden="true"></i> Confirm</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  if(S.abStep==='done'){
+    el.innerHTML=header+`<span style="font-weight:500;font-size:14px;">Automation builder</span>
+    <button onclick="closeAB()" aria-label="Close" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--color-text-secondary);"><i class="ti ti-x"></i></button></div>
+    <div style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;">
+      ${chatHistory()}
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div class="badge-sm">◆</div>
+        <div style="flex:1;">
+          <div class="chat-ai" style="max-width:100%;display:block;margin-bottom:12px;">Your automation file is complete.</div>
+          <div style="border:0.5px solid var(--color-border-success);border-radius:var(--border-radius-lg);padding:14px 16px;background:var(--color-background-success);display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <i class="ti ti-file-check" style="font-size:22px;color:var(--color-text-success);flex-shrink:0;" aria-hidden="true"></i>
+            <div><div style="font-size:13px;font-weight:500;color:var(--color-text-success);">automation_complete.txt</div>
+            <div style="font-size:11px;color:var(--color-text-success);">${S.abPreview?.length||0} automations · ${S.abIntegrations.join(', ')||'no extra integrations'}</div></div>
+            <button onclick="alert('Download started!')" style="margin-left:auto;font-size:12px;background:var(--color-background-success);border-color:var(--color-border-success);color:var(--color-text-success);display:inline-flex;align-items:center;gap:4px;">
+              <i class="ti ti-download" style="font-size:12px;" aria-hidden="true"></i> Download
+            </button>
+          </div>
+          <button onclick="S.abStep='attach';renderAB()" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;"><i class="ti ti-arrow-right" style="font-size:12px;" aria-hidden="true"></i> Continue</button>
+        </div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  if(S.abStep==='attach'){
+    el.innerHTML=header+`<span style="font-weight:500;font-size:14px;">Automation builder</span>
+    <button onclick="closeAB()" aria-label="Close" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--color-text-secondary);"><i class="ti ti-x"></i></button></div>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px;">
+      <div style="text-align:center;max-width:320px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--color-background-secondary);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:22px;">◆</div>
+        <div style="font-weight:500;font-size:15px;margin-bottom:6px;">Attach to image?</div>
+        <p style="font-size:12px;color:var(--color-text-secondary);margin:0 0 22px;">Attach this automation file to <strong>${img?.name}</strong>, or keep it local only?</p>
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <button onclick="closeAB()" style="font-size:12px;">Keep local only</button>
+          <button onclick="attachAndClose()" style="font-size:12px;background:var(--color-background-success);border-color:var(--color-border-success);color:var(--color-text-success);">Yes, attach</button>
+        </div>
+      </div>
+    </div>`;
+  }
+}
+
+function chatHistory(){
+  return S.abChatMsgs.map(m=>`<div style="display:flex;justify-content:${m.r==='u'?'flex-end':'flex-start'};gap:10px;align-items:flex-start;">
+    ${m.r==='ai'?`<div class="badge-sm">◆</div>`:''}
+    <div class="${m.r==='u'?'chat-user':'chat-ai'}">${m.t}</div>
+  </div>`).join('');
+}
+
+function readPreview(){
+  return S.abPreview.map((p,i)=>`<div style="padding:8px 0;${i<S.abPreview.length-1?'border-bottom:0.5px solid var(--color-border-tertiary)':''}">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+      <span style="font-size:10px;font-weight:500;background:var(--color-background-secondary);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);white-space:nowrap;">${p.id}</span>
+      <span style="font-size:13px;font-weight:500;">${p.name}</span>
+    </div>
+    <div style="font-size:12px;color:var(--color-text-secondary);">${p.desc}</div>
+  </div>`).join('');
+}
+
+function editPreview(){
+  return S.abPreview.map((p,i)=>`<div style="padding:8px 0;${i<S.abPreview.length-1?'border-bottom:0.5px solid var(--color-border-tertiary)':''}">
+    <div style="display:flex;gap:8px;margin-bottom:4px;">
+      <span style="font-size:10px;font-weight:500;background:var(--color-background-secondary);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);white-space:nowrap;height:22px;display:flex;align-items:center;">${p.id}</span>
+      <input type="text" value="${p.name}" style="font-size:13px;font-weight:500;flex:1;" onchange="S.abPreview[${i}].name=this.value" />
+    </div>
+    <input type="text" value="${p.desc}" style="font-size:12px;width:100%;color:var(--color-text-secondary);box-sizing:border-box;" onchange="S.abPreview[${i}].desc=this.value" />
+  </div>`).join('');
+}
+
+function buildPreview(){
+  const img=S.images.find(i=>i.id===S.abImageId);
+  const items=[
+    {id:'AUTO_001',name:`on_deal_create_${img.json.pipeline_id}`,desc:`Fires when a new deal enters ${img.name}`},
+    {id:'AUTO_002',name:`stage_transition_notify`,desc:`Notifies owner on every stage advance`},
+  ];
+  if(S.abIntegrations.includes('Slack'))items.push({id:'AUTO_003',name:`slack_post_stage_change`,desc:'Posts to configured Slack channel on stage change'});
+  if(S.abIntegrations.includes('Gmail'))items.push({id:'AUTO_004',name:`gmail_send_welcome`,desc:'Sends welcome email when deal enters first stage'});
+  if(S.abIntegrations.includes('Trello'))items.push({id:'AUTO_005',name:`trello_create_card`,desc:'Creates linked Trello card for each new deal'});
+  if(S.abIntegrations.includes('Webhooks'))items.push({id:'AUTO_006',name:`webhook_on_deal_close`,desc:'Fires outbound webhook to configured URL on close'});
+  if(S.abIntegrations.includes('Google Sheets'))items.push({id:'AUTO_007',name:`sheets_log_deal_row`,desc:'Appends deal data row to linked Sheet on update'});
+  if(S.abIntegrations.includes('Zapier'))items.push({id:'AUTO_008',name:`zapier_trigger_on_change`,desc:'Triggers connected Zap on stage change'});
+  if(S.abIntegrations.includes('Notion'))items.push({id:'AUTO_009',name:`notion_sync_deal_page`,desc:'Syncs deal to a Notion database page'});
+  items.push({id:'AUTO_0'+(items.length+1),name:`on_deal_exit_${img.json.pipeline_id}`,desc:`Cleanup actions when deal exits ${img.name}`});
+  return items;
+}
+
+function toggleInteg(opt){const idx=S.abIntegrations.indexOf(opt);if(idx>=0)S.abIntegrations.splice(idx,1);else S.abIntegrations.push(opt);renderAB();}
+function abPickImage(id){S.abImageId=id;S.abStep='chat';S.abIntegrations=[];S.abChatMsgs=[];renderAB();}
+
+function submitInteg(){
+  const txt=S.abIntegrations.length?`Connect: ${S.abIntegrations.join(', ')}`:'No extra integrations.';
+  S.abChatMsgs.push({r:'u',t:txt});
+  S.abStep='building';renderAB();
+}
+
+function confirmPreview(){
+  const cb=document.getElementById('confirm-cb');
+  if(!cb||!cb.checked){alert('Check the confirmation box first.');return;}
+  S.abChatMsgs.push({r:'u',t:'Confirmed — looks good.'});
+  S.abStep='done';renderAB();
+}
+
+function attachAndClose(){
+  const img=S.images.find(i=>i.id===S.abImageId);
+  if(img&&S.abPreview)img.automation=S.abPreview.map(p=>`${p.id}: ${p.name}\n  ${p.desc}`).join('\n\n');
+  closeAB();
+}
+
+function render(){
+  const banner=document.getElementById('flash-banner');
+  if(S.flashMode==='pipedrive'){banner.style.display='flex';document.getElementById('banner-text').textContent='Select an image to flash to Pipedrive account';}
+  else banner.style.display='none';
+
+  document.getElementById('btn-card').style.fontWeight=S.view==='card'?'500':'400';
+  document.getElementById('btn-list').style.fontWeight=S.view==='list'?'500':'400';
+
+  const detModal=document.getElementById('modal-detail');
+  if(S.detailId){detModal.style.display='block';renderDetailModal();}else detModal.style.display='none';
+
+  const abModal=document.getElementById('modal-ab');
+  if(S.abOpen){abModal.style.display='block';renderAB();}else abModal.style.display='none';
+
+  renderImages();
+}
+
+function renderImages(){
+  const c=document.getElementById('img-container');
+  if(!c)return;
+  if(S.view==='card'){
+    c.style.display='grid';
+    c.style.gridTemplateColumns='repeat(auto-fit,minmax(190px,1fr))';
+    c.style.gap='12px';
+    c.innerHTML=S.images.map(renderCard).join('');
+  }else{
+    c.style.display='block';
+    c.innerHTML=`<div style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;">${S.images.map((im,i)=>renderRow(im,i)).join('')}</div>`;
+  }
+}
+
+function renderCard(img){
+  const isRenaming=S.renamingId===img.id;
+  const menuOpen=S.openMenuId===img.id;
+  const auto=!!img.automation;
+  return`<div class="card${S.flashMode==='pipedrive'?' flash-ready':''}" onclick="clickCard(${img.id})" style="position:relative;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">
+      <div class="badge">${img.json.pipeline_id.slice(-3)}</div>
+      <div class="menu-wrap" onclick="event.stopPropagation()">
+        <button onclick="toggleMenu(event,${img.id})" aria-label="Options" style="background:none;border:none;cursor:pointer;padding:3px;color:var(--color-text-secondary);"><i class="ti ti-dots-vertical" style="font-size:16px;" aria-hidden="true"></i></button>
+        ${menuOpen?`<div class="dropdown">
+          <button class="mi" onclick="startRename(${img.id})"><i class="ti ti-pencil" style="font-size:12px;margin-right:5px;" aria-hidden="true"></i>Rename</button>
+          <button class="mi" onclick="exportImg(${img.id})"><i class="ti ti-download" style="font-size:12px;margin-right:5px;" aria-hidden="true"></i>Export</button>
+          <button class="mi danger" onclick="S.openMenuId=null;showConfirm('delete',${img.id})"><i class="ti ti-trash" style="font-size:12px;margin-right:5px;" aria-hidden="true"></i>Delete</button>
+        </div>`:''}
+      </div>
+    </div>
+    ${isRenaming?`<div onclick="event.stopPropagation()" style="margin-bottom:6px;"><input id="ri${img.id}" type="text" value="${img.name}" style="width:100%;font-size:13px;font-weight:500;" onkeydown="if(event.key==='Enter')commitRename(${img.id});if(event.key==='Escape'){S.renamingId=null;render();}" onblur="commitRename(${img.id})" /></div>`:`<div style="font-size:13px;font-weight:500;margin-bottom:4px;line-height:1.3;">${img.name}</div>`}
+    <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:10px;">${img.json.stages.length} stages · ${img.json.deals} deals</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <span class="${auto?'pill-green':'pill-gray'}">${auto?'◆ automated':'no automation'}</span>
+      <span style="font-size:10px;color:var(--color-text-tertiary);">${img.json.owner}</span>
+    </div>
+  </div>`;
+}
+
+function renderRow(img,i){
+  const isRenaming=S.renamingId===img.id;
+  const menuOpen=S.openMenuId===img.id;
+  const auto=!!img.automation;
+  return`<div onclick="clickCard(${img.id})" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:10px 16px;${i>0?'border-top:0.5px solid var(--color-border-tertiary)':''};background:var(--color-background-primary);" onmouseenter="this.style.background='var(--color-background-secondary)'" onmouseleave="this.style.background='var(--color-background-primary)'">
+    <div class="badge" style="border-radius:6px;">${img.json.pipeline_id.slice(-3)}</div>
+    <div style="flex:1;min-width:0;">
+      ${isRenaming?`<input id="ri${img.id}" type="text" value="${img.name}" style="font-size:13px;font-weight:500;width:180px;" onkeydown="if(event.key==='Enter')commitRename(${img.id});if(event.key==='Escape'){S.renamingId=null;render();}" onblur="commitRename(${img.id})" onclick="event.stopPropagation()" />`:`<div style="font-size:13px;font-weight:500;">${img.name}</div>`}
+      <div style="font-size:11px;color:var(--color-text-secondary);">${img.json.pipeline_id} · ${img.json.stages.length} stages · ${img.json.deals} deals</div>
+    </div>
+    <span style="font-size:11px;color:var(--color-text-secondary);flex-shrink:0;">${img.json.owner}</span>
+    <span class="${auto?'pill-green':'pill-gray'}" style="flex-shrink:0;">${auto?'◆ automated':'no automation'}</span>
+    <div class="menu-wrap" style="flex-shrink:0;" onclick="event.stopPropagation()">
+      <button onclick="toggleMenu(event,${img.id})" aria-label="Options" style="background:none;border:none;cursor:pointer;padding:3px;color:var(--color-text-secondary);"><i class="ti ti-dots-vertical" style="font-size:16px;" aria-hidden="true"></i></button>
+      ${menuOpen?`<div class="dropdown">
+        <button class="mi" onclick="startRename(${img.id})"><i class="ti ti-pencil" style="font-size:12px;margin-right:5px;" aria-hidden="true"></i>Rename</button>
+        <button class="mi" onclick="exportImg(${img.id})"><i class="ti ti-download" style="font-size:12px;margin-right:5px;" aria-hidden="true"></i>Export</button>
+        <button class="mi danger" onclick="S.openMenuId=null;showConfirm('delete',${img.id})"><i class="ti ti-trash" style="font-size:12px;margin-right:5px;" aria-hidden="true"></i>Delete</button>
+      </div>`:''}
+    </div>
+  </div>`;
+}
+
+document.addEventListener('click',()=>{
+  if(S.openMenuId!==null){S.openMenuId=null;render();}
+  const fm=document.getElementById('flash-menu');
+  if(fm)fm.style.display='none';
+});
+
+render();
+</script>

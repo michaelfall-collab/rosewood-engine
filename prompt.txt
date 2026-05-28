@@ -1,0 +1,32 @@
+You are an expert Next.js and Tailwind CSS core developer. Your task is to completely refactor and consolidate the Rosewood Engine into a high-velocity, single-page application (SPA). 
+
+You must read our current implementation state (including app/page.tsx, app/layout.tsx, types/blueprint.ts, and pipedrive_image_manager_poc.html) and output the exact production-ready replacement code for our files.
+
+Follow these strict structural specifications:
+
+1. ELIMINATE THE SIDEBAR (app/layout.tsx)
+- Completely remove the sidebar, left nav panel, and grid layout from app/layout.tsx.
+- Make the main body layout a full-screen, clean responsive container with an optional global header.
+
+2. BUILD THE COMPREHENSIVE SPA DASHBOARD STATE MACHINE (app/page.tsx)
+Consolidate all layouts into a single file driven by these React state hooks:
+- flashMode: Track if we are in outbound deployment, inbound capture, or idle ('pipedrive' | 'rosewood' | '').
+- viewLayout: Toggle the image gallery shelf between 'grid' and 'list' view templates.
+- openModal: Handle full-screen overlays ('inspection' | 'ai_builder' | null).
+- activeImageId: Keep track of whichever stored snapshot template is currently focused.
+
+3. REPLICATE THE HIGH-VELOCITY INTERACTIVE POC INTERFACE
+Implement the styling and structure from pipedrive_image_manager_poc.html inside app/page.tsx using modern Tailwind CSS utilities:
+- Top Control Bar: An API key input styled like a URL browser bar, paired with the dual-action "Flash Image" split button containing the color-coded action loops (Green drop for outbound deployment, Red drop for inbound database capturing).
+- Context Action Banner: When flashMode is active, display the sliding grey alert banner reading "Select image to flash to Pipedrive" and tint the background layout grid.
+- Image Collection Cards: Each card must cleanly display its baseline alphanumeric short identifier, the bold editable name label, stage counts, and a color-coded automated status indicator string. Include the hamburger options drop menu.
+
+4. OVERLAY FUNCTIONALITY & THE TWO-PASS AI STAGE MANIFEST
+- Deep-Inspection Overlay: Clicking any card reveals a full-viewport modal with two interactive panels: Tab 1 holds the raw structural JSON editor with a confirmation shield block. Tab 2 contains a plaintext markdown script viewport for reading or changing automation guide workflows.
+- AI Automation Builder Workspace: Launched via a global button in the header bar. 
+  * Pass 1: Select a base snapshot, render it inside the chat frame as a visual profile thumbnail node, display an integration checklist matrix (Slack, Trello, etc.), and ping our backend route to generate a clean preview outline detailing naming protocols and summaries.
+  * Pass 2: The operator confirms via a checkbox, firing the text packet back to generate a full step-by-step clicking instructions .txt manual for local caching or template binding.
+
+Return two separate, clearly delimited blocks of production code:
+- Block 1: The complete, updated Next.js entrypoint app/layout.tsx
+- Block 2: The entire standalone single-page application engine file app/page.tsx
