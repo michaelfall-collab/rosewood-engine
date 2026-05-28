@@ -1,32 +1,12 @@
-You are an expert Next.js and Tailwind CSS core developer. Your task is to completely refactor and consolidate the Rosewood Engine into a high-velocity, single-page application (SPA). 
+Identity & Context:
+You are the Lead Systems Engineer for the Rosewood Engine. Your task is to refactor 'app/page.tsx' to completely eliminate hardcoded dummy records and convert the dashboard into a live, real-time deployment and capture engine that interfaces with our Next.js API endpoints.
 
-You must read our current implementation state (including app/page.tsx, app/layout.tsx, types/blueprint.ts, and pipedrive_image_manager_poc.html) and output the exact production-ready replacement code for our files.
+Ecosystem Integrity Constraints:
+1. ZERO DUMMY ARRAYS: Remove the mock 'INITIAL_IMAGES' list completely. Initialize the 'images' state dynamically. On initial launch, if browser 'localStorage' is empty, populate the dashboard collection with a single structural seed image derived from the schema in 'data/blueprints/rosewood_internal.json'.
+2. LIVE OUTBOUND FLASHING (POST /api/deploy): Refactor the outbound flashing action. When an operator selects an image card and confirms the green "...to Pipedrive account" flash command, trigger an active asynchronous fetch request to our live API route '/api/deploy'. Pass an object containing { token: apiKey, template: activeImage }. Collect the resulting 'logs' array from the backend response block and map those real-time execution markers ('• Created...', '• Reusing...', '• Injected...') directly into the Activity Log console pane.
+3. LIVE INBOUND CAPTURE (POST /api/ingest): Refactor the red "...from Pipedrive to Rosewood Database" capture command. Execute a real asynchronous fetch request to our live endpoint '/api/ingest' sending { token: apiKey }. Capture the reverse-engineered blueprint payload returned by the endpoint. If the user chooses 'Create new file', prompt them for a custom string label name; if they choose 'Overwrite existing', swap out the active template card's contents with this new live architecture snapshot.
+4. TOTAL DATA PERSISTENCE: Ensure all inline renaming updates, custom field dictionary revisions, code tab JSON alterations, and AI-compiled automation instructions text manuals are committed immediately to state and synced with 'localStorage' so updates persist across page reloads.
+5. OPERATIONAL FEEDBACK LAYERS: Implement visual processing elements (e.g., animate loading rings inside buttons, disable command interfaces during ongoing network requests, provide clear alert trays for bad tokens or invalid API keys) to deliver a seamless production-ready operator utility tool.
 
-Follow these strict structural specifications:
-
-1. ELIMINATE THE SIDEBAR (app/layout.tsx)
-- Completely remove the sidebar, left nav panel, and grid layout from app/layout.tsx.
-- Make the main body layout a full-screen, clean responsive container with an optional global header.
-
-2. BUILD THE COMPREHENSIVE SPA DASHBOARD STATE MACHINE (app/page.tsx)
-Consolidate all layouts into a single file driven by these React state hooks:
-- flashMode: Track if we are in outbound deployment, inbound capture, or idle ('pipedrive' | 'rosewood' | '').
-- viewLayout: Toggle the image gallery shelf between 'grid' and 'list' view templates.
-- openModal: Handle full-screen overlays ('inspection' | 'ai_builder' | null).
-- activeImageId: Keep track of whichever stored snapshot template is currently focused.
-
-3. REPLICATE THE HIGH-VELOCITY INTERACTIVE POC INTERFACE
-Implement the styling and structure from pipedrive_image_manager_poc.html inside app/page.tsx using modern Tailwind CSS utilities:
-- Top Control Bar: An API key input styled like a URL browser bar, paired with the dual-action "Flash Image" split button containing the color-coded action loops (Green drop for outbound deployment, Red drop for inbound database capturing).
-- Context Action Banner: When flashMode is active, display the sliding grey alert banner reading "Select image to flash to Pipedrive" and tint the background layout grid.
-- Image Collection Cards: Each card must cleanly display its baseline alphanumeric short identifier, the bold editable name label, stage counts, and a color-coded automated status indicator string. Include the hamburger options drop menu.
-
-4. OVERLAY FUNCTIONALITY & THE TWO-PASS AI STAGE MANIFEST
-- Deep-Inspection Overlay: Clicking any card reveals a full-viewport modal with two interactive panels: Tab 1 holds the raw structural JSON editor with a confirmation shield block. Tab 2 contains a plaintext markdown script viewport for reading or changing automation guide workflows.
-- AI Automation Builder Workspace: Launched via a global button in the header bar. 
-  * Pass 1: Select a base snapshot, render it inside the chat frame as a visual profile thumbnail node, display an integration checklist matrix (Slack, Trello, etc.), and ping our backend route to generate a clean preview outline detailing naming protocols and summaries.
-  * Pass 2: The operator confirms via a checkbox, firing the text packet back to generate a full step-by-step clicking instructions .txt manual for local caching or template binding.
-
-Return two separate, clearly delimited blocks of production code:
-- Block 1: The complete, updated Next.js entrypoint app/layout.tsx
-- Block 2: The entire standalone single-page application engine file app/page.tsx
+Output Specification:
+Return only the complete, updated production code file for 'app/page.tsx'. Ensure all Tailwind styles and sub-modal frames match our favorite interactive layout choices. Include all type casting constraints.
