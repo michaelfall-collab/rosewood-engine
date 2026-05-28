@@ -181,7 +181,7 @@ export default function ImageCockpitDashboard() {
         owner: "Admin",
         deals: 0,
         pipelines: [{ name: "Inbound Capture Pipeline", order_nr: 1, deal_probability: true, stages: [] }]
-      } as any;
+      };
       setImages([newImg, ...images]);
       alert("✓ Captured system setup successfully committed into the Rosewood Vault.");
     } else {
@@ -289,7 +289,7 @@ export default function ImageCockpitDashboard() {
             </button>
             
             {openMenuId === "global_flash" && (
-              <div className="absolute right-0 top-9 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 min-w-[220px] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 top-9 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 min-width-[220px] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
                 <div 
                   onClick={() => { setFlashMode("pipedrive"); setOpenMenuId(null); }}
                   className="px-4 py-2.5 cursor-pointer text-xs flex items-center gap-2 bg-emerald-50/40 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border-b border-slate-100 dark:border-zinc-900"
@@ -383,9 +383,9 @@ export default function ImageCockpitDashboard() {
                         </button>
                         {openMenuId === img.id && (
                           <div className="absolute right-0 top-8 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg shadow-xl z-20 min-w-[130px] overflow-hidden">
-                            <button onClick={() => startRenameWorkflow(img.id, img.name)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-1.5 text-slate-700 dark:text-zinc-300"><i className="ti ti-pencil opacity-60" /> Rename</button>
-                            <button onClick={() => alert(`Exporting dynamic string node package trace payload file for ${img.name}`)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-1.5 text-slate-700 dark:text-zinc-300"><i className="ti ti-download opacity-60" /> Export</button>
-                            <button onClick={() => { setConfirmTargetId(img.id); setConfirmType("delete"); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-1.5 text-rose-600 dark:text-rose-400 border-t border-slate-100 dark:border-zinc-800"><i className="ti ti-trash opacity-60" /> Delete</button>
+                            <button onClick={() => startRenameWorkflow(img.id, img.name)} className="w-full text-left px-3 py-1.75 text-xs hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-1.5 text-slate-700 dark:text-zinc-300"><i className="ti ti-pencil opacity-60" /> Rename</button>
+                            <button onClick={() => alert(`Exporting dynamic string node package trace payload file for ${img.name}`)} className="w-full text-left px-3 py-1.75 text-xs hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-1.5 text-slate-700 dark:text-zinc-300"><i className="ti ti-download opacity-60" /> Export</button>
+                            <button onClick={() => { setConfirmTargetId(img.id); setConfirmType("delete"); }} className="w-full text-left px-3 py-1.75 text-xs hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-1.5 text-rose-600 dark:text-rose-400 border-t border-slate-100 dark:border-zinc-800"><i className="ti ti-trash opacity-60" /> Delete</button>
                           </div>
                         )}
                       </div>
@@ -480,7 +480,7 @@ export default function ImageCockpitDashboard() {
 
       {/* OVERLAY PANEL 1: DEEP-INSPECTION CONTROL MATRIX */}
       {detailId && activeDetailItem && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4 z-40 transition-all">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-40 transition-all">
           <div className="bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150">
             
             {/* Modal Navigation Block */}
@@ -809,7 +809,7 @@ export default function ImageCockpitDashboard() {
 
       {/* CONFIRMATION GATES ALERT DIALOG LAYOUT MODULES */}
       {confirmType && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-[1px] flex items-center justify-center p-4 z-50 animate-in fade-in duration-100">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-100">
           <div className="bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 w-full max-w-xs shadow-2xl animate-in zoom-in-95 duration-150">
             {confirmType === "flash" && (
               <div className="space-y-4">
