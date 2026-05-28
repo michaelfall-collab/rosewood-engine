@@ -1,147 +1,128 @@
+// app/api/deploy/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { CRMArchitectureBlueprint, PipelineSpec, PipelineStageSpec } from '@/types/blueprint';
+import { CRMArchitectureBlueprint } from '@/types/blueprint';
 
-const PIPEDRIVE_API_BASE = 'https://api.pipedrive.com';
-
-interface DeployRequestBody {
-  token: string;
-  template: CRMArchitectureBlueprint;
-}
-
-interface PipedrivePipeline {
-  id: number;
-  name: string;
-}
-
-interface PipedriveStage {
-  id: number;
-  name: string;
-  pipeline_id: number;
-}
-
-interface PipedriveAPIResponse<T> {
-  success: boolean;
-  data: T | null;
-  error?: string;
-}
+const API_BASE = 'https://api.pipedrive.com/v1';
 
 export async function POST(request: NextRequest) {
   try {
-    const body: DeployRequestBody = await request.json();
-    const { token, template } = body;
-
-    if (!token || !template) {
-      return NextResponse.json(
-        { error: 'Missing required fields: token and template' },
-        { status: 400 }
-      );
-    }
+    const { token, template }: { token: string; template: CRMArchitectureBlueprint } = await request.json();
+    if (!token || !template) return NextResponse.json({ error: 'Missing token or template' }, { status: 400 });
 
     const logs: string[] = [];
-    const deployedPipelines: { name: string; id: number; stages: { name: string; id: number }[] }[] = [];
+    const fieldKeyTranslationMap: Record<string, string> = {};
+    const auth = `?api_token=${token}`;
 
-    // 1. Before creating any new structures, perform a 'GET' request to fetch all existing pipelines and stages
-    const pipelinesRes = await fetch(`${PIPEDRIVE_API_BASE}/v1/pipelines?api_token=${token}`);
-    const pipelinesData: PipedriveAPIResponse<PipedrivePipeline[]> = await pipelinesRes.json();
-    const existingPipelines = pipelinesData.success ? (pipelinesData.data || []) : [];
+    const getExisting = async (endpoint: string) => {
+      const res = await fetch(`${API_BASE}/${endpoint}${auth}`);
+      const json = await res.json();
+      return json.success ? (json.data || []) : [];
+    };
 
-    const stagesRes = await fetch(`${PIPEDRIVE_API_BASE}/v1/stages?api_token=${token}`);
-    const stagesData: PipedriveAPIResponse<PipedriveStage[]> = await stagesRes.json();
-    const existingStages = stagesData.success ? (stagesData.data || []) : [];
+    // PASS 1: CUSTOM FIELDS
+    if (template.customFields) {
+      for (const fieldSpec of template.customFields) {
+        const endpoint = `${fieldSpec.field_type}Fields`;
+        const existing = await getExisting(endpoint);
+        const match = existing.find((f: any) => f.name === fieldSpec.name);
 
-    // 2. Loop through the incoming 'template.pipelines'
-    for (const pipelineSpec of template.pipelines) {
-      try {
-        let pipelineId: number;
-        
-        // Check if a pipeline with the exact same name already exists
-        const matchedPipeline = existingPipelines.find(p => p.name === pipelineSpec.name);
-
-        if (matchedPipeline) {
-          // If it matches by name, DO NOT create a new one. Reuse the existing pipeline's ID
-          pipelineId = matchedPipeline.id;
-          logs.push(`• Reusing: Pipeline "${pipelineSpec.name}" already exists (ID: ${pipelineId})`);
+        if (match) {
+          fieldKeyTranslationMap[fieldSpec.key] = match.key;
+          logs.push(`• Reusing Custom ${fieldSpec.field_type} Field: '${fieldSpec.name}' (Key: ${match.key})`);
         } else {
-          // If it does not exist, send a 'POST' to create it
-          const createPipelineRes = await fetch(`${PIPEDRIVE_API_BASE}/v1/pipelines?api_token=${token}`, {
+          const res = await fetch(`${API_BASE}/${endpoint}${auth}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              name: pipelineSpec.name,
-              order_nr: pipelineSpec.order_nr,
-            }),
+              name: fieldSpec.name,
+              field_type: fieldSpec.type,
+              options: fieldSpec.options
+            })
           });
-          const createPipelineData: PipedriveAPIResponse<PipedrivePipeline> = await createPipelineRes.json();
-
-          if (!createPipelineData.success || !createPipelineData.data) {
-            throw new Error(`Failed to create pipeline "${pipelineSpec.name}": ${createPipelineData.error || 'Unknown error'}`);
-          }
-
-          pipelineId = createPipelineData.data.id;
-          logs.push(`• Created: Pipeline "${pipelineSpec.name}" (ID: ${pipelineId})`);
-        }
-
-        const deployedStages: { name: string; id: number }[] = [];
-
-        // 3. Inside the stages loop for each pipeline
-        for (const stageSpec of pipelineSpec.stages) {
-          try {
-            // Check if a stage with the exact same name already exists specifically within that pipeline channel's ID
-            const matchedStage = existingStages.find(s => s.pipeline_id === pipelineId && s.name === stageSpec.name);
-
-            if (matchedStage) {
-              // If it exists in that pipeline, skip the creation step entirely
-              logs.push(`• Skipped: Stage "${stageSpec.name}" already exists in this pipeline`);
-              deployedStages.push({ name: stageSpec.name, id: matchedStage.id });
-            } else {
-              // If it is entirely unique, issue a 'POST /v1/stages' request
-              const createStageRes = await fetch(`${PIPEDRIVE_API_BASE}/v1/stages?api_token=${token}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  name: stageSpec.name,
-                  pipeline_id: pipelineId,
-                  order_nr: stageSpec.order_nr,
-                  deal_probability: stageSpec.deal_probability,
-                  rotten_flag: stageSpec.rotten_flag,
-                  rotten_days: stageSpec.rotten_days,
-                }),
-              });
-              const createStageData: PipedriveAPIResponse<PipedriveStage> = await createStageRes.json();
-
-              if (!createStageData.success || !createStageData.data) {
-                throw new Error(`Failed to create stage "${stageSpec.name}": ${createStageData.error || 'Unknown error'}`);
-              }
-
-              logs.push(`• Injected: Stage "${stageSpec.name}" into "${pipelineSpec.name}"`);
-              deployedStages.push({ name: stageSpec.name, id: createStageData.data.id });
-            }
-          } catch (stageError) {
-            logs.push(`✗ Error with stage "${stageSpec.name}": ${stageError instanceof Error ? stageError.message : String(stageError)}`);
+          const data = await res.json();
+          if (data.success) {
+            fieldKeyTranslationMap[fieldSpec.key] = data.data.key;
+            logs.push(`• Injected Custom ${fieldSpec.field_type} Field: '${fieldSpec.name}' (New Key: ${data.data.key})`);
+          } else {
+            logs.push(`✗ Failed Field: '${fieldSpec.name}' - ${data.error}`);
           }
         }
-
-        deployedPipelines.push({
-          name: pipelineSpec.name,
-          id: pipelineId,
-          stages: deployedStages,
-        });
-
-      } catch (pipelineError) {
-        logs.push(`✗ Error with pipeline "${pipelineSpec.name}": ${pipelineError instanceof Error ? pipelineError.message : String(pipelineError)}`);
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      logs,
-      data: deployedPipelines,
-    }, { status: 200 });
+    // PASS 2: PIPELINES & STAGES
+    const existingPipelines = await getExisting('pipelines');
+    const existingStages = await getExisting('stages');
 
-  } catch (error) {
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'An unexpected error occurred during deployment',
-    }, { status: 500 });
+    for (const pipeSpec of template.pipelines) {
+      let pipelineId: number;
+      const match = existingPipelines.find((p: any) => p.name === pipeSpec.name);
+
+      if (match) {
+        pipelineId = match.id;
+        logs.push(`• Reusing Pipeline: "${pipeSpec.name}" (ID: ${pipelineId})`);
+      } else {
+        const res = await fetch(`${API_BASE}/pipelines${auth}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: pipeSpec.name, order_nr: pipeSpec.order_nr })
+        });
+        const data = await res.json();
+        pipelineId = data.data.id;
+        logs.push(`• Created Pipeline: "${pipeSpec.name}" (ID: ${pipelineId})`);
+      }
+
+      for (const stageSpec of pipeSpec.stages) {
+        const stageMatch = existingStages.find((s: any) => s.pipeline_id === pipelineId && s.name === stageSpec.name);
+        if (stageMatch) {
+          logs.push(`  • Skipped Stage: "${stageSpec.name}" (Exists)`);
+        } else {
+          await fetch(`${API_BASE}/stages${auth}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...stageSpec,
+              pipeline_id: pipelineId
+            })
+          });
+          logs.push(`  • Injected Stage: "${stageSpec.name}"`);
+        }
+      }
+    }
+
+    // PASS 3: ACTIVITY TYPES
+    if (template.activityTypes) {
+      const existing = await getExisting('activityTypes');
+      for (const type of template.activityTypes) {
+        if (!existing.find((e: any) => e.name === type.name)) {
+          await fetch(`${API_BASE}/activityTypes${auth}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(type)
+          });
+          logs.push(`• Injected Activity Type: '${type.name}'`);
+        }
+      }
+    }
+
+    // PASS 4: LOST REASONS
+    if (template.lostReasons) {
+      const existing = await getExisting('lostReasons');
+      for (const reasonSpec of template.lostReasons) {
+        if (!existing.find((e: any) => e.label === reasonSpec.reason)) {
+          await fetch(`${API_BASE}/lostReasons${auth}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ label: reasonSpec.reason })
+          });
+          logs.push(`• Injected Lost Reason: '${reasonSpec.reason}'`);
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true, logs, fieldKeyTranslationMap });
+
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
