@@ -13,16 +13,13 @@ type LiveImage = CRMArchitectureBlueprint & {
   automationInstructions?: string;
 };
 
-interface DeployResponse {
-  success: boolean;
-  logs: string[];
-  error?: string;
-}
-
-interface IngestResponse {
-  success: boolean;
-  blueprint: CRMArchitectureBlueprint;
-  error?: string;
+interface ModalProps {
+  title: string;
+  message: string;
+  onConfirm?: (val?: string) => void;
+  onCancel: () => void;
+  type: "alert" | "prompt" | "confirm";
+  placeholder?: string;
 }
 
 const SYSTEM_SEED: LiveImage = {
@@ -49,10 +46,10 @@ const SYSTEM_SEED: LiveImage = {
 export default function ClientCockpitDashboard() {
   const [images, setImages] = useState<LiveImage[]>([]);
   const [apiKey, setApiKey] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
   const [flashMode, setFlashMode] = useState<"" | "pipedrive" | "rosewood">("");
   const [viewLayout, setViewLayout] = useState<"grid" | "list">("grid");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activityLogs, setActivityLogs] = useState<string[]>([]);
   
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -60,6 +57,9 @@ export default function ClientCockpitDashboard() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<"json" | "guide">("json");
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+
+  // Custom Modal State
+  const [uiModal, setUiModal] = useState<ModalProps | null>(null);
 
   useEffect(() => {
     const savedKey = localStorage.getItem("rw_api_token");
@@ -77,28 +77,71 @@ export default function ClientCockpitDashboard() {
     if (images.length > 0) localStorage.setItem("rw_vault_images", JSON.stringify(images));
   }, [apiKey, images]);
 
-  const isConnected = useMemo(() => apiKey.trim().length > 5, [apiKey]);
   const activeDetail = useMemo(() => images.find(i => i.id === detailId), [images, detailId]);
 
-  const handleInboundNew = async () => {
-    if (!isConnected) return alert("API Token Required");
-    const label = prompt("Enter a name for this Captured Image:");
-    if (!label) return;
+  const verifyConnection = async () => {
+    if (!apiKey || apiKey.length < 5) {
+      setUiModal({
+        type: "alert",
+        title: "Connection Error",
+        message: "Invalid API Token format. Please check your credential string.",
+        onCancel: () => setUiModal(null)
+      });
+      return;
+    }
 
     setIsProcessing(true);
     try {
-      const res = await fetch("/api/ingest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: apiKey })
-      });
-      const data: IngestResponse = await res.json();
-      if (data.success) {
-        setImages(prev => [{ ...data.blueprint, name: label, owner: "Live Ingest", deals: 0 }, ...prev]);
+      const res = await fetch(`https://api.pipedrive.com/v1/users/me?api_token=${apiKey}`);
+      const json = await res.json();
+      if (json && json.success) {
+        setIsVerified(true);
+        setCopyFeedback("✓ Connection Verified");
+        setTimeout(() => setCopyFeedback(null), 3000);
+      } else {
+        setIsVerified(false);
+        setUiModal({
+          type: "alert",
+          title: "Auth Rejected",
+          message: "The Pipedrive API rejected this handshake. Ensure the token is valid.",
+          onCancel: () => setUiModal(null)
+        });
       }
+    } catch (e) {
+      setIsVerified(false);
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleInboundNew = async () => {
+    if (!isVerified) return verifyConnection();
+    
+    setUiModal({
+      type: "prompt",
+      title: "Capture Archive",
+      message: "Enter a structural name for this Captured Image Snapshot:",
+      placeholder: "New Setup Map...",
+      onCancel: () => setUiModal(null),
+      onConfirm: async (label) => {
+        setUiModal(null);
+        if (!label) return;
+        setIsProcessing(true);
+        try {
+          const res = await fetch("/api/ingest", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: apiKey })
+          });
+          const data = await res.json();
+          if (data.success) {
+            setImages(prev => [{ ...data.blueprint, name: label, owner: "Live Ingest", deals: 0 }, ...prev]);
+          }
+        } finally {
+          setIsProcessing(false);
+        }
+      }
+    });
   };
 
   const handleCardClick = async (id: string) => {
@@ -106,31 +149,57 @@ export default function ClientCockpitDashboard() {
     const target = images.find(i => i.id === id);
     if (!target) return;
 
-    setIsProcessing(true);
-    setActivityLogs([]);
-    
-    const endpoint = flashMode === "pipedrive" ? "/api/deploy" : "/api/ingest";
-    const body = flashMode === "pipedrive" ? { token: apiKey, template: target } : { token: apiKey };
-
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+    if (!isVerified) {
+      setUiModal({
+        type: "alert",
+        title: "Matrix Locked",
+        message: "You must establish a secure handshake before performing data sync operations.",
+        onCancel: () => setUiModal(null)
       });
-      const data = await res.json();
-      if (data.success) {
-        if (flashMode === "rosewood") {
-          setImages(prev => prev.map(img => img.id === id ? { ...img, ...data.blueprint } : img));
-        }
-        setActivityLogs(data.logs || ["Operation successful"]);
-        setFlashMode("");
-      } else {
-        alert(`Error: ${data.error}`);
-      }
-    } finally {
-      setIsProcessing(false);
+      return;
     }
+
+    setUiModal({
+      type: "confirm",
+      title: flashMode === "pipedrive" ? "Flash Confirmation" : "Overwrite Confirmation",
+      message: flashMode === "pipedrive" 
+        ? `Are you sure you want to FLASH '${target.name}' to the live account? This will mutate production pipelines.`
+        : `Are you sure you want to OVERWRITE '${target.name}' with live data? Local logic will be lost.`,
+      onCancel: () => setUiModal(null),
+      onConfirm: async () => {
+        setUiModal(null);
+        setIsProcessing(true);
+        
+        const endpoint = flashMode === "pipedrive" ? "/api/deploy" : "/api/ingest";
+        const body = flashMode === "pipedrive" ? { token: apiKey, template: target } : { token: apiKey };
+
+        try {
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
+          const data = await res.json();
+          if (data.success) {
+            if (flashMode === "rosewood") {
+              setImages(prev => prev.map(img => img.id === id ? { ...img, ...data.blueprint } : img));
+            }
+            setCopyFeedback("✓ Sync Finished");
+            setTimeout(() => setCopyFeedback(null), 3000);
+            setFlashMode("");
+          } else {
+            setUiModal({
+              type: "alert",
+              title: "Operation Failed",
+              message: data.error || "An unknown error occurred.",
+              onCancel: () => setUiModal(null)
+            });
+          }
+        } finally {
+          setIsProcessing(false);
+        }
+      }
+    });
   };
 
   const copyToClipboard = (text: string) => {
@@ -139,16 +208,37 @@ export default function ClientCockpitDashboard() {
     setTimeout(() => setCopyFeedback(null), 3000);
   };
 
+  const deleteCard = (id: string) => {
+    setUiModal({
+      type: "confirm",
+      title: "Prune Card",
+      message: "Are you sure? This structural rewrite cannot be undone.",
+      onCancel: () => setUiModal(null),
+      onConfirm: () => {
+        setImages(prev => prev.filter(i => i.id !== id));
+        setOpenMenuId(null);
+        setUiModal(null);
+      }
+    });
+  };
+
+  const saveRename = (id: string) => {
+    if (renameValue.trim()) {
+      setImages(prev => prev.map(img => img.id === id ? { ...img, name: renameValue.trim() } : img));
+    }
+    setRenamingId(null);
+  };
+
   return (
-    <div className="flex-1 flex flex-col bg-[#F1F5F9] dark:bg-[#0F172A] text-slate-800 dark:text-zinc-200 font-sans">
+    <div className="flex-1 flex flex-col bg-[#F1F5F9] dark:bg-[#0F172A] text-slate-800 dark:text-zinc-200 font-sans selection:bg-[#004850]/20">
       
       {/* 1. UTILITY HEADER BAR */}
-      <header className="h-14 flex items-center justify-between px-6 border-b border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1E293B] sticky top-0 z-[40]">
-        <div className="flex items-center gap-3">
-          <div className="h-7 w-7 bg-[#004850] rounded-sm flex items-center justify-center">
-            <i className="ti ti-database text-white text-md" />
+      <header className="h-14 flex items-center justify-between px-6 border-b border-slate-300 dark:border-slate-800 bg-[#FFFFFF] dark:bg-[#1E293B] sticky top-0 z-[40] transition-all">
+        <div className="flex items-center gap-4">
+          <div className="h-8 w-8 bg-[#004850] rounded flex items-center justify-center shadow-md">
+            <i className="ti ti-database text-white text-lg" />
           </div>
-          <span className="text-sm font-bold tracking-tight uppercase">Rosewood Engine</span>
+          <span className="text-sm font-bold tracking-tight uppercase">Rosewood Image Manager</span>
         </div>
 
         <div className="flex items-center gap-4 flex-1 max-w-xl px-8">
@@ -158,22 +248,24 @@ export default function ClientCockpitDashboard() {
               type="password"
               placeholder="API Token..."
               value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              onChange={(e) => { setApiKey(e.target.value); setIsVerified(false); }}
               disabled={isProcessing}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-sm py-1 pl-8 pr-4 text-xs font-mono focus:outline-none focus:border-[#004850]"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded py-1.5 pl-9 pr-4 text-xs font-mono focus:outline-none focus:border-[#004850] transition-all"
             />
           </div>
 
           <button 
-            onClick={() => isConnected && setApiKey("")}
-            className={`flex items-center gap-2 px-3 py-1 rounded-sm border transition-all ${
-              isConnected 
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 cursor-pointer active:scale-95' 
-                : 'bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 cursor-default'
+            onClick={() => isVerified ? setIsVerified(false) : verifyConnection()}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded border transition-all active:scale-95 ${
+              isVerified 
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 cursor-pointer hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-600' 
+                : 'bg-[#004850] border-[#004850] text-white cursor-pointer hover:bg-[#003840]'
             }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-            <span className="text-[10px] font-bold uppercase">{isConnected ? "Connected" : "Disconnected"}</span>
+            <span className={`h-1.5 w-1.5 rounded-full ${isVerified ? 'bg-emerald-500 animate-pulse' : 'bg-slate-100'}`} />
+            <span className="text-[10px] font-bold uppercase">
+              {isVerified ? "Connected" : "Connect"}
+            </span>
           </button>
         </div>
 
@@ -181,17 +273,23 @@ export default function ClientCockpitDashboard() {
           <button 
             onClick={() => setOpenMenuId(openMenuId === 'global' ? null : 'global')}
             disabled={isProcessing}
-            className="px-4 py-1.5 bg-[#004850] text-white rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-[#00383e] active:scale-95 transition-all"
+            className="px-4 py-2 bg-[#004850] text-white rounded text-[11px] font-bold flex items-center gap-2 hover:bg-[#003840] active:scale-95 transition-all shadow-sm"
           >
-            Sync Matrix <i className="ti ti-chevron-down ml-1" />
+            Sync Matrix <i className="ti ti-chevron-down" />
           </button>
           {openMenuId === 'global' && (
-            <div className="absolute right-0 top-10 w-56 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-sm shadow-xl z-[50]">
-              <div className="p-1 flex flex-col gap-0.5">
-                <button onClick={() => { setFlashMode('pipedrive'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-700 text-emerald-600 flex items-center gap-2"><i className="ti ti-bolt" /> Flash to Pipedrive</button>
+            <div className="absolute right-0 top-11 w-60 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded shadow-xl overflow-hidden z-[50]">
+              <div className="p-1 flex flex-col">
+                <button onClick={() => { setFlashMode('pipedrive'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 text-emerald-600 font-bold">
+                  <i className="ti ti-bolt" /> Flash to Pipedrive
+                </button>
                 <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
-                <button onClick={() => { handleInboundNew(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"><i className="ti ti-database-import" /> Capture New</button>
-                <button onClick={() => { setFlashMode('rosewood'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-700 text-rose-600 flex items-center gap-2"><i className="ti ti-replace" /> Overwrite Existing</button>
+                <button onClick={() => { handleInboundNew(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
+                  <i className="ti ti-database-import" /> Capture New Card
+                </button>
+                <button onClick={() => { setFlashMode('rosewood'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 text-rose-600 font-bold">
+                  <i className="ti ti-replace" /> Overwrite Existing
+                </button>
               </div>
             </div>
           )}
@@ -200,54 +298,91 @@ export default function ClientCockpitDashboard() {
 
       {/* 2. CONTEXTUAL BANNERS */}
       {flashMode && (
-        <div className={`px-6 py-2 flex items-center justify-between border-b animate-in slide-in-from-top duration-200 ${flashMode === 'pipedrive' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-rose-700 border-rose-800 text-white'}`}>
+        <div className={`px-6 py-2 flex items-center justify-between border-b animate-in slide-in-from-top duration-300 ${flashMode === 'pipedrive' ? 'bg-[#334155] border-slate-700 text-white' : 'bg-[#EF4444] border-rose-700 text-white'}`}>
           <div className="flex items-center gap-3">
             <i className={`ti ${flashMode === 'pipedrive' ? 'ti-bolt' : 'ti-refresh'} text-md animate-pulse`} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">
-              {flashMode === 'pipedrive' ? 'Select card to Flash to Pipedrive account framework' : 'Select card to Overwrite with live Pipedrive data'}
+            <span className="text-[11px] font-bold uppercase tracking-tight">
+              {flashMode === 'pipedrive' ? 'Select an image card below to flash to Pipedrive account framework' : 'Select an existing template card to overwrite with live data from Pipedrive'}
             </span>
           </div>
-          <button onClick={() => setFlashMode("")} className="text-[10px] font-black uppercase px-2 py-0.5 bg-black/20 hover:bg-black/40 rounded-sm">Abort</button>
+          <button onClick={() => setFlashMode("")} className="text-[10px] font-black uppercase px-2 py-1 bg-black/20 hover:bg-black/30 rounded">Abort</button>
         </div>
       )}
 
       {/* 3. MAIN GALLERY SHELF */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="h-10 px-6 border-b border-slate-300 dark:border-slate-700 flex items-center justify-between bg-white dark:bg-[#1E293B]">
-          <div className="flex items-center gap-1">
-            <button onClick={() => setViewLayout("grid")} className={`px-3 py-1 rounded-sm text-[9px] font-bold uppercase tracking-widest transition-all ${viewLayout === 'grid' ? 'bg-[#004850] text-white' : 'text-slate-400 hover:text-slate-600'}`}>Grid</button>
-            <button onClick={() => setViewLayout("list")} className={`px-3 py-1 rounded-sm text-[9px] font-bold uppercase tracking-widest transition-all ${viewLayout === 'list' ? 'bg-[#004850] text-white' : 'text-slate-400 hover:text-slate-600'}`}>List</button>
+      <main className="flex-1 overflow-y-auto">
+        <div className="h-12 px-6 border-b border-slate-300 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded border border-slate-200 dark:border-slate-700">
+            <button 
+              onClick={() => setViewLayout("grid")}
+              className={`px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-2 transition-all ${viewLayout === 'grid' ? 'bg-white dark:bg-slate-700 shadow-sm text-[#004850]' : 'text-slate-500'}`}
+            >
+              <i className="ti ti-layout-grid" /> Grid
+            </button>
+            <button 
+              onClick={() => setViewLayout("list")}
+              className={`px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-2 transition-all ${viewLayout === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-[#004850]' : 'text-slate-500'}`}
+            >
+              <i className="ti ti-list" /> List
+            </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className={viewLayout === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "flex flex-col gap-1"}>
-            {images.map((img) => (
+        <div className="p-6">
+          <div className={viewLayout === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-2"}>
+            {(images || []).map((img) => (
               <div 
                 key={img.id}
                 onClick={() => handleCardClick(img.id)}
-                className={`relative group border p-4 cursor-pointer transition-all rounded-sm ${
-                  flashMode ? 'hover:scale-[1.01]' : 'hover:border-[#004850]'
-                } ${viewLayout === 'grid' ? 'h-40 flex flex-col justify-between' : 'flex items-center gap-6 py-2 px-4'} ${
-                  flashMode === 'pipedrive' ? 'border-emerald-500 bg-emerald-500/5' : flashMode === 'rosewood' ? 'border-rose-500 bg-rose-500/5' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800'
-                }`}
+                className={`relative group border p-4 cursor-pointer transition-all duration-200 rounded
+                  ${viewLayout === 'grid' ? 'h-44 flex flex-col justify-between' : 'flex items-center gap-6 py-2 px-4'}
+                  ${flashMode === 'pipedrive' ? 'border-emerald-500 bg-emerald-50/20 shadow-md ring-1 ring-emerald-500' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-[#004850] hover:shadow-sm'}
+                  ${flashMode === 'rosewood' ? 'border-rose-500 bg-rose-50/20 shadow-md ring-1 ring-rose-500' : ''}
+                `}
               >
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-xs font-bold truncate uppercase text-slate-900 dark:text-slate-100">{img.name}</h3>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5 tracking-tight">
-                    {img.pipelines[0]?.stages.length || 0} Stages &bull; {img.deals} Deals
+                <div className="flex-1 min-w-0">
+                  {renamingId === img.id ? (
+                    <input 
+                      autoFocus
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onBlur={() => saveRename(img.id)}
+                      onKeyDown={(e) => e.key === 'Enter' && saveRename(img.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full bg-slate-50 dark:bg-zinc-900 border border-[#004850] rounded px-1 font-bold outline-none text-sm"
+                    />
+                  ) : (
+                    <h3 className="text-sm font-bold truncate tracking-tight text-slate-900 dark:text-slate-100 uppercase">
+                      {img.name}
+                    </h3>
+                  )}
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-tight mt-0.5">
+                    {(img.pipelines?.[0]?.stages || []).length} Stages &bull; {img.deals} Deals
                   </p>
                 </div>
+
                 <div className="flex items-center justify-between mt-4">
-                  <div className={`px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest ${img.automationInstructions ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
-                    {img.automationInstructions ? "◆ Automated" : "Standard"}
+                  <div className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight flex items-center gap-1 ${
+                    img.automationInstructions ? 'bg-emerald-100 text-emerald-700 dark:bg-[#004850]/20 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
+                  }`}>
+                    {img.automationInstructions ? "◆ automated" : "no automation"}
                   </div>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(img.id); }}
-                    className="h-6 w-6 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 flex items-center justify-center"
-                  >
-                    <i className="ti ti-dots-vertical" />
-                  </button>
+                  
+                  <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <button 
+                      onClick={() => setOpenMenuId(openMenuId === img.id ? null : img.id)}
+                      className="h-7 w-7 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 flex items-center justify-center transition-colors"
+                    >
+                      <i className="ti ti-dots" />
+                    </button>
+                    {openMenuId === img.id && (
+                      <div className="absolute right-0 bottom-8 w-32 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded shadow-xl z-[50] p-1 flex flex-col">
+                        <button onClick={() => { setRenamingId(img.id); setRenameValue(img.name); setOpenMenuId(null); }} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"><i className="ti ti-pencil" /> Rename</button>
+                        <button onClick={() => { copyToClipboard(JSON.stringify(img, null, 2)); setOpenMenuId(null); }} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"><i className="ti ti-download" /> Export</button>
+                        <button onClick={() => deleteCard(img.id)} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-rose-50 dark:hover:bg-rose-900/30 text-rose-600 font-bold border-t border-slate-200 dark:border-slate-700 mt-1 flex items-center gap-2"><i className="ti ti-trash" /> Delete</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -257,47 +392,106 @@ export default function ClientCockpitDashboard() {
 
       {/* 4. EXPANSIVE INSPECTION MODAL */}
       {detailId && activeDetail && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-sm w-full max-w-5xl h-[85vh] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950">
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#004850]">{activeDetail.name} // System Inspector</span>
-              <button onClick={() => setDetailId(null)} className="h-8 w-8 text-slate-400 hover:text-slate-600"><i className="ti ti-x text-lg" /></button>
-            </div>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-8 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded w-full max-w-5xl h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
             
-            <div className="flex px-6 border-b border-slate-200 dark:border-slate-800">
-              {["json", "guide"].map(t => (
-                <button key={t} onClick={() => setDetailTab(t as any)} className={`px-6 py-4 text-[10px] font-bold uppercase tracking-[0.1em] border-b-2 transition-all ${detailTab === t ? 'border-[#004850] text-[#004850]' : 'border-transparent text-slate-400'}`}>
-                  {t === 'json' ? "API JSON Schema" : "Automation Guide"}
-                </button>
-              ))}
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 rounded bg-[#004850] flex items-center justify-center text-white">
+                  <i className="ti ti-code" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold tracking-tight uppercase">{activeDetail.name}</h2>
+                  <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">{activeDetail.version}</p>
+                </div>
+              </div>
+              <button onClick={() => setDetailId(null)} className="h-8 w-8 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center text-slate-400">
+                <i className="ti ti-x text-lg" />
+              </button>
             </div>
 
-            <div className="flex-1 p-6 overflow-hidden flex flex-col relative">
+            <div className="flex px-8 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <button 
+                onClick={() => setDetailTab("json")}
+                className={`px-6 py-4 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-all ${detailTab === 'json' ? 'border-[#004850] text-[#004850] dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+              >
+                API JSON Logic
+              </button>
+              <button 
+                onClick={() => setDetailTab("guide")}
+                className={`px-6 py-4 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-all ${detailTab === 'guide' ? 'border-[#004850] text-[#004850] dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+              >
+                Automation Guide
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-hidden flex flex-col relative p-6">
               <div className="flex justify-end mb-4">
                 <button 
                   onClick={() => copyToClipboard(detailTab === 'json' ? JSON.stringify(activeDetail, null, 2) : activeDetail.automationInstructions || "")}
-                  className="px-3 py-1 bg-[#004850] text-white rounded-sm text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-all"
+                  className="px-3 py-1.5 bg-[#004850] text-white rounded text-[10px] font-bold uppercase tracking-tight shadow hover:bg-[#003840] transition-all flex items-center gap-2"
                 >
-                  <i className="ti ti-copy mr-1" /> Copy to Clipboard
+                  <i className="ti ti-copy" /> Copy to Clipboard
                 </button>
               </div>
-              <div className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 overflow-y-auto rounded-sm font-mono text-[11px] leading-normal text-slate-700 dark:text-emerald-400/80">
+              <div className="flex-1 rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-6 overflow-y-auto font-mono text-[11px] text-slate-700 dark:text-emerald-400/90 leading-normal">
                 <pre className="whitespace-pre-wrap">{detailTab === 'json' ? JSON.stringify(activeDetail, null, 2) : activeDetail.automationInstructions || "No instructions provided."}</pre>
               </div>
-              {copyFeedback && (
-                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 px-4 py-2 bg-[#004850] text-white rounded-sm text-[10px] font-bold uppercase tracking-widest shadow-2xl animate-in slide-in-from-bottom-2 duration-300">
-                  {copyFeedback}
-                </div>
-              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* 5. PROCESSING OVERLAY */}
+      {/* 5. CUSTOM UI MODALS (Prompt/Alert/Confirm) */}
+      {uiModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded w-full max-w-sm shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+            <h3 className="font-bold uppercase text-xs tracking-widest text-[#004850]">{uiModal.title}</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">{uiModal.message}</p>
+            {uiModal.type === "prompt" && (
+              <input 
+                id="modal-input"
+                autoFocus
+                placeholder={uiModal.placeholder}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded py-2 px-3 text-sm focus:outline-none focus:border-[#004850]"
+              />
+            )}
+            <div className="flex justify-end gap-2 mt-2">
+              {(uiModal.type === "confirm" || uiModal.type === "prompt") && (
+                <button onClick={uiModal.onCancel} className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded text-[10px] font-bold uppercase hover:bg-slate-50 transition-all">Cancel</button>
+              )}
+              <button 
+                onClick={() => {
+                  if (uiModal.type === "prompt") {
+                    const val = (document.getElementById("modal-input") as HTMLInputElement).value;
+                    uiModal.onConfirm?.(val);
+                  } else if (uiModal.onConfirm) {
+                    uiModal.onConfirm();
+                  } else {
+                    uiModal.onCancel();
+                  }
+                }}
+                className="px-4 py-2 bg-[#004850] text-white rounded text-[10px] font-bold uppercase hover:bg-[#003840] transition-all"
+              >
+                {uiModal.type === "alert" ? "OK" : "Proceed"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. CLIPBOARD FEEDBACK */}
+      {copyFeedback && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-900 text-white rounded shadow-2xl z-[400] flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 border border-slate-700">
+          <i className="ti ti-check text-emerald-400 text-lg" />
+          <span className="text-xs font-bold uppercase tracking-widest">{copyFeedback}</span>
+        </div>
+      )}
+
+      {/* 7. PROCESSING SPINNER */}
       {isProcessing && (
-        <div className="fixed inset-0 z-[200] bg-slate-900/40 backdrop-blur-[1px] flex items-center justify-center cursor-wait">
-          <div className="h-10 w-10 border-[3px] border-[#004850]/20 border-t-[#004850] rounded-full animate-spin" />
+        <div className="fixed inset-0 z-[500] bg-slate-900/20 backdrop-blur-[1px] flex items-center justify-center cursor-wait">
+          <div className="h-10 w-10 border-4 border-[#004850]/20 border-t-[#004850] rounded-full animate-spin shadow-lg" />
         </div>
       )}
 
