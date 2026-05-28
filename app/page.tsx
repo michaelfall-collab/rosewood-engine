@@ -66,7 +66,6 @@ export default function ClientCockpitDashboard() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<"json" | "guide">("json");
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
-  const [isJsonLocked, setIsJsonJsonLocked] = useState(true);
 
   // --- PERSISTENCE HOOKS ---
   useEffect(() => {
@@ -339,7 +338,6 @@ export default function ClientCockpitDashboard() {
             }>
               {images.map((img) => {
                 const hasAuto = !!img.automationInstructions;
-                const shortId = img.id.slice(-6).toUpperCase();
                 const isRenaming = renamingId === img.id;
                 
                 return (
@@ -354,12 +352,6 @@ export default function ClientCockpitDashboard() {
                     `}
                   >
                     <div className={viewLayout === 'grid' ? "flex flex-col gap-4" : "flex items-center gap-6 flex-1"}>
-                      
-                      {/* Pipeline Badge */}
-                      <div className="h-10 w-10 shrink-0 bg-emerald-500/10 text-emerald-600 rounded-2xl flex items-center justify-center font-black text-[10px] font-mono border border-emerald-500/10">
-                        {shortId}
-                      </div>
-
                       <div className="flex-1 min-w-0">
                         {isRenaming ? (
                           <input 
@@ -456,7 +448,7 @@ export default function ClientCockpitDashboard() {
                   <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">{activeDetail.id} &bull; {activeDetail.version}</p>
                 </div>
               </div>
-              <button onClick={() => { setDetailId(null); setIsJsonJsonLocked(true); }} className="h-10 w-10 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center">
+              <button onClick={() => setDetailId(null)} className="h-10 w-10 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-900 transition-colors flex items-center justify-center">
                 <i className="ti ti-x text-xl" />
               </button>
             </div>
@@ -492,16 +484,6 @@ export default function ClientCockpitDashboard() {
                     </button>
                   </div>
                   <div className="flex-1 rounded-3xl bg-slate-950 p-6 overflow-y-auto font-mono text-[11px] text-emerald-400/80 leading-relaxed border border-white/5 relative group">
-                    {isJsonLocked && (
-                      <div className="absolute inset-0 z-10 bg-slate-900/60 backdrop-blur-md flex items-center justify-center">
-                        <div className="text-center p-8 bg-slate-900 border border-white/10 rounded-[2rem] shadow-2xl max-w-xs">
-                          <i className="ti ti-shield-check text-4xl text-emerald-500 block mb-4" />
-                          <h4 className="text-white text-sm font-bold mb-2 uppercase tracking-tight">Security Shield Active</h4>
-                          <p className="text-[10px] text-slate-400 leading-normal mb-6">Modify raw API schema logic carefully to maintain cross-account synchronization.</p>
-                          <button onClick={() => setIsJsonJsonLocked(false)} className="w-full py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-600/20">Yes, Unlock Schema</button>
-                        </div>
-                      </div>
-                    )}
                     <pre>{JSON.stringify(activeDetail, null, 2)}</pre>
                   </div>
                 </div>
