@@ -66,11 +66,14 @@ export default function ClientCockpitDashboard() {
 
   // Automation Builder States
   const [abOpen, setAbOpen] = useState(false);
-  const [abStep, setAbStep] = useState<'select' | 'chat' | 'building' | 'preview'>('select');
+  const [abStep, setAbStep] = useState<'select' | 'chat' | 'integrations' | 'building' | 'preview'>('select');
   const [abSelectedImageId, setAbSelectedImageId] = useState<string | null>(null);
   const [abSelectedIntegrations, setAbSelectedIntegrations] = useState<string[]>([]);
   const [abChatHistory, setAbChatHistory] = useState<{ sender: "user" | "ai"; text: string; dataWidget?: any }[]>([]);
   const [abPromptViewOpen, setAbPromptViewOpen] = useState(false);
+  const [abRoles, setAbRoles] = useState<{ label: string; seats: number }[]>([]);
+  const [tempRoleLabel, setTempRoleLabel] = useState("");
+  const [tempRoleSeats, setTempRoleSeats] = useState(1);
 
   const compileRawModelPromptManifest = (targetImage: any) => {
     return generateRunbookPrompt(targetImage, abSelectedIntegrations);
@@ -663,9 +666,9 @@ export default function ClientCockpitDashboard() {
 
       {/* AUTOMATION BUILDER MODAL */}
       {abOpen && (
-        <div className="fixed inset-0 bg-white dark:bg-slate-950 z-[250] flex flex-col font-sans overflow-hidden animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-white dark:bg-slate-950 z-[250] flex flex-col font-sans overflow-hidden animate-in fade-in duration-200 rounded-3xl bg-slate-50/70 dark:bg-zinc-950/50 backdrop-blur-xl border border-white/10 shadow-2xl h-[85vh] w-full max-w-4xl m-auto">
           {/* Header */}
-          <div className="h-14 flex items-center justify-between px-6 border-b border-slate-300 dark:border-slate-800 bg-[#FFFFFF] dark:bg-[#1E293B] sticky top-0 z-[10]">
+          <div className="h-14 flex items-center justify-between px-6 border-b border-zinc-800/80">
             <span className="text-xs font-bold uppercase tracking-tight">▲ AUTOMATION RUNBOOK BUILDER</span>
             <button
               onClick={() => {
@@ -682,18 +685,18 @@ export default function ClientCockpitDashboard() {
           </div>
 
           {/* Unified Chat Timeline Stream */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
             <div className="max-w-3xl mx-auto w-full space-y-6">
               {/* History Messages */}
               {abChatHistory.map((msg, i) => (
                 <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.sender === 'ai' ? (
-                    <div className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-zinc-100 p-4 rounded-tr-xl rounded-br-xl rounded-bl-xl max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
-                      <span className="font-bold text-lg">◆</span>
+                    <div className="bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm border border-zinc-700/50">
+                      <span className="font-bold text-lg text-emerald-500">◆</span>
                       <div>{msg.text}</div>
                     </div>
                   ) : (
-                    <div className="bg-[#004850] text-white p-4 rounded-tl-xl rounded-br-xl rounded-bl-xl max-w-[75%] ml-auto text-xs font-medium border border-[#003840] shadow-sm text-left active:scale-95 transition-transform">
+                    <div className="bg-gradient-to-r from-[#004850] to-[#006670] text-white p-4 rounded-2xl rounded-tr-none max-w-[75%] ml-auto text-xs font-medium shadow-sm text-left">
                       {msg.text}
                     </div>
                   )}
@@ -702,10 +705,10 @@ export default function ClientCockpitDashboard() {
 
               {/* Progressive Inline Widgets */}
               {abStep === 'select' && (
-                <div className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-zinc-100 p-4 rounded-tr-xl rounded-br-xl rounded-bl-xl max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
-                  <span className="font-bold text-lg">◆</span>
+                <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
+                  <span className="font-bold text-lg text-emerald-500">◆</span>
                   <div className="space-y-4 w-full">
-                    <p>Select a blueprint to begin the automation assembly.</p>
+                    <p>◆ Let's customize your native automation runbook layout. First, select an active configuration blueprint card to analyze.</p>
                     <div className="grid grid-cols-2 gap-2">
                         {images.map(img => (
                         <button
@@ -713,10 +716,10 @@ export default function ClientCockpitDashboard() {
                             disabled={isProcessing}
                             onClick={() => {
                                 setAbSelectedImageId(img.id);
-                                setAbChatHistory(prev => [...prev, { sender: "ai", text: `Selected blueprint: ${img.name}.` }, { sender: "user", text: `Analyze blueprint: ${img.name}` }]);
+                                setAbChatHistory(prev => [...prev, { sender: "ai", text: `◆ Let's customize your native automation runbook layout. First, select an active configuration blueprint card to analyze.` }, { sender: "user", text: `Analyze blueprint: ${img.name}` }]);
                                 setAbStep('chat');
                             }}
-                            className="p-3 border border-slate-300 dark:border-slate-700 rounded-sm hover:bg-white dark:hover:bg-slate-700 text-xs font-bold uppercase tracking-wider text-left active:scale-95 transition-transform"
+                            className="p-3 border border-zinc-700 rounded-sm hover:bg-white dark:hover:bg-zinc-700 text-xs font-bold uppercase tracking-wider text-left active:scale-[0.99] transition-all duration-300"
                         >
                             {img.name}
                         </button>
@@ -725,19 +728,51 @@ export default function ClientCockpitDashboard() {
                   </div>
                 </div>
               )}
-
+              
+              {/* NEW NODE: Team Registry */}
               {abStep === 'chat' && (
-                <div className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-zinc-100 p-4 rounded-tr-xl rounded-br-xl rounded-bl-xl max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
-                    <span className="font-bold text-lg">◆</span>
+                <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
+                  <span className="font-bold text-lg text-emerald-500">◆</span>
+                  <div className="space-y-4 w-full">
+                    <p>◆ Who will be using this CRM workspace? Let's build your team registry and assign seat counts.</p>
+                    <div className="flex gap-2">
+                        <input value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} placeholder="Role Name" className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-700 rounded p-2 text-xs" />
+                        <input type="number" value={tempRoleSeats} onChange={e => setTempRoleSeats(parseInt(e.target.value) || 0)} className="w-16 bg-white dark:bg-zinc-900 border border-zinc-700 rounded p-2 text-xs" />
+                        <button onClick={() => {
+                            if (!tempRoleLabel) return;
+                            setAbRoles(prev => [...prev, { label: tempRoleLabel, seats: tempRoleSeats }]);
+                            setTempRoleLabel("");
+                            setTempRoleSeats(1);
+                        }} className="bg-[#004850] text-white px-4 py-2 rounded text-xs font-bold hover:scale-[1.01] active:scale-[0.99] transition-all">Add Role</button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {abRoles.map((role, i) => (
+                            <span key={i} className="bg-slate-200 dark:bg-zinc-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
+                                {role.label} ({role.seats})
+                                <button onClick={() => setAbRoles(prev => prev.filter((_, idx) => idx !== i))}><i className="ti ti-x" /></button>
+                            </span>
+                        ))}
+                    </div>
+                    <button onClick={() => {
+                        setAbChatHistory(prev => [...prev, { sender: "ai", text: `◆ Understood. Which integration channels should be natively provisioned into this guide?` }]);
+                        setAbStep('integrations');
+                    }} className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all">Confirm Team Registry</button>
+                  </div>
+                </div>
+              )}
+
+              {/* NODE: Integrations */}
+              {abStep === 'integrations' && (
+                <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
+                    <span className="font-bold text-lg text-emerald-500">◆</span>
                     <div className="space-y-4 w-full">
-                        <p>Select environment targets for this automation.</p>
+                        <p>◆ Understood. Which integration channels should be natively provisioned into this guide?</p>
                         <div className="space-y-1">
-                        {['Slack', 'Microsoft Teams', 'Asana', 'Trello', 'Webhooks', 'Campaigns by Pipedrive', 'Projects by Pipedrive'].map(int => (
+                        {['Slack', 'Trello', 'Webhooks'].map(int => (
                             <button
                             key={int}
                             onClick={() => setAbSelectedIntegrations(prev => prev.includes(int) ? prev.filter(i => i !== int) : [...prev, int])}
-                            className={`w-full p-2 border rounded-sm flex items-center gap-2 text-xs font-bold active:scale-95 transition-transform ${abSelectedIntegrations.includes(int) ? 'bg-[#004850]/10 border-[#004850] text-[#004850]' : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700'}`}
-                            disabled={isProcessing}
+                            className={`w-full p-2 border rounded-sm flex items-center gap-2 text-xs font-bold active:scale-[0.99] transition-all ${abSelectedIntegrations.includes(int) ? 'bg-[#004850]/10 border-[#004850] text-[#004850]' : 'bg-white dark:bg-zinc-900 border-zinc-700'}`}
                             >
                             <i className={`ti ${abSelectedIntegrations.includes(int) ? 'ti-checkbox' : 'ti-square'}`} />
                             {int}
@@ -745,12 +780,12 @@ export default function ClientCockpitDashboard() {
                         ))}
                         </div>
                         <button
-                            disabled={isProcessing || abSelectedIntegrations.length === 0}
+                            disabled={isProcessing}
                             onClick={() => {
-                                setAbChatHistory(prev => [...prev, { sender: "user", text: `Channels requested: ${abSelectedIntegrations.join(", ")}`}]);
+                                setAbChatHistory(prev => [...prev, { sender: "user", text: `Integrations: ${abSelectedIntegrations.join(", ")}`}]);
                                 compilePromptManifest();
                             }}
-                            className="w-full bg-[#004850] text-white py-2 rounded-sm text-xs font-bold uppercase hover:bg-[#003840] active:scale-95 transition-transform disabled:opacity-50"
+                            className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all"
                         >
                             COMPILE PROMPT MANIFEST
                         </button>
@@ -759,8 +794,8 @@ export default function ClientCockpitDashboard() {
               )}
 
               {abStep === 'building' && (
-                <div className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-zinc-100 p-4 rounded-tr-xl rounded-br-xl rounded-bl-xl max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm items-center">
-                    <span className="font-bold text-lg">◆</span>
+                <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
+                    <span className="font-bold text-lg text-emerald-500">◆</span>
                     <div className="flex items-center gap-2">
                         <div className="h-4 w-4 border-2 border-[#004850]/20 border-t-[#004850] rounded-full animate-spin" />
                         <span className="font-bold">◆ Compiling schema matrix... Organizing context parameters into recipe manifest block.</span>
@@ -769,33 +804,19 @@ export default function ClientCockpitDashboard() {
               )}
 
               {abStep === 'preview' && (
-                <div className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-zinc-100 p-4 rounded-tr-xl rounded-br-xl rounded-bl-xl max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
-                    <span className="font-bold text-lg">◆</span>
+                <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
+                    <span className="font-bold text-lg text-emerald-500">◆</span>
                     <div className="w-full space-y-4">
+                        <p>◆ Your native automation guidelines have been successfully generated. Review the raw model prompt manifest below.</p>
+                        <pre className="font-mono text-[11px] bg-[#0A0F1D] text-emerald-400/90 p-4 rounded-xl border border-zinc-800/80 shadow-inner overflow-x-auto whitespace-pre-wrap">{compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId))}</pre>
+                        
                         <div className="flex gap-2">
                             <button
-                                onClick={() => setAbPromptViewOpen(!abPromptViewOpen)}
-                                className="flex-1 flex items-center justify-between p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-[10px] font-bold uppercase tracking-widest text-[#004850] hover:bg-slate-50 rounded-sm active:scale-95 transition-transform"
-                            >
-                                AUDIT END-TO-END RAW AI MODEL PROMPT <i className={`ti ${abPromptViewOpen ? 'ti-chevron-up' : 'ti-chevron-down'}`} />
-                            </button>
-                            <button
                                 onClick={() => copyToClipboard(compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId)))}
-                                className="flex items-center gap-2 px-4 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-[10px] font-bold uppercase tracking-wider text-[#004850] hover:bg-slate-50 rounded-sm active:scale-95 transition-transform"
+                                className="flex-1 flex items-center justify-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-zinc-700 text-[10px] font-bold uppercase tracking-wider text-[#004850] hover:scale-[1.01] active:scale-[0.99] transition-all rounded"
                             >
                                 <i className="ti ti-copy" /> COPY RAW MANIFEST
                             </button>
-                        </div>
-                        {abPromptViewOpen && (
-                            <pre className="w-full min-h-[250px] max-h-[400px] border border-slate-300 dark:border-slate-700 p-4 font-mono text-[11px] bg-slate-900 text-emerald-400 overflow-y-auto rounded-md whitespace-pre-wrap">{compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId))}</pre>
-                        )}
-                        <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
-                            <input type="checkbox" className="accent-[#004850]" disabled={isProcessing} />
-                            Looks good — build complete file structure layout guidelines
-                        </label>
-                        <div className="flex gap-2">
-                            <a href="#" className="flex-1 h-10 flex items-center justify-center border border-slate-300 dark:border-slate-700 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-transform">Download File</a>
-                            <button onClick={() => setAbOpen(false)} className="flex-1 h-10 flex items-center justify-center border border-slate-300 dark:border-slate-700 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-transform">Keep Local Only</button>
                             <button 
                                 disabled={isProcessing}
                                 onClick={() => {
@@ -803,7 +824,7 @@ export default function ClientCockpitDashboard() {
                                     setAbOpen(false);
                                     setAbStep('select');
                                 }}
-                                className="flex-1 h-10 flex items-center justify-center bg-[#004850] text-white rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-[#003840] active:scale-95 transition-transform"
+                                className="flex-1 flex items-center justify-center bg-[#004850] text-white rounded text-[10px] font-bold uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] transition-all"
                             >
                                 Yes, Attach Runbook to Image Card
                             </button>
