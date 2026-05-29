@@ -688,7 +688,7 @@ export default function ClientCockpitDashboard() {
                             </button>
                           </div>
                           {expandedLogs.includes(i) && (
-                            <pre className="p-3 text-zinc-600 dark:text-emerald-400/80 overflow-x-auto whitespace-pre-wrap bg-zinc-50 dark:bg-black border-t border-zinc-200 dark:border-zinc-800">
+                            <pre className="max-h-96 overflow-auto whitespace-pre font-mono text-[11px] bg-zinc-50 dark:bg-black p-3 text-zinc-600 dark:text-emerald-400/80 border-t border-zinc-200 dark:border-zinc-800">
                               {JSON.stringify(log.payload, null, 1)}
                             </pre>
                           )}
@@ -785,7 +785,7 @@ export default function ClientCockpitDashboard() {
                     const pCount = img.pipelines?.length || 0;
                     const sCount = img.pipelines?.reduce((acc, p) => acc + (p.stages?.length || 0), 0) || 0;
                     const fCount = img.customFields?.length || 0;
-                    const aCount = img.abCompiledObjects?.length || img.compiledRunbook?.length || 0;
+                    const aCount = (img as any).abCompiledObjects?.length || (img as any).compiledRunbook?.length || 0;
                     return (
                         <p className="font-mono text-[10px] tracking-widest uppercase text-zinc-400 mt-1">
                             {pCount} PPL // {sCount} STG // {fCount} FLD // {aCount} AUTO
