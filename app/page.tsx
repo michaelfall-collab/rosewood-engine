@@ -680,7 +680,7 @@ export default function ClientCockpitDashboard() {
 
       {/* AUTOMATION BUILDER MODAL */}
       {abOpen && (
-        <div className="fixed inset-0 w-full h-full min-h-screen z-[250] flex flex-col bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-2xl transition-all duration-300">
+        <div className="fixed inset-0 w-full h-full min-h-screen z-[250] flex flex-col bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-2xl">
           {/* Header */}
           <div className="h-14 flex items-center justify-between px-6 border-b border-zinc-800/80">
             <span className="text-xs font-bold uppercase tracking-tight">▲ AUTOMATION RUNBOOK BUILDER</span>

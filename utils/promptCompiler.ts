@@ -37,6 +37,10 @@ ${config.userRoles.map(r => `- Role: ${r.roleName} (Seats: ${r.count})`).join("\
 === RECIPE BOOK (Business Logic Architecture) ===
 1. Master Planner Phase: Establish a macro footprint index across the system, defining a clear, realistic, and achievable Trigger Event and Final End Result for each automation.
 2. Sub-Agent Execution Phase: For each automation item in the footprint, logically build out the internal configurations, filling in every middle setup parameter, rule, and delay natively.
+3. Structural Configuration Rules:
+   - Task & Activity Chaining: Replace complex multi-month external drip campaigns with native activity dependencies (e.g., 'When the primary Touchpoint task is marked Done, natively trigger a follow-up Task with a delayed due date of 3 months').
+   - Data-Driven Stage Routing: Map middleware webhooks onto native automation steps triggered when fields change (e.g., 'When custom dropdown field Qualification Status updates to Waitlist, natively move the deal to the target stage path').
+   - Platform Add-on Substitutions: Replace external email marketing suites with native 'Campaigns by Pipedrive' subscription list updates on stage entry. Replace separate external software records with native 'Projects by Pipedrive' milestone boards when a deal enters the onboarding timeline track.
 
 === PLATING GUIDE ===
 ### Automation: [Name]
