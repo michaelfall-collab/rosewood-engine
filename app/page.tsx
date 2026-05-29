@@ -944,9 +944,24 @@ export default function ClientCockpitDashboard() {
                             )}
                           </div>
 
-                          <details className="group my-4">
-                            <summary className="text-xs font-bold uppercase tracking-wider text-[#004850] dark:text-emerald-400 cursor-pointer select-none">View Compiled Prompt Payload</summary>
-                            <pre className="font-mono text-[11px] bg-[#0A0F1D] text-emerald-400/90 p-4 rounded-xl border border-zinc-800/80 shadow-inner overflow-x-auto whitespace-pre-wrap">{compileRawModelPromptManifest()}</pre>
+                          <details className="group relative my-4 border border-zinc-800/80 rounded-xl overflow-hidden">
+                            <summary className="text-xs font-bold uppercase tracking-wider text-[#004850] dark:text-emerald-400 p-4 cursor-pointer select-none bg-slate-50 dark:bg-zinc-900/30">
+                              View Compiled Prompt Payload
+                            </summary>
+
+                            {/* Floating Copy Button Asset */}
+                            <button
+                              onClick={() => copyToClipboard(compileRawModelPromptManifest())}
+                              className="absolute top-3 right-3 z-10 p-2 bg-zinc-800 hover:bg-[#004850] text-zinc-400 hover:text-white rounded-lg transition-all border border-zinc-700/50 shadow-md active:scale-95"
+                              title="Copy Raw Prompt Manifest"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-copy">
+                                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                              </svg>
+                            </button>
+
+                            <pre className="font-mono text-[11px] bg-[#0A0F1D] text-emerald-400/90 p-4 pt-12 rounded-b-xl shadow-inner overflow-x-auto whitespace-pre-wrap">{compileRawModelPromptManifest()}</pre>
                           </details>
                           
                           <div className="flex flex-wrap gap-2">
