@@ -343,66 +343,70 @@ export default function ClientCockpitDashboard() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Telemetry Icon */}
-          <div className="relative">
-            <button 
-              onClick={() => setShowTelemetry(!showTelemetry)}
-              disabled={isProcessing}
-              className={`h-8 w-8 flex items-center justify-center rounded border transition-all active:scale-95 ${showTelemetry ? 'bg-slate-800 border-slate-700 text-emerald-400' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400 hover:text-[#004850]'}`}
-              title="Telemetry Terminal"
-            >
-              <i className="ti ti-terminal-2" />
-              {telemetryLogs.length > 0 && <span className="absolute -top-1 -right-1 h-2 w-2 bg-emerald-500 rounded-sm border border-white dark:border-slate-900" />}
-            </button>
-            {showTelemetry && (
-              <div className="absolute right-0 top-10 w-96 bg-[#F1F5F9] border-l border-slate-300 rounded overflow-hidden z-[60] flex flex-col h-[80vh] min-h-0">
-                <div className="px-4 py-2 border-b border-slate-300 bg-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {temporaryRollbackBackup && (
-                      <button className="bg-amber-500 border border-amber-600 text-white font-black px-2 py-0.5 text-[9px] uppercase tracking-wider rounded-sm flex items-center gap-1 hover:bg-amber-600 cursor-pointer animate-in fade-in zoom-in duration-200">
-                        <i className="ti ti-shield-alert" /> Rescue
-                      </button>
-                    )}
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Execution Telemetry // Local Stack</span>
-                  </div>
-                  <button onClick={() => setTelemetryLogs([])} className="text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400">Clear</button>
-                </div>
-                <div className="flex-1 flex flex-col overflow-y-auto p-4 space-y-2 font-mono text-[10px]">
-                  {telemetryLogs.length === 0 ? (
-                    <div className="text-slate-400 italic py-8 text-center">No active data streams captured.</div>
-                  ) : (
-                    telemetryLogs.map((log, i) => (
-                      <div key={i} className="border border-slate-200 dark:border-slate-700 rounded">
-                        <div 
-                          onClick={() => setExpandedLogs(prev => prev.includes(i) ? prev.filter(idx => idx !== i) : [...prev, i])}
-                          className="p-2 bg-slate-100 dark:bg-slate-800 flex items-center justify-between cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700"
-                        >
-                          <span className={`font-bold ${log.type === 'OUTBOUND' ? 'text-emerald-600' : 'text-[#004850]'}`}>[{log.type}] {log.timestamp}</span>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); copyToClipboard(JSON.stringify(log.payload, null, 2)); }} 
-                            className="text-[#004850] hover:underline font-bold text-[9px] mr-2"
-                          >
-                            COPY RAW DATA
-                          </button>
-                        </div>
-                        {expandedLogs.includes(i) && (
-                          <pre className="p-2 text-slate-700 font-bold overflow-x-auto whitespace-pre-wrap bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
-                            {JSON.stringify(log.payload, null, 1)}
-                          </pre>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-                
-                {temporaryRollbackBackup && (
-                  <div className="border-t border-slate-300 p-2 bg-white dark:bg-slate-800 flex flex-col gap-2">
-                     <button onClick={handleRestore} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-slate-50 dark:hover:bg-slate-700 font-bold text-emerald-600 border border-emerald-600 rounded">Restore Original Baseline Framework</button>
-                     <button onClick={handlePromote} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-slate-50 dark:hover:bg-slate-700 font-bold border border-slate-300 dark:border-slate-700 rounded">Promote Fallout Snapshot to Permanent Card</button>
+          {/* Telemetry Icon & Rescue Dropdown */}
+          <div className="flex items-center gap-2">
+            {temporaryRollbackBackup && (
+              <div className="relative">
+                <button 
+                  onClick={() => setOpenMenuId(openMenuId === 'rescue' ? null : 'rescue')}
+                  className="bg-amber-500 border border-amber-600 text-white font-black px-2 py-1.5 text-[9px] uppercase tracking-wider rounded-sm flex items-center gap-1 hover:bg-amber-600 cursor-pointer animate-in fade-in zoom-in duration-200"
+                >
+                  <i className="ti ti-shield-alert" /> Rescue <i className="ti ti-chevron-down" />
+                </button>
+                {openMenuId === 'rescue' && (
+                  <div className="absolute right-0 top-9 w-48 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded overflow-hidden z-[50] shadow-xl">
+                    <button onClick={() => { handleRestore(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 font-bold text-emerald-600">Restore</button>
+                    <button onClick={() => { handlePromote(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 font-bold border-t border-slate-200 dark:border-slate-700">Promote to Database</button>
                   </div>
                 )}
               </div>
             )}
+            <div className="relative">
+              <button 
+                onClick={() => setShowTelemetry(!showTelemetry)}
+                disabled={isProcessing}
+                className={`h-8 w-8 flex items-center justify-center rounded border transition-all active:scale-95 ${showTelemetry ? 'bg-slate-800 border-slate-700 text-emerald-400' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400 hover:text-[#004850]'}`}
+                title="Telemetry Terminal"
+              >
+                <i className="ti ti-terminal-2" />
+                {telemetryLogs.length > 0 && <span className="absolute -top-1 -right-1 h-2 w-2 bg-emerald-500 rounded-sm border border-white dark:border-slate-900" />}
+              </button>
+              {showTelemetry && (
+                <div className="absolute right-0 top-10 w-96 bg-[#F1F5F9] border-l border-slate-300 rounded overflow-hidden z-[60] flex flex-col h-[80vh] min-h-0">
+                  <div className="px-4 py-2 border-b border-slate-300 bg-slate-100 flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Execution Telemetry // Local Stack</span>
+                    <button onClick={() => setTelemetryLogs([])} className="text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400">Clear</button>
+                  </div>
+                  <div className="flex-1 flex flex-col overflow-y-auto p-4 space-y-2 font-mono text-[10px]">
+                    {telemetryLogs.length === 0 ? (
+                      <div className="text-slate-400 italic py-8 text-center">No active data streams captured.</div>
+                    ) : (
+                      telemetryLogs.map((log, i) => (
+                        <div key={i} className="border border-slate-200 dark:border-slate-700 rounded">
+                          <div 
+                            onClick={() => setExpandedLogs(prev => prev.includes(i) ? prev.filter(idx => idx !== i) : [...prev, i])}
+                            className="p-2 bg-slate-100 dark:bg-slate-800 flex items-center justify-between cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700"
+                          >
+                            <span className={`font-bold ${log.type === 'OUTBOUND' ? 'text-emerald-600' : 'text-[#004850]'}`}>[{log.type}] {log.timestamp}</span>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); copyToClipboard(JSON.stringify(log.payload, null, 2)); }} 
+                              className="text-[#004850] hover:underline font-bold text-[9px] mr-2"
+                            >
+                              COPY RAW DATA
+                            </button>
+                          </div>
+                          {expandedLogs.includes(i) && (
+                            <pre className="p-2 text-slate-700 font-bold overflow-x-auto whitespace-pre-wrap bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
+                              {JSON.stringify(log.payload, null, 1)}
+                            </pre>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <button onClick={() => setFlashMode("pipedrive")} className="bg-[#10B981] text-white hover:bg-[#059669] rounded-sm font-bold uppercase tracking-wider text-[10px] px-3 py-1.5 shadow-sm transition-all">Flash to Pipedrive</button>
