@@ -68,7 +68,7 @@ export default function ClientCockpitDashboard() {
   const [abStep, setAbStep] = useState<'select' | 'chat' | 'building' | 'preview'>('select');
   const [abSelectedImageId, setAbSelectedImageId] = useState<string | null>(null);
   const [abSelectedIntegrations, setAbSelectedIntegrations] = useState<string[]>([]);
-  const [abChatHistory, setAbChatHistory] = useState<{ sender: "user" | "ai"; text: string }[]>([]);
+  const [abChatHistory, setAbChatHistory] = useState<{ sender: "user" | "ai"; text: string; dataWidget?: any }[]>([]);
   const [abPromptViewOpen, setAbPromptViewOpen] = useState(false);
 
   const compileRawModelPromptManifest = (targetImage: any) => {
@@ -667,8 +667,9 @@ export default function ClientCockpitDashboard() {
       {/* AUTOMATION BUILDER MODAL */}
       {abOpen && (
         <div className="fixed inset-0 bg-white dark:bg-slate-900 z-[200] flex flex-col overflow-hidden animate-in fade-in duration-200">
-          <div className="h-14 flex items-center justify-between px-6 border-b border-slate-300 dark:border-slate-700">
-            <span className="text-sm font-bold uppercase tracking-tight">AUTOMATION BLUEPRINT GENERATOR // UNIT ENGINE SHUTTLE</span>
+          {/* Header */}
+          <div className="h-14 flex items-center justify-between px-6 border-b border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 sticky top-0">
+            <span className="text-xs font-bold uppercase tracking-tight">▲ AUTOMATION RUNBOOK BUILDER</span>
             <button
               onClick={() => {
                 setAbOpen(false);
@@ -682,24 +683,51 @@ export default function ClientCockpitDashboard() {
               <i className="ti ti-x" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-6">
+
+          {/* Main Chat Viewport */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#FFFFFF] dark:bg-slate-900">
+            {/* Thread Container */}
+            <div className="max-w-3xl mx-auto space-y-4">
+              {abChatHistory.map((msg, i) => (
+                <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {msg.sender === 'ai' ? (
+                    <div className="bg-[#F1F5F9] dark:bg-slate-800 text-slate-700 dark:text-zinc-200 border border-slate-300 dark:border-slate-700 p-3 rounded-sm max-w-[85%] flex gap-3 items-start text-xs font-sans">
+                      <span className="font-bold">◆</span>
+                      <div>{msg.text}</div>
+                      {msg.dataWidget}
+                    </div>
+                  ) : (
+                    <div className="bg-[#004850] text-white p-3 rounded-sm max-w-[80%] text-xs font-bold shadow-none text-right border border-[#003840]">
+                      {msg.text}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            {/* Step-Specific Controls */}
             {abStep === 'select' && (
-              <div className="flex flex-col gap-2">
+              <div className="max-w-2xl mx-auto space-y-2">
                 {images.map(img => (
                   <button
                     key={img.id}
-                    onClick={() => { setAbSelectedImageId(img.id); setAbStep('chat'); }}
-                    className="border border-slate-300 dark:border-slate-700 p-4 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-left"
+                    onClick={() => {
+                      setAbSelectedImageId(img.id);
+                      setAbChatHistory([{ sender: "ai", text: `Selected blueprint: ${img.name}. Initializing structural data analysis.` }]);
+                      setAbStep('chat');
+                    }}
+                    className="w-full border border-slate-300 dark:border-slate-700 p-4 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-left active:scale-95 transition-all"
                   >
                     <h3 className="font-bold uppercase text-xs">{img.name}</h3>
-                    <p className="text-xs text-slate-500">{img.description}</p>
                   </button>
                 ))}
               </div>
             )}
+            
             {abStep === 'chat' && (
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
+              <div className="max-w-2xl mx-auto">
+                 {/* Option module */}
+                 <div className="space-y-2 mb-4">
                   {['Slack', 'Microsoft Teams', 'Asana', 'Trello', 'Webhooks', 'Campaigns by Pipedrive', 'Projects by Pipedrive'].map(int => (
                     <button
                       key={int}
@@ -711,41 +739,69 @@ export default function ClientCockpitDashboard() {
                     </button>
                   ))}
                 </div>
-                <div>
-                  <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded h-64 overflow-y-auto mb-4 font-mono text-xs text-slate-600 dark:text-slate-400">
-                    <pre>{JSON.stringify(images.find(i => i.id === abSelectedImageId), null, 2)}</pre>
-                  </div>
-                  <button
-                    onClick={compilePromptManifest}
-                    className="bg-[#004850] text-white px-4 py-2 rounded text-xs font-bold uppercase hover:bg-[#003840]"
-                  >
+                <button
+                    disabled={isProcessing}
+                    onClick={() => {
+                        setAbChatHistory(prev => [...prev, { sender: "user", text: `Channels requested: ${abSelectedIntegrations.join(", ")}`}]);
+                        compilePromptManifest();
+                    }}
+                    className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:bg-[#003840] active:scale-95"
+                >
                     COMPILE PROMPT MANIFEST
-                  </button>
+                </button>
+              </div>
+            )}
+
+            {abStep === 'building' && (
+              <div className="max-w-2xl mx-auto">
+                <div className="bg-[#F1F5F9] dark:bg-slate-800 p-3 rounded-sm border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-zinc-200">
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="animate-spin text-[#004850]">◆</span>
+                        <span className="font-bold">Assembling context parameters... Matrix compiling.</span>
+                    </div>
                 </div>
               </div>
             )}
-            {abStep === 'building' && (
-              <div className="flex flex-col items-center justify-center h-full text-center py-20">
-                <div className="h-10 w-10 border-4 border-[#004850]/20 border-t-[#004850] rounded-sm animate-spin mb-4" />
-                <p className="text-xs font-mono">Assembling data configuration streams into payload layout block... Matrix compiling.</p>
-              </div>
-            )}
+            
             {abStep === 'preview' && (
-              <div className="flex flex-col h-full">
+              <div className="max-w-2xl mx-auto space-y-4">
                 <button
                     onClick={() => setAbPromptViewOpen(!abPromptViewOpen)}
-                    className="w-full text-left p-3 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-widest text-[#004850] hover:bg-slate-200 border-b border-slate-300"
+                    className="w-full text-left p-3 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-widest text-[#004850] hover:bg-slate-200 border border-slate-300 rounded"
                 >
                     AUDIT END-TO-END RAW AI MODEL PROMPT
                 </button>
-                <div className="flex-1 p-6 border-b border-slate-300 overflow-y-auto">
-                    <p className="text-xs italic text-slate-500">Simulated conversation response stream from system agent interface...</p>
-                </div>
                 {abPromptViewOpen && (
-                    <div className="w-full border-t border-slate-300 p-4 font-mono text-[11px] bg-slate-50 dark:bg-slate-950 overflow-y-auto h-64">
+                    <div className="w-full border border-slate-300 p-4 font-mono text-[11px] bg-slate-50 dark:bg-slate-950 overflow-y-auto h-64 rounded">
                         <pre className="whitespace-pre-wrap">{compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId))}</pre>
                     </div>
                 )}
+                <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
+                    <input type="checkbox" className="accent-[#004850]" />
+                    Looks good — build complete file structure layout mapping guidelines
+                </label>
+                <button
+                    onClick={() => {
+                        setAbChatHistory(prev => [...prev, { sender: "user", text: "Confirmed — layout runbook looks good."}]);
+                        setAbStep("done");
+                    }}
+                    className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:bg-[#003840] active:scale-95"
+                >
+                    Confirm Blueprint Runbook
+                </button>
+              </div>
+            )}
+
+            {abStep === 'done' && (
+              <div className="max-w-2xl mx-auto space-y-4">
+                  <div className="bg-[#F1F5F9] dark:bg-slate-800 p-3 rounded-sm border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-zinc-200">
+                    Asset generation successful.
+                    <a href="#" className="block mt-2 font-bold text-[#004850] hover:underline">Download File</a>
+                  </div>
+                  <div className="flex gap-2">
+                      <button onClick={() => setAbOpen(false)} className="flex-1 border border-slate-300 py-2 rounded text-xs font-bold uppercase hover:bg-slate-50">Keep Local Only</button>
+                      <button onClick={() => { setAbOpen(false); }} className="flex-1 bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:bg-[#003840]">Yes, Attach Runbook</button>
+                  </div>
               </div>
             )}
           </div>
