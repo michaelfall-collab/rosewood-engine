@@ -15,7 +15,10 @@ type LiveImage = CRMArchitectureBlueprint & {
   owner: string; 
   deals: number; 
   runbookManifest?: string;
+  compiledRunbook?: any[];
 };
+
+const generateRweId = () => "rwe_card_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
 
 interface ModalProps {
   title: string;
@@ -110,6 +113,10 @@ export default function ClientCockpitDashboard() {
   const [tempRoleSeats, setTempRoleSeats] = useState(1);
   const [isAttached, setIsAttached] = useState(false);
 
+  // Paste Importer States
+  const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
+  const [pastedConfig, setPastedConfig] = useState("");
+
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -118,7 +125,7 @@ export default function ClientCockpitDashboard() {
       const text = event.target?.result as string;
       try {
         const { blueprint, abCompiledObjects: importedAbObjects } = deserializeFromRwe(text);
-        const newImages = [{ ...blueprint, owner: 'Imported', deals: 0 }, ...images];
+        const newImages = [{ ...blueprint, id: generateRweId(), owner: 'Imported', deals: 0, compiledRunbook: importedAbObjects }, ...images];
         setImages(newImages);
         if (typeof window !== 'undefined') {
           localStorage.setItem('rw_workspace_cache', JSON.stringify(newImages));
@@ -137,6 +144,35 @@ export default function ClientCockpitDashboard() {
       }
     };
     reader.readAsText(file);
+  };
+
+  const handlePasteImport = () => {
+    try {
+      const importedObj = JSON.parse(pastedConfig);
+      if (importedObj.type === "ROSEWOOD_ENGINE_PROPRIETARY_EXPORT") {
+        const hydratedObj: LiveImage = {
+          ...importedObj.blueprint,
+          id: generateRweId(),
+          owner: 'Imported (Paste)',
+          deals: 0,
+          compiledRunbook: importedObj.abCompiledObjects || []
+        };
+        setImages(prev => [hydratedObj, ...prev]);
+        setIsPasteModalOpen(false);
+        setPastedConfig("");
+        setCopyFeedback("◆ Configuration imported successfully");
+        setTimeout(() => setCopyFeedback(null), 3000);
+      } else {
+        throw new Error("Invalid configuration type");
+      }
+    } catch (e) {
+      setUiModal({
+        type: "alert",
+        title: "Import Error",
+        message: "Failed to parse configuration JSON. Ensure it is a valid .rwe export stream.",
+        onCancel: () => setUiModal(null)
+      });
+    }
   };
 
   const compileRawModelPromptManifest = (compiledObjects?: any[]) => {
@@ -296,7 +332,9 @@ export default function ClientCockpitDashboard() {
   }, [apiKey]);
 
   useEffect(() => {
-    localStorage.setItem('rw_workspace_cache', JSON.stringify(images));
+    // Strip temporary manifests/prompt blocks before persistence to maintain snapshot purity
+    const cleanImages = images.map(({ runbookManifest, ...img }) => img);
+    localStorage.setItem('rw_workspace_cache', JSON.stringify(cleanImages));
   }, [images]);
 
   const activeDetail = useMemo(() => images.find(i => i.id === detailId), [images, detailId]);
@@ -358,7 +396,7 @@ export default function ClientCockpitDashboard() {
           });
           const data = await res.json();
           if (data.success) {
-            setImages(prev => [{ ...data.blueprint, name: label, owner: "Live Ingest", deals: 0 }, ...prev]);
+            setImages(prev => [{ ...data.blueprint, id: generateRweId(), name: label, owner: "Live Ingest", deals: 0 }, ...prev]);
             setTelemetryLogs(prev => [{ type: 'INBOUND', timestamp: new Date().toLocaleTimeString(), payload: data.blueprint }, ...prev]);
           }
         } finally {
@@ -476,7 +514,7 @@ export default function ClientCockpitDashboard() {
   const deleteCard = (id: string) => {
     setUiModal({
       type: "confirm",
-      title: "Prune Card",
+      title: "DELETE CARD",
       message: "Are you sure? This structural rewrite cannot be undone.",
       onCancel: () => setUiModal(null),
       onConfirm: () => {
@@ -525,7 +563,7 @@ export default function ClientCockpitDashboard() {
       onConfirm: async (label) => {
         setUiModal(null);
         if (!label) return;
-        setImages(prev => [{ ...temporaryRollbackBackup, name: label, owner: "Recovery Snapshot", deals: 0 }, ...prev]);
+        setImages(prev => [{ ...temporaryRollbackBackup, id: generateRweId(), name: label, owner: "Recovery Snapshot", deals: 0 }, ...prev]);
         setTemporaryRollbackBackup(null);
       }
     });
@@ -552,6 +590,12 @@ export default function ClientCockpitDashboard() {
             className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-sm flex items-center gap-2 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all active:scale-95"
           >
             <i className="ti ti-file-import" /> IMPORT .RWE
+          </button>
+          <button
+            onClick={() => setIsPasteModalOpen(true)}
+            className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-sm flex items-center gap-2 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all active:scale-95"
+          >
+            <i className="ti ti-clipboard-check" /> PASTE CONFIG
           </button>
           <input type="file" id="rwe-import-input" accept=".rwe" className="hidden" onChange={handleImport} />
         </div>
@@ -623,7 +667,7 @@ export default function ClientCockpitDashboard() {
                 <div className="absolute right-0 top-12 w-96 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden z-[60] flex flex-col h-[80vh] min-h-0 shadow-2xl">
                   <div className="px-4 py-2 border-b border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 flex items-center justify-between">
                     <span className="font-mono text-[9px] font-black uppercase tracking-widest text-zinc-400">Execution Telemetry // Local Stack</span>
-                    <button onClick={() => setTelemetryLogs([])} className="font-mono text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400">Flush</button>
+                    <button onClick={() => setTelemetryLogs([])} className="font-mono text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400">CLEAR LOGS</button>
                   </div>
                   <div className="flex-1 flex flex-col overflow-y-auto p-4 space-y-2 font-mono text-[10px]">
                     {telemetryLogs.length === 0 ? (
@@ -744,10 +788,10 @@ export default function ClientCockpitDashboard() {
 
                 <div className="flex items-center justify-between mt-4">
                   <div className={`px-2 py-1 rounded-sm text-[10px] font-mono font-bold uppercase tracking-widest flex items-center gap-1.5 ${
-                    img.runbookManifest ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 border border-transparent'
+                    (img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 border border-transparent'
                   }`}>
-                    <span className={`h-1 w-1 rounded-full ${img.runbookManifest ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
-                    {img.runbookManifest ? "Automated" : "Static"}
+                    <span className={`h-1 w-1 rounded-full ${(img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                    {(img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? "Automated" : "Static"}
                   </div>
                   
                   <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -761,7 +805,7 @@ export default function ClientCockpitDashboard() {
                       <div className="absolute right-0 bottom-10 w-40 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm z-[50] overflow-hidden shadow-xl">
                         <button onClick={() => { setRenamingId(img.id); setRenameValue(img.name); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center gap-3"><i className="ti ti-pencil" /> Rename</button>
                         <button onClick={() => { 
-                            const blob = new Blob([serializeToRwe(img, abCompiledObjects)], { type: 'application/json' });
+                            const blob = new Blob([serializeToRwe(img, img.compiledRunbook || [])], { type: 'application/json' });
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
@@ -772,7 +816,7 @@ export default function ClientCockpitDashboard() {
                             URL.revokeObjectURL(url);
                             setOpenMenuId(null);
                         }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center gap-3"><i className="ti ti-download" /> Export</button>
-                        <button onClick={() => deleteCard(img.id)} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest border-t border-zinc-200 dark:border-zinc-800 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex items-center gap-3"><i className="ti ti-trash" /> Prune</button>
+                        <button onClick={() => deleteCard(img.id)} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest border-t border-zinc-200 dark:border-zinc-800 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex items-center gap-3"><i className="ti ti-trash" /> DELETE CARD</button>
                       </div>
                     )}
                   </div>
@@ -832,9 +876,9 @@ export default function ClientCockpitDashboard() {
                   <pre className="font-mono text-[11px] text-zinc-700 dark:text-emerald-400/90 whitespace-pre-wrap leading-normal">
                     {JSON.stringify(activeDetail, null, 2)}
                   </pre>
-                ) : abCompiledObjects && abCompiledObjects.length > 0 ? (
+                ) : activeDetail.compiledRunbook && activeDetail.compiledRunbook.length > 0 ? (
                   <div className="space-y-8 font-sans">
-                    {abCompiledObjects.map((item, i) => {
+                    {activeDetail.compiledRunbook.map((item: any, i: number) => {
                       const theme = getPipelineTheme(item.automationNumber);
                       return (
                         <div key={i} className={`border ${theme.border} rounded-sm overflow-hidden bg-white dark:bg-zinc-900 shadow-none`}>
@@ -937,6 +981,34 @@ export default function ClientCockpitDashboard() {
                 className="px-4 py-2 bg-[#004850] text-white rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-[#003840] transition-all active:scale-95"
               >
                 {uiModal.type === "alert" ? "OK" : "Proceed"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 8. PASTE CONFIG MODAL */}
+      {isPasteModalOpen && (
+        <div className="fixed inset-0 bg-zinc-950/60 backdrop-blur-sm z-[350] flex items-center justify-center p-8 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm w-full max-w-2xl h-[60vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 shadow-2xl">
+            <div className="px-6 py-4 border-b border-zinc-200/60 dark:border-zinc-800/60 flex items-center justify-between bg-white dark:bg-zinc-900">
+              <h3 className="font-bold uppercase text-[10px] tracking-widest text-[#004850] dark:text-emerald-500">PASTE CONFIGURATION STREAM</h3>
+              <button onClick={() => setIsPasteModalOpen(false)} className="h-8 w-8 rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center text-zinc-400">
+                <i className="ti ti-x" />
+              </button>
+            </div>
+            <div className="flex-1 p-6 flex flex-col gap-4">
+              <textarea 
+                value={pastedConfig}
+                onChange={(e) => setPastedConfig(e.target.value)}
+                placeholder="Paste your raw .rwe configuration JSON text stream here..."
+                className="flex-1 w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-sm p-4 font-mono text-xs focus:outline-none focus:border-zinc-400 transition-all resize-none"
+              />
+              <button 
+                onClick={handlePasteImport}
+                className="w-full py-3 bg-[#004850] text-white rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-[#003840] transition-all active:scale-95"
+              >
+                IMPORT CONFIG DATA
               </button>
             </div>
           </div>
@@ -1231,7 +1303,7 @@ export default function ClientCockpitDashboard() {
                     disabled={isProcessing || isAttached}
                     onClick={() => {
                         const payload = compileRawModelPromptManifest();
-                        setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, runbookManifest: payload } : img));
+                        setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, runbookManifest: payload, compiledRunbook: abCompiledObjects } : img));
                         setIsAttached(true);
                     }}
                     className={`flex-[2] h-12 flex items-center justify-center rounded-sm text-[10px] font-bold uppercase tracking-widest active:scale-95 transition-all ${isAttached ? 'bg-emerald-600 text-white' : 'bg-zinc-900 dark:bg-white text-white dark:text-black'}`}
