@@ -68,7 +68,9 @@ export default function ClientCockpitDashboard() {
 
   // Automation Builder States
   const [abOpen, setAbOpen] = useState(false);
-  const [abStep, setAbStep] = useState<'select' | 'chat' | 'planning' | 'stapling' | 'preview'>('select');
+  const [abStep, setAbStep] = useState<'select' | 'chat' | 'planning' | 'review' | 'stapling' | 'preview'>('select');
+  const [abRoadmap, setAbRoadmap] = useState<any[]>([]);
+  const [abReviewFeedback, setAbReviewFeedback] = useState("");
   const [staplingState, setStaplingState] = useState({ index: 0, total: 0, currentStage: "" });
   const [abSelectedImageId, setAbSelectedImageId] = useState<string | null>(null);
   const [abSelectedIntegrations, setAbSelectedIntegrations] = useState<string[]>([]);
@@ -92,75 +94,121 @@ export default function ClientCockpitDashboard() {
     });
   };
 
-  const compilePromptManifest = async () => {
+  const compilePromptManifest = async (feedback?: string) => {
     const targetImage = images.find(i => i.id === abSelectedImageId);
     if (!targetImage) return;
 
-    // Transition to planning phase
-    setAbStep('planning');
-    setIsAttached(false);
+    // STAGE 1: Roadmap Generation (planning -> review)
+    if (abStep === 'select' || abStep === 'chat' || (abStep === 'review' && feedback)) {
+      setAbStep('planning');
+      setIsAttached(false);
 
-    // Programmatically extract target items
-    const automationQueue = [
-      { id: "AUTO_101", targetStage: "Initial Contact & Screening", goal: "Assign owner and create screening activity" },
-      { id: "AUTO_102", targetStage: "The Waitlist (Nurture Phase)", goal: "Generate physical welcome kit task and start native delayed touchpoint activity cycle" },
-      { id: "AUTO_103", targetStage: "Account At-Risk", goal: "Add At Risk flag and trigger an urgent internal review meeting assignment" }
-    ];
+      const roadmapSchema = {
+        type: "OBJECT",
+        properties: {
+          roadmap: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                automationNumber: { type: "STRING" },
+                stageName: { type: "STRING" },
+                operationalGoal: { type: "STRING" }
+              },
+              required: ["automationNumber", "stageName", "operationalGoal"]
+            }
+          }
+        },
+        required: ["roadmap"]
+      };
 
-    // Automatically advance to stapling iterative loop
-    setAbStep('stapling');
-    setStaplingState({ index: 0, total: automationQueue.length, currentStage: "" });
-
-    const newCompiledObjects = [];
-
-    for (const [index, item] of automationQueue.entries()) {
-      setStaplingState({ 
-        index: index + 1, 
-        total: automationQueue.length, 
-        currentStage: item.targetStage 
-      });
-      
       try {
         const response = await fetch('/api/compile-agent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            systemPrompt: `You are an Enterprise CRM Systems Architect. Capabilities: ${JSON.stringify(PIPEDRIVE_CAPABILITIES_REGISTRY)}`,
-            userPrompt: `Generate configuration for automation goal: "${item.goal}" in stage "${item.targetStage}". Roles involved: ${JSON.stringify(abRoles)}`
+            systemPrompt: `You are a Master CRM Planner. Analyze the provided CRM blueprint and team registry. 
+            Generate a high-level roadmap of automations. 
+            STRICT NAMING RULE: For each automation, automationNumber MUST use the pattern "[Pipeline Order ID + 1].[Stage Order ID + 1]" (e.g. "1.1", "1.2", "2.1").
+            Integrations available: ${JSON.stringify(abSelectedIntegrations)}.
+            Team Registry: ${JSON.stringify(abRoles)}.
+            ${feedback ? `CRITICAL: The user has provided feedback for this revision: "${feedback}". Adjust the roadmap accordingly.` : ""}`,
+            userPrompt: `Analyze this blueprint and generate the automation roadmap array: ${JSON.stringify(targetImage)}`,
+            schema: roadmapSchema
           })
         });
 
         const data = await response.json();
-        
-        if (data.success && data.jsonObject) {
-          newCompiledObjects.push(data.jsonObject);
+        if (data.success && data.jsonObject?.roadmap) {
+          setAbRoadmap(data.jsonObject.roadmap);
+          setAbStep('review');
         } else {
-          // Fallback if structured generation fails
-          newCompiledObjects.push({
-            automationNumber: index + 1,
-            stageName: item.targetStage,
-            operationalGoal: "Error: Generation failed.",
-            impactedRoles: [],
-            setupSteps: [],
-            governanceNotes: data.error || "Failed."
-          });
+          console.error("Roadmap generation failed:", data.error);
+          setAbStep('chat'); // Fallback
         }
-      } catch (error: any) {
-        console.error("Compilation failed:", error);
+      } catch (error) {
+        console.error("Roadmap compilation error:", error);
+        setAbStep('chat');
       }
+      return;
     }
 
-    setAbCompiledObjects(newCompiledObjects);
-    const assembledPromptText = compileRawModelPromptManifest(newCompiledObjects);
-    setAbCompiledBlocks(assembledPromptText);
-    setTelemetryLogs(prev => [{
-      type: "OUTBOUND",
-      timestamp: new Date().toLocaleTimeString(),
-      payload: { promptManifestAuditTrail: assembledPromptText }
-    }, ...prev]);
+    // STAGE 2: Detailed Stapling (review -> stapling -> preview)
+    if (abStep === 'review' && !feedback) {
+      setAbStep('stapling');
+      setStaplingState({ index: 0, total: abRoadmap.length, currentStage: "" });
 
-    // Automatically transition to preview to unlock view
-    setAbStep('preview');
+      const newCompiledObjects = [];
+
+      for (const [index, item] of abRoadmap.entries()) {
+        setStaplingState({ 
+          index: index + 1, 
+          total: abRoadmap.length, 
+          currentStage: item.stageName 
+        });
+        
+        try {
+          const response = await fetch('/api/compile-agent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              systemPrompt: `You are an Enterprise CRM Systems Architect. Capabilities: ${JSON.stringify(PIPEDRIVE_CAPABILITIES_REGISTRY)}. 
+              Generate detailed configuration for the following roadmap item.
+              STRICT NAMING RULE: automationNumber must remain "${item.automationNumber}".`,
+              userPrompt: `Generate configuration for automation goal: "${item.operationalGoal}" in stage "${item.stageName}". Roles involved: ${JSON.stringify(abRoles)}. Coordinate Index: ${item.automationNumber}`
+            })
+          });
+
+          const data = await response.json();
+          
+          if (data.success && data.jsonObject) {
+            newCompiledObjects.push(data.jsonObject);
+          } else {
+            newCompiledObjects.push({
+              automationNumber: item.automationNumber,
+              stageName: item.stageName,
+              operationalGoal: item.operationalGoal,
+              impactedRoles: [],
+              setupSteps: ["Error: Step generation failed."],
+              governanceNotes: data.error || "Failed."
+            });
+          }
+        } catch (error: any) {
+          console.error("Stapling failed:", error);
+        }
+      }
+
+      setAbCompiledObjects(newCompiledObjects);
+      const assembledPromptText = compileRawModelPromptManifest(newCompiledObjects);
+      setAbCompiledBlocks(assembledPromptText);
+      setTelemetryLogs(prev => [{
+        type: "OUTBOUND",
+        timestamp: new Date().toLocaleTimeString(),
+        payload: { promptManifestAuditTrail: assembledPromptText }
+      }, ...prev]);
+
+      setAbStep('preview');
+    }
   };
 
   const openAB = () => {
@@ -799,7 +847,7 @@ export default function ClientCockpitDashboard() {
                   <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
                     <span className="font-bold text-lg text-emerald-500">◆</span>
                     <div className="space-y-4 w-full">
-                      <p>◆ Let's customize your native automation runbook layout. First, select an active configuration blueprint card to analyze.</p>
+                      <p>◆ Let&apos;s customize your native automation runbook layout. First, select an active configuration blueprint card to analyze.</p>
                       <div className="grid grid-cols-2 gap-2">
                           {images.map(img => (
                           <button
@@ -909,6 +957,53 @@ export default function ClientCockpitDashboard() {
                             </span>
                           </div>
                       </div>
+                  </div>
+                )}
+
+                {abStep === 'review' && (
+                  <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
+                    <span className="font-bold text-lg text-emerald-500">◆</span>
+                    <div className="w-full space-y-4">
+                      <p>◆ The Master Planner has proposed the following automation roadmap. Review the logic footprint before we proceed to click-by-click instruction stapling.</p>
+                      
+                      <div className="grid grid-cols-1 gap-2">
+                        {abRoadmap.map((item, i) => (
+                          <div key={i} className="bg-white/50 dark:bg-zinc-900/40 p-3 rounded-lg border border-zinc-700/20 flex items-start gap-3">
+                            <span className="bg-[#004850] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm shrink-0">{item.automationNumber}</span>
+                            <div>
+                              <p className="font-bold uppercase text-[#004850] dark:text-emerald-400 leading-none">{item.stageName}</p>
+                              <p className="text-slate-600 dark:text-zinc-400 mt-1.5 text-[11px]">{item.operationalGoal}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="space-y-2">
+                        <textarea 
+                          value={abReviewFeedback}
+                          onChange={(e) => setAbReviewFeedback(e.target.value)}
+                          placeholder="Refine Roadmap Logic... (e.g. 'Add a delay to 1.2', 'Merge 2.1 into 2.2')"
+                          className="w-full bg-white dark:bg-zinc-900 border border-zinc-700 rounded p-3 text-xs min-h-[80px] focus:outline-none focus:border-[#004850]"
+                        />
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => {
+                              compilePromptManifest(abReviewFeedback);
+                              setAbReviewFeedback("");
+                            }}
+                            className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-700 text-[#004850] py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all"
+                          >
+                            Rebuild Proposal
+                          </button>
+                          <button 
+                            onClick={() => compilePromptManifest()}
+                            className="flex-[2] bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all"
+                          >
+                            Approve & Compile Runbook
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 

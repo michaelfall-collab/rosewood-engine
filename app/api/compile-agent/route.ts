@@ -9,7 +9,7 @@ const TARGET_MODEL = process.env.GEMINI_MODEL_ID || 'gemini-3.1-flash-lite';
 const automationBlockSchema = {
   type: "OBJECT",
   properties: {
-    automationNumber: { type: "INTEGER" },
+    automationNumber: { type: "STRING" },
     stageName: { type: "STRING" },
     operationalGoal: { type: "STRING" },
     impactedRoles: {
@@ -27,7 +27,7 @@ const automationBlockSchema = {
 
 export async function POST(request: Request) {
   try {
-    const { systemPrompt, userPrompt } = await request.json();
+    const { systemPrompt, userPrompt, schema } = await request.json();
 
     if (!systemPrompt || !userPrompt) {
       return NextResponse.json({ success: false, error: "Missing prompt payloads" }, { status: 400 });
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
         
         // CHANGE THESE TWO LINES BELOW TO camelCase:
         responseMimeType: "application/json", // Forces JSON output
-        responseSchema: automationBlockSchema as any // Enforces the blueprint structure
+        responseSchema: (schema || automationBlockSchema) as any // Enforces the blueprint structure
       }
     });
 
