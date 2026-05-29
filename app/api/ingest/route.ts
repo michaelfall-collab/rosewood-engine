@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
       (Array.isArray(fields) ? fields : []).forEach((f: any) => {
         if (!f || typeof f !== 'object') return;
-        if (f.custom_field || (f.edit_flag === true && f.filterable_flag === true)) {
+        if (f.edit_flag === true) {
           custom.push({
             key: sanitizeKey(f.name || "unnamed_field"),
             name: f.name || "Unnamed Field",
