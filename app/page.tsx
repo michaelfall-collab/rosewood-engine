@@ -71,7 +71,7 @@ export default function ClientCockpitDashboard() {
   const [abSelectedIntegrations, setAbSelectedIntegrations] = useState<string[]>([]);
   const [abChatHistory, setAbChatHistory] = useState<{ sender: "user" | "ai"; text: string; dataWidget?: any }[]>([]);
   const [abPromptViewOpen, setAbPromptViewOpen] = useState(false);
-  const [abRoles, setAbRoles] = useState<{ label: string; seats: number }[]>([]);
+  const [abRoles, setAbRoles] = useState<{ roleName: string; count: number }[]>([]);
   const [tempRoleLabel, setTempRoleLabel] = useState("");
   const [tempRoleSeats, setTempRoleSeats] = useState(1);
 
@@ -102,11 +102,12 @@ export default function ClientCockpitDashboard() {
 
   const openAB = () => {
     setAbOpen(true);
-    setAbStep('select');
+    setAbStep('chat');
     setAbSelectedImageId(null);
     setAbSelectedIntegrations([]);
-    setAbChatHistory([]);
+    setAbChatHistory([{ sender: "ai", text: "Who will be using this CRM workspace? Let's build your team registry and assign seat counts." }]);
     setAbPromptViewOpen(false);
+    setAbRoles([]);
   };
 
   // Custom Modal State
@@ -741,21 +742,21 @@ export default function ClientCockpitDashboard() {
                           <input type="number" value={tempRoleSeats} onChange={e => setTempRoleSeats(parseInt(e.target.value) || 0)} className="w-16 bg-white dark:bg-zinc-900 border border-zinc-700 rounded p-2 text-xs" />
                           <button onClick={() => {
                               if (!tempRoleLabel) return;
-                              setAbRoles(prev => [...prev, { label: tempRoleLabel, seats: tempRoleSeats }]);
+                              setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]);
                               setTempRoleLabel("");
                               setTempRoleSeats(1);
-                          }} className="bg-[#004850] text-white px-4 py-2 rounded text-xs font-bold hover:scale-[1.01] active:scale-[0.99] transition-all">Add Role</button>
+                          }} className="active:scale-95 bg-[#004850] text-white px-4 py-2 rounded text-xs font-bold hover:scale-[1.01] transition-all">Add Role</button>
                       </div>
                       <div className="flex flex-wrap gap-2">
                           {abRoles.map((role, i) => (
                               <span key={i} className="bg-slate-200 dark:bg-zinc-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
-                                  {role.label} ({role.seats})
+                                  {role.roleName} ({role.count})
                                   <button onClick={() => setAbRoles(prev => prev.filter((_, idx) => idx !== i))}><i className="ti ti-x" /></button>
                               </span>
                           ))}
                       </div>
                       <button onClick={() => {
-                          setAbChatHistory(prev => [...prev, { sender: "user", text: `Commit Team Registry: ${abRoles.map(r => r.label).join(", ")}` }]);
+                          setAbChatHistory(prev => [...prev, { sender: "user", text: `Commit Team Registry: ${abRoles.map(r => r.roleName).join(", ")}` }]);
                           setAbChatHistory(prev => [...prev, { sender: "ai", text: `◆ Understood. Which integration channels should be natively provisioned into this guide?` }]);
                           setAbStep('integrations');
                       }} className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all">Confirm Team Registry</button>
@@ -810,14 +811,17 @@ export default function ClientCockpitDashboard() {
                       <span className="font-bold text-lg text-emerald-500">◆</span>
                       <div className="w-full space-y-4">
                           <p>◆ Your native automation guidelines have been successfully generated. Review the raw model prompt manifest below.</p>
-                          <pre className="font-mono text-[11px] bg-[#0A0F1D] text-emerald-400/90 p-4 rounded-xl border border-zinc-800/80 shadow-inner overflow-x-auto whitespace-pre-wrap">{compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId))}</pre>
+                          <details className="group my-4">
+                            <summary className="text-xs font-bold uppercase tracking-wider text-[#004850] dark:text-emerald-400 cursor-pointer select-none">View Compiled Prompt Payload</summary>
+                            <pre className="font-mono text-[11px] bg-[#0A0F1D] text-emerald-400/90 p-4 rounded-xl border border-zinc-800/80 shadow-inner overflow-x-auto whitespace-pre-wrap">{compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId))}</pre>
+                          </details>
                           
                           <div className="flex gap-2">
                               <button
                                   onClick={() => copyToClipboard(compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId)))}
                                   className="flex-1 flex items-center justify-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-zinc-700 text-[10px] font-bold uppercase tracking-wider text-[#004850] hover:scale-[1.01] active:scale-[0.99] transition-all rounded"
                               >
-                                  <i className="ti ti-copy" /> COPY RAW MANIFEST
+                                  <i className="ti ti-copy" /> Copy Payload
                               </button>
                               <button 
                                   disabled={isProcessing}
