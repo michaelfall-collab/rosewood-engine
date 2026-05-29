@@ -16,6 +16,7 @@ type LiveImage = CRMArchitectureBlueprint & {
   deals: number; 
   runbookManifest?: string;
   compiledRunbook?: any[];
+  selectedIntegrations?: string[];
 };
 
 const generateRweId = () => "rwe_card_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
@@ -177,12 +178,19 @@ export default function ClientCockpitDashboard() {
       const text = event.target?.result as string;
       try {
         const { blueprint, abCompiledObjects: importedAbObjects } = deserializeFromRwe(text);
-        const newImages = [{ ...blueprint, id: generateRweId(), owner: 'Imported', deals: 0, compiledRunbook: importedAbObjects }, ...images];
+        const rehydratedCard: LiveImage = { 
+            ...blueprint, 
+            id: generateRweId(), 
+            owner: 'Imported', 
+            deals: 0, 
+            compiledRunbook: importedAbObjects,
+            selectedIntegrations: []
+        };
+        const newImages = [rehydratedCard, ...images];
         setImages(newImages);
         if (typeof window !== 'undefined') {
           localStorage.setItem('rw_workspace_cache', JSON.stringify(newImages));
         }
-        setAbCompiledObjects(prev => [...prev, ...importedAbObjects]);
         setCopyFeedback("◆ .rwe file imported successfully");
         setTimeout(() => setCopyFeedback(null), 3000);
       } catch (error) {
@@ -459,7 +467,15 @@ export default function ClientCockpitDashboard() {
   };
 
   const handleCardClick = async (id: string) => {
-    if (!flashMode) { setDetailId(id); return; }
+    if (!flashMode) { 
+      const target = images.find(i => i.id === id);
+      if (target) {
+        setDetailId(id);
+        setAbCompiledObjects(target.compiledRunbook || []);
+        setAbSelectedIntegrations(target.selectedIntegrations || []);
+      }
+      return; 
+    }
     const target = images.find(i => i.id === id);
     if (!target) return;
 
@@ -649,7 +665,6 @@ export default function ClientCockpitDashboard() {
           >
             <i className="ti ti-clipboard-check" /> PASTE CONFIG
           </button>
-          <input type="file" id="rwe-import-input" accept=".rwe" className="hidden" onChange={handleImport} />
         </div>
 
         <div className="flex items-center gap-4 flex-1 max-w-xl px-8">
@@ -1455,6 +1470,7 @@ export default function ClientCockpitDashboard() {
           <div className="h-10 w-10 border-2 border-zinc-200 dark:border-zinc-800 border-t-[#004850] rounded-sm animate-spin " />
         </div>
       )}
+      <input type="file" id="rwe-import-input" accept=".rwe" className="hidden" onChange={handleImport} />
 
     </div>
   );
