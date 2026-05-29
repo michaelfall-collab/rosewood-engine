@@ -33,15 +33,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Missing prompt payloads" }, { status: 400 });
     }
 
-    // Execution uses the decoupled configuration parameter
+    // app/api/compile-agent/route.ts
+
     const response = await ai.models.generateContent({
       model: TARGET_MODEL,
       contents: userPrompt,
       config: {
         systemInstruction: systemPrompt,
         temperature: 0.1, // Dropping to 0.1 maximizes deterministic schema adherence
-        response_mime_type: "application/json", // Forces JSON output
-        response_schema: automationBlockSchema as any // Enforces the blueprint structure
+        
+        // CHANGE THESE TWO LINES BELOW TO camelCase:
+        responseMimeType: "application/json", // Forces JSON output
+        responseSchema: automationBlockSchema as any // Enforces the blueprint structure
       }
     });
 
