@@ -302,12 +302,12 @@ export default function ClientCockpitDashboard() {
                   <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Execution Telemetry // Local Stack</span>
                   <button onClick={() => setTelemetryLogs([])} className="text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400">Clear</button>
                 </div>
-                <div className="flex-1 flex flex-col h-full overflow-y-auto p-4 space-y-2 font-mono text-[10px]">
+                <div className="flex-1 flex flex-col overflow-y-auto p-4 space-y-2 font-mono text-[10px]">
                   {telemetryLogs.length === 0 ? (
                     <div className="text-slate-400 italic py-8 text-center">No active data streams captured.</div>
                   ) : (
                     telemetryLogs.map((log, i) => (
-                      <div key={i} className="border border-slate-200 dark:border-slate-700 rounded overflow-hidden">
+                      <div key={i} className="border border-slate-200 dark:border-slate-700 rounded">
                         <div 
                           onClick={() => setExpandedLogs(prev => prev.includes(i) ? prev.filter(idx => idx !== i) : [...prev, i])}
                           className="p-2 bg-slate-100 dark:bg-slate-800 flex items-center justify-between cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700"
@@ -333,19 +333,19 @@ export default function ClientCockpitDashboard() {
             )}
           </div>
 
-          <button onClick={() => setFlashMode("pipedrive")} className="bg-slate-700 text-white hover:bg-slate-600 rounded-sm font-bold uppercase tracking-wider text-[10px] px-3 py-1.5">Flash to Pipedrive</button>
+          <button onClick={() => setFlashMode("pipedrive")} className="bg-[#10B981] text-white hover:bg-[#059669] rounded-sm font-bold uppercase tracking-wider text-[10px] px-3 py-1.5 shadow-sm transition-all">Flash to Pipedrive</button>
           <div className="relative">
             <button 
               onClick={() => setOpenMenuId(openMenuId === 'vault' ? null : 'vault')}
               disabled={isProcessing}
-              className="bg-[#004850] text-white hover:bg-[#003840] rounded-sm font-bold uppercase tracking-wider text-[10px] px-3 py-1.5 flex items-center gap-1"
+              className="bg-[#6366F1] text-white hover:bg-[#4F46E5] rounded-sm font-bold uppercase tracking-wider text-[10px] px-3 py-1.5 flex items-center gap-1 shadow-sm transition-all"
             >
-              Vault Operations <i className="ti ti-chevron-down" />
+              Flash to Image Manager <i className="ti ti-chevron-down" />
             </button>
             {openMenuId === 'vault' && (
-              <div className="absolute right-0 top-9 w-40 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded overflow-hidden z-[50]">
-                <button onClick={() => { handleInboundNew(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700">Capture New Card</button>
-                <button onClick={() => { setFlashMode('rosewood'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700">Overwrite Existing</button>
+              <div className="absolute right-0 top-9 w-48 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded overflow-hidden z-[50] shadow-xl">
+                <button onClick={() => { handleInboundNew(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 font-bold">Capture New Card</button>
+                <button onClick={() => { setFlashMode('rosewood'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-600 font-bold">Overwrite Existing</button>
               </div>
             )}
           </div>
