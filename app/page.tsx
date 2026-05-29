@@ -160,7 +160,7 @@ export default function ClientCockpitDashboard() {
       ...img,
       compiledRunbook: (img.compiledRunbook || []).map((obj, i) => i === itemIndex ? { 
         ...obj, 
-        setupSteps: obj.setupSteps.filter((_, sIdx) => sIdx !== stepIndex) 
+        setupSteps: obj.setupSteps.filter((_step: string, sIdx: number) => sIdx !== stepIndex) 
       } : obj)
     } : img));
   };
