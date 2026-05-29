@@ -775,12 +775,20 @@ export default function ClientCockpitDashboard() {
                 <div className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-zinc-100 p-4 rounded-tr-xl rounded-br-xl rounded-bl-xl max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
                     <span className="font-bold text-lg">◆</span>
                     <div className="w-full space-y-4">
-                        <button
-                            onClick={() => setAbPromptViewOpen(!abPromptViewOpen)}
-                            className="w-full flex items-center justify-between p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-[10px] font-bold uppercase tracking-widest text-[#004850] hover:bg-slate-50 rounded-sm active:scale-95 transition-transform"
-                        >
-                            AUDIT END-TO-END RAW AI MODEL PROMPT <i className={`ti ${abPromptViewOpen ? 'ti-chevron-up' : 'ti-chevron-down'}`} />
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setAbPromptViewOpen(!abPromptViewOpen)}
+                                className="flex-1 flex items-center justify-between p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-[10px] font-bold uppercase tracking-widest text-[#004850] hover:bg-slate-50 rounded-sm active:scale-95 transition-transform"
+                            >
+                                AUDIT END-TO-END RAW AI MODEL PROMPT <i className={`ti ${abPromptViewOpen ? 'ti-chevron-up' : 'ti-chevron-down'}`} />
+                            </button>
+                            <button
+                                onClick={() => copyToClipboard(compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId)))}
+                                className="flex items-center gap-2 px-4 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-[10px] font-bold uppercase tracking-wider text-[#004850] hover:bg-slate-50 rounded-sm active:scale-95 transition-transform"
+                            >
+                                <i className="ti ti-copy" /> COPY RAW MANIFEST
+                            </button>
+                        </div>
                         {abPromptViewOpen && (
                             <pre className="w-full min-h-[250px] max-h-[400px] border border-slate-300 dark:border-slate-700 p-4 font-mono text-[11px] bg-slate-900 text-emerald-400 overflow-y-auto rounded-md whitespace-pre-wrap">{compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId))}</pre>
                         )}
@@ -789,8 +797,8 @@ export default function ClientCockpitDashboard() {
                             Looks good — build complete file structure layout guidelines
                         </label>
                         <div className="flex gap-2">
-                            <a href="#" className="flex-1 text-center border border-slate-300 dark:border-slate-700 py-2 rounded-sm text-[10px] font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-transform">Download File</a>
-                            <button onClick={() => setAbOpen(false)} className="flex-1 border border-slate-300 dark:border-slate-700 py-2 rounded-sm text-[10px] font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-transform">Keep Local Only</button>
+                            <a href="#" className="flex-1 h-10 flex items-center justify-center border border-slate-300 dark:border-slate-700 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-transform">Download File</a>
+                            <button onClick={() => setAbOpen(false)} className="flex-1 h-10 flex items-center justify-center border border-slate-300 dark:border-slate-700 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-transform">Keep Local Only</button>
                             <button 
                                 disabled={isProcessing}
                                 onClick={() => {
@@ -798,7 +806,7 @@ export default function ClientCockpitDashboard() {
                                     setAbOpen(false);
                                     setAbStep('select');
                                 }}
-                                className="flex-1 bg-[#004850] text-white py-2 rounded-sm text-[10px] font-bold uppercase hover:bg-[#003840] active:scale-95 transition-transform"
+                                className="flex-1 h-10 flex items-center justify-center bg-[#004850] text-white rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-[#003840] active:scale-95 transition-transform"
                             >
                                 Yes, Attach Runbook to Image Card
                             </button>
