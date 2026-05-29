@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { CRMArchitectureBlueprint } from "@/types/blueprint";
-import { generateRunbookPrompt } from "@/utils/promptCompiler";
+import { generateRunbookPrompt, compileAutomationBlock } from "@/utils/promptCompiler";
 
 /** 
  * PRODUCTION-GRADE TYPES
@@ -11,7 +11,7 @@ import { generateRunbookPrompt } from "@/utils/promptCompiler";
 type LiveImage = CRMArchitectureBlueprint & { 
   owner: string; 
   deals: number; 
-  automationInstructions?: string;
+  runbookManifest?: string;
 };
 
 interface ModalProps {
@@ -41,7 +41,7 @@ const SYSTEM_SEED: LiveImage = {
       ]
     }
   ],
-  automationInstructions: "TRIGGER: New deal created\nACTION: Post to Slack #ops-feed\nCONDITION: Deal value > 500"
+  runbookManifest: "TRIGGER: New deal created\nACTION: Post to Slack #ops-feed\nCONDITION: Deal value > 500"
 };
 
 export default function ClientCockpitDashboard() {
@@ -66,40 +66,73 @@ export default function ClientCockpitDashboard() {
 
   // Automation Builder States
   const [abOpen, setAbOpen] = useState(false);
-  const [abStep, setAbStep] = useState<'select' | 'chat' | 'building' | 'preview'>('select');
+  const [abStep, setAbStep] = useState<'select' | 'chat' | 'planning' | 'stapling' | 'preview'>('select');
+  const [staplingState, setStaplingState] = useState({ index: 0, total: 0, currentStage: "" });
   const [abSelectedImageId, setAbSelectedImageId] = useState<string | null>(null);
   const [abSelectedIntegrations, setAbSelectedIntegrations] = useState<string[]>([]);
   const [abChatHistory, setAbChatHistory] = useState<{ sender: "user" | "ai"; text: string; dataWidget?: any }[]>([]);
   const [abPromptViewOpen, setAbPromptViewOpen] = useState(false);
   const [abRoles, setAbRoles] = useState<{ roleName: string; count: number }[]>([]);
+  const [abCompiledBlocks, setAbCompiledBlocks] = useState("");
   const [tempRoleLabel, setTempRoleLabel] = useState("");
   const [tempRoleSeats, setTempRoleSeats] = useState(1);
+  const [isAttached, setIsAttached] = useState(false);
 
-  const compileRawModelPromptManifest = () => {
+  const compileRawModelPromptManifest = (compiledBlocks?: string) => {
     const targetImage = images.find(i => i.id === abSelectedImageId);
-    return generateRunbookPrompt(targetImage, abSelectedIntegrations, { userRoles: abRoles });
+    return generateRunbookPrompt(targetImage, abSelectedIntegrations, { 
+      userRoles: abRoles,
+      automationBlocks: compiledBlocks || abCompiledBlocks 
+    });
   };
 
-  const compilePromptManifest = () => {
+  const compilePromptManifest = async () => {
     const targetImage = images.find(i => i.id === abSelectedImageId);
     if (!targetImage) return;
-    const assembledPromptText = compileRawModelPromptManifest();
+
+    // Transition to planning phase
+    setAbStep('planning');
+    setIsAttached(false);
+    
+    // Simulate Master Planner running to build the Footprint Map
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Programmatically extract target items (Mocked index array for simulation)
+    const automationQueue = [
+      { id: "AUTO_101", targetStage: "Initial Contact & Screening", goal: "Assign owner and create screening activity" },
+      { id: "AUTO_102", targetStage: "The Waitlist (Nurture Phase)", goal: "Generate physical welcome kit task and start native delayed touchpoint activity cycle" },
+      { id: "AUTO_103", targetStage: "Account At-Risk", goal: "Add At Risk flag and trigger an urgent internal review meeting assignment" }
+    ];
+
+    // Automatically advance to stapling iterative loop
+    setAbStep('stapling');
+    setStaplingState({ index: 0, total: automationQueue.length, currentStage: "" });
+
+    let compiledAutomations = "";
+
+    for (const [index, item] of automationQueue.entries()) {
+      setStaplingState({ 
+        index: index + 1, 
+        total: automationQueue.length, 
+        currentStage: item.targetStage 
+      });
+      
+      // Execute the sub-agent string compilation routine
+      const blockMarkdown = compileAutomationBlock(item, abRoles, index + 1);
+      compiledAutomations += blockMarkdown + "\n\n";
+    }
+
+    setAbCompiledBlocks(compiledAutomations);
+    const assembledPromptText = compileRawModelPromptManifest(compiledAutomations);
     setTelemetryLogs(prev => [{
       type: "OUTBOUND",
       timestamp: new Date().toLocaleTimeString(),
       payload: { promptManifestAuditTrail: assembledPromptText }
     }, ...prev]);
-    setAbStep('building');
-  };
 
-  useEffect(() => {
-    if (abStep === 'building') {
-      const timer = setTimeout(() => {
-        setAbStep('preview');
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [abStep]);
+    // Automatically transition to preview to unlock view
+    setAbStep('preview');
+  };
 
   const openAB = () => {
     setAbOpen(true);
@@ -109,6 +142,9 @@ export default function ClientCockpitDashboard() {
     setAbChatHistory([]);
     setAbPromptViewOpen(false);
     setAbRoles([]);
+    setAbCompiledBlocks("");
+    setStaplingState({ index: 0, total: 0, currentStage: "" });
+    setIsAttached(false);
   };
 
   // Custom Modal State
@@ -282,7 +318,7 @@ export default function ClientCockpitDashboard() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    setCopyFeedback("✓ Copied to Clipboard");
+    setCopyFeedback("◆ Payload copied to clipboard");
     setTimeout(() => setCopyFeedback(null), 3000);
   };
 
@@ -291,10 +327,10 @@ export default function ClientCockpitDashboard() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `runbook-${abSelectedImageId}.md`;
+    a.download = `pipedrive-runbook-${abSelectedImageId}.md`;
     a.click();
     URL.revokeObjectURL(url);
-    setCopyFeedback("✓ File Downloaded");
+    setCopyFeedback("◆ Runbook Downloaded");
     setTimeout(() => setCopyFeedback(null), 3000);
   };
 
@@ -561,9 +597,9 @@ export default function ClientCockpitDashboard() {
 
                 <div className="flex items-center justify-between mt-4">
                   <div className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight flex items-center gap-1 ${
-                    img.automationInstructions ? 'bg-emerald-100 text-emerald-700 dark:bg-[#004850]/20 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
+                    img.runbookManifest ? 'bg-emerald-100 text-emerald-700 dark:bg-[#004850]/20 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
                   }`}>
-                    {img.automationInstructions ? "◆ automated" : "no automation"}
+                    {img.runbookManifest ? "◆ automated" : "no automation"}
                   </div>
                   
                   <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -626,14 +662,14 @@ export default function ClientCockpitDashboard() {
             <div className="flex-1 overflow-hidden flex flex-col relative p-6">
               <div className="flex justify-end mb-4">
                 <button 
-                  onClick={() => copyToClipboard(detailTab === 'json' ? JSON.stringify(activeDetail, null, 2) : activeDetail.automationInstructions || "")}
+                  onClick={() => copyToClipboard(detailTab === 'json' ? JSON.stringify(activeDetail, null, 2) : activeDetail.runbookManifest || "")}
                   className="px-3 py-1.5 bg-[#004850] text-white rounded text-[10px] font-bold uppercase tracking-tighthover:bg-[#003840] transition-all flex items-center gap-2 active:scale-95"
                 >
                   <i className="ti ti-copy" /> Copy to Clipboard
                 </button>
               </div>
               <div className="flex-1 rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-6 overflow-y-auto font-mono text-[11px] text-slate-700 dark:text-emerald-400/90 leading-normal">
-                <pre className="whitespace-pre-wrap">{detailTab === 'json' ? JSON.stringify(activeDetail, null, 2) : activeDetail.automationInstructions || "No instructions provided."}</pre>
+                <pre className="whitespace-pre-wrap">{detailTab === 'json' ? JSON.stringify(activeDetail, null, 2) : activeDetail.runbookManifest || "No instructions provided."}</pre>
               </div>
             </div>
           </div>
@@ -804,7 +840,6 @@ export default function ClientCockpitDashboard() {
                                         disabled={isProcessing}
                                         onClick={() => {
                                             setAbChatHistory(prev => [...prev, { sender: "user", text: `Integrations: ${abSelectedIntegrations.join(", ")}`}]);
-                                            setAbStep('building');
                                             compilePromptManifest();
                                         }}
                                         className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all"
@@ -817,12 +852,22 @@ export default function ClientCockpitDashboard() {
                     </div>
                 )}
 
-                {abStep === 'building' && (
-                  <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
+                {(abStep === 'planning' || abStep === 'stapling') && (
+                  <div className="bg-slate-100 dark:bg-zinc-800 p-5 rounded-2xl rounded-tl-none max-w-[85%] flex gap-4 text-xs shadow-md border border-zinc-700/50 animate-in fade-in slide-in-from-left-2 duration-300">
                       <span className="font-bold text-lg text-emerald-500">◆</span>
-                      <div className="flex items-center gap-2">
-                          <div className="h-4 w-4 border-2 border-[#004850]/20 border-t-[#004850] rounded-full animate-spin" />
-                          <span className="font-bold">◆ Compiling schema matrix... Organizing context parameters into recipe manifest block.</span>
+                      <div className="flex items-center gap-4">
+                          <div className="h-5 w-5 border-2 border-teal-500/20 border-t-teal-500 rounded-full animate-spin shrink-0" />
+                          <div className="flex flex-col gap-1">
+                            <span className="font-bold text-slate-800 dark:text-zinc-100 tracking-tight">
+                              {abStep === 'planning' 
+                                ? "◆ Master Planner assembling global automation footprint map..." 
+                                : `◆ Stapling Automation [${staplingState.index} of ${staplingState.total}]: Compiling native configuration steps for stage '${staplingState.currentStage}'...`
+                              }
+                            </span>
+                            <span className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase tracking-widest font-medium">
+                              {abStep === 'planning' ? "Initializing Pipeline Analysis" : "Executing Sequential Logic Bind"}
+                            </span>
+                          </div>
                       </div>
                   </div>
                 )}
@@ -851,21 +896,23 @@ export default function ClientCockpitDashboard() {
                                   <i className="ti ti-download" /> Download File
                               </button>
                               <button
-                                  onClick={() => { setAbOpen(false); setAbStep('select'); }}
+                                  onClick={() => { setAbOpen(false); setAbStep('select'); setIsAttached(false); }}
                                   className="flex-1 flex items-center justify-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-zinc-700 text-[10px] font-bold uppercase tracking-wider text-[#004850] hover:scale-[1.01] active:scale-[0.99] transition-all rounded"
                               >
                                   Keep Local Only
                               </button>
                               <button 
-                                  disabled={isProcessing}
+                                  disabled={isProcessing || isAttached}
                                   onClick={() => {
-                                      setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, automationInstructions: compileRawModelPromptManifest() } : img));
-                                      setAbOpen(false);
-                                      setAbStep('select');
+                                      const payload = compileRawModelPromptManifest();
+                                      setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, runbookManifest: payload } : img));
+                                      setIsAttached(true);
+                                      // Optional: Auto-close after delay? The requirement doesn't specify.
+                                      // Keeping it open so feedback is visible.
                                   }}
-                                  className="flex-1 flex items-center justify-center bg-[#004850] text-white rounded text-[10px] font-bold uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] transition-all"
+                                  className={`flex-1 flex items-center justify-center rounded text-[10px] font-bold uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] transition-all ${isAttached ? 'bg-emerald-600 text-white' : 'bg-[#004850] text-white'}`}
                               >
-                                  Attach Runbook to Image Card
+                                  {isAttached ? "◆ Runbook Attached Successfully" : "Attach Runbook to Image Card"}
                               </button>
                           </div>
                       </div>
@@ -879,8 +926,7 @@ export default function ClientCockpitDashboard() {
       {/* 6. CLIPBOARD FEEDBACK */}
       {copyFeedback && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-900 text-white rounded  z-[400] flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 border border-slate-700">
-          <i className="ti ti-check text-emerald-400 text-lg" />
-          <span className="text-xs font-bold uppercase tracking-widest">{copyFeedback}</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">{copyFeedback}</span>
         </div>
       )}
 
