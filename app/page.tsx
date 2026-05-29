@@ -63,6 +63,52 @@ export default function ClientCockpitDashboard() {
   const [accountName, setAccountName] = useState("");
   const [expandedLogs, setExpandedLogs] = useState<number[]>([]);
 
+  // Automation Builder States
+  const [abOpen, setAbOpen] = useState(false);
+  const [abStep, setAbStep] = useState<'select' | 'chat' | 'building' | 'preview'>('select');
+  const [abSelectedImageId, setAbSelectedImageId] = useState<string | null>(null);
+  const [abSelectedIntegrations, setAbSelectedIntegrations] = useState<string[]>([]);
+  const [abChatHistory, setAbChatHistory] = useState<{ sender: "user" | "ai"; text: string }[]>([]);
+  const [abPromptViewOpen, setAbPromptViewOpen] = useState(false);
+
+  const compileRawModelPromptManifest = (targetImage: any) => {
+    const corePrompt = "Identity: You are an enterprise CRM Systems Architect deploying configurations natively for Pipedrive.";
+    const schema = JSON.stringify(targetImage, null, 2);
+    const integrations = `Natively Active Pipelines & Integration Channels Required: ${abSelectedIntegrations.join(", ")}`;
+    const instructions = "Strict Execution Schema Instructions detailing formatting goals for step-by-step triggers, parameters, rules, and conditions.";
+    return `${corePrompt}\n\n[SNAPSHOT SCHEMA]\n${schema}\n\n[INTEGRATION PARAMETERS]\n${integrations}\n\n[INSTRUCTIONS]\n${instructions}`;
+  };
+
+  const compilePromptManifest = () => {
+    const targetImage = images.find(i => i.id === abSelectedImageId);
+    if (!targetImage) return;
+    const assembledPromptText = compileRawModelPromptManifest(targetImage);
+    setTelemetryLogs(prev => [{
+      type: "OUTBOUND",
+      timestamp: new Date().toLocaleTimeString(),
+      payload: { promptManifestAuditTrail: assembledPromptText }
+    }, ...prev]);
+    setAbStep('building');
+  };
+
+  useEffect(() => {
+    if (abStep === 'building') {
+      const timer = setTimeout(() => {
+        setAbStep('preview');
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [abStep]);
+
+  const openAB = () => {
+    setAbOpen(true);
+    setAbStep('select');
+    setAbSelectedImageId(null);
+    setAbSelectedIntegrations([]);
+    setAbChatHistory([]);
+    setAbPromptViewOpen(false);
+  };
+
   // Custom Modal State
   const [uiModal, setUiModal] = useState<ModalProps | null>(null);
 
@@ -306,6 +352,12 @@ export default function ClientCockpitDashboard() {
             <i className="ti ti-database text-white text-lg" />
           </div>
           <span className="text-sm font-bold tracking-tight uppercase">Rosewood Image Manager</span>
+          <button
+            onClick={openAB}
+            className="text-[10px] font-bold uppercase tracking-wider text-[#004850] dark:text-zinc-300 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 rounded-sm flex items-center gap-1 hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50"
+          >
+            <i className="ti ti-wand" /> ▲ AUTOMATION RUNBOOK BUILDER
+          </button>
         </div>
 
         <div className="flex items-center gap-4 flex-1 max-w-xl px-8">
@@ -351,7 +403,7 @@ export default function ClientCockpitDashboard() {
                   onClick={() => setOpenMenuId(openMenuId === 'rescue' ? null : 'rescue')}
                   className="bg-amber-500 border border-amber-600 text-white font-black px-2 py-1.5 text-[9px] uppercase tracking-wider rounded-sm flex items-center gap-1 hover:bg-amber-600 cursor-pointer animate-in fade-in zoom-in duration-200"
                 >
-                  <i className="ti ti-shield-alert" /> Rescue <i className="ti ti-chevron-down" />
+                  <i className="ti ti-shield-alert" /> Temp Image <i className="ti ti-chevron-down" />
                 </button>
                 {openMenuId === 'rescue' && (
                   <div className="absolute right-0 top-9 w-48 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded overflow-hidden z-[50] shadow-xl">
@@ -608,6 +660,94 @@ export default function ClientCockpitDashboard() {
                 {uiModal.type === "alert" ? "OK" : "Proceed"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* AUTOMATION BUILDER MODAL */}
+      {abOpen && (
+        <div className="fixed inset-0 bg-white dark:bg-slate-900 z-[200] flex flex-col overflow-hidden animate-in fade-in duration-200">
+          <div className="h-14 flex items-center justify-between px-6 border-b border-slate-300 dark:border-slate-700">
+            <span className="text-sm font-bold uppercase tracking-tight">AUTOMATION BLUEPRINT GENERATOR // UNIT ENGINE SHUTTLE</span>
+            <button
+              onClick={() => {
+                setAbOpen(false);
+                setAbStep('select');
+                setAbSelectedImageId(null);
+                setAbSelectedIntegrations([]);
+                setAbChatHistory([]);
+              }}
+              className="text-slate-400 hover:text-slate-600"
+            >
+              <i className="ti ti-x" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            {abStep === 'select' && (
+              <div className="flex flex-col gap-2">
+                {images.map(img => (
+                  <button
+                    key={img.id}
+                    onClick={() => { setAbSelectedImageId(img.id); setAbStep('chat'); }}
+                    className="border border-slate-300 dark:border-slate-700 p-4 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-left"
+                  >
+                    <h3 className="font-bold uppercase text-xs">{img.name}</h3>
+                    <p className="text-xs text-slate-500">{img.description}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+            {abStep === 'chat' && (
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  {['Slack', 'Microsoft Teams', 'Asana', 'Trello', 'Webhooks', 'Campaigns by Pipedrive', 'Projects by Pipedrive'].map(int => (
+                    <button
+                      key={int}
+                      onClick={() => setAbSelectedIntegrations(prev => prev.includes(int) ? prev.filter(i => i !== int) : [...prev, int])}
+                      className={`w-full p-2 border rounded flex items-center gap-2 ${abSelectedIntegrations.includes(int) ? 'bg-[#004850]/10 border-[#004850]' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700'}`}
+                    >
+                      <i className={`ti ${abSelectedIntegrations.includes(int) ? 'ti-checkbox' : 'ti-square'}`} />
+                      {int}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded h-64 overflow-y-auto mb-4 font-mono text-xs text-slate-600 dark:text-slate-400">
+                    <pre>{JSON.stringify(images.find(i => i.id === abSelectedImageId), null, 2)}</pre>
+                  </div>
+                  <button
+                    onClick={compilePromptManifest}
+                    className="bg-[#004850] text-white px-4 py-2 rounded text-xs font-bold uppercase hover:bg-[#003840]"
+                  >
+                    COMPILE PROMPT MANIFEST
+                  </button>
+                </div>
+              </div>
+            )}
+            {abStep === 'building' && (
+              <div className="flex flex-col items-center justify-center h-full text-center py-20">
+                <div className="h-10 w-10 border-4 border-[#004850]/20 border-t-[#004850] rounded-sm animate-spin mb-4" />
+                <p className="text-xs font-mono">Assembling data configuration streams into payload layout block... Matrix compiling.</p>
+              </div>
+            )}
+            {abStep === 'preview' && (
+              <div className="flex flex-col h-full">
+                <button
+                    onClick={() => setAbPromptViewOpen(!abPromptViewOpen)}
+                    className="w-full text-left p-3 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-widest text-[#004850] hover:bg-slate-200 border-b border-slate-300"
+                >
+                    AUDIT END-TO-END RAW AI MODEL PROMPT
+                </button>
+                <div className="flex-1 p-6 border-b border-slate-300 overflow-y-auto">
+                    <p className="text-xs italic text-slate-500">Simulated conversation response stream from system agent interface...</p>
+                </div>
+                {abPromptViewOpen && (
+                    <div className="w-full border-t border-slate-300 p-4 font-mono text-[11px] bg-slate-50 dark:bg-slate-950 overflow-y-auto h-64">
+                        <pre className="whitespace-pre-wrap">{compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId))}</pre>
+                    </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
