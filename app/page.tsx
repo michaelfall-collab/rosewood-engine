@@ -261,7 +261,8 @@ export default function ClientCockpitDashboard() {
           </div>
 
           <button 
-            onClick={() => isVerified ? setApiKey("") : verifyConnection()}
+            onClick={() => isVerified ? (setApiKey(""), setIsVerified(false)) : verifyConnection()}
+            disabled={isProcessing}
             className={`flex items-center gap-2 px-3 py-1.5 rounded border transition-all active:scale-95 ${
               isVerified 
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 cursor-pointer hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-600' 
@@ -280,7 +281,8 @@ export default function ClientCockpitDashboard() {
           <div className="relative">
             <button 
               onClick={() => setShowTelemetry(!showTelemetry)}
-              className={`h-8 w-8 flex items-center justify-center rounded border transition-all ${showTelemetry ? 'bg-slate-800 border-slate-700 text-emerald-400' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400 hover:text-[#004850]'}`}
+              disabled={isProcessing}
+              className={`h-8 w-8 flex items-center justify-center rounded border transition-all active:scale-95 ${showTelemetry ? 'bg-slate-800 border-slate-700 text-emerald-400' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400 hover:text-[#004850]'}`}
               title="Telemetry Terminal"
             >
               <i className="ti ti-terminal-2" />
@@ -302,7 +304,7 @@ export default function ClientCockpitDashboard() {
                           <span className={`font-bold ${log.type === 'OUTBOUND' ? 'text-emerald-600' : 'text-[#004850]'}`}>[{log.type}] {log.timestamp}</span>
                           <button onClick={() => copyToClipboard(JSON.stringify(log.payload, null, 2))} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-[#004850] transition-opacity"><i className="ti ti-copy" /></button>
                         </div>
-                        <pre className="text-slate-600 overflow-x-auto whitespace-pre-wrap max-h-32 scrollbar-thin scrollbar-thumb-slate-300">
+                        <pre className="text-slate-700 font-bold overflow-x-auto whitespace-pre-wrap max-h-32 scrollbar-thin scrollbar-thumb-slate-300">
                           {JSON.stringify(log.payload, null, 1)}
                         </pre>
                       </div>
@@ -350,7 +352,7 @@ export default function ClientCockpitDashboard() {
               {flashMode === 'pipedrive' ? 'Select an image card below to flash to Pipedrive account framework' : 'Select an existing template card to overwrite with live data from Pipedrive'}
             </span>
           </div>
-          <button onClick={() => setFlashMode("")} className="text-[10px] font-black uppercase px-2 py-1 bg-black/20 hover:bg-black/30 rounded">Abort</button>
+          <button onClick={() => setFlashMode("")} className="text-[10px] font-black uppercase px-2 py-1 bg-black/20 hover:bg-black/30 rounded active:scale-95">Abort</button>
         </div>
       )}
 
@@ -360,13 +362,13 @@ export default function ClientCockpitDashboard() {
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded border border-slate-200 dark:border-slate-700">
             <button 
               onClick={() => setViewLayout("grid")}
-              className={`px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-2 transition-all ${viewLayout === 'grid' ? 'bg-white dark:bg-slate-700 text-[#004850]' : 'text-slate-500'}`}
+              className={`px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-2 transition-all active:scale-95 ${viewLayout === 'grid' ? 'bg-white dark:bg-slate-700 text-[#004850]' : 'text-slate-500'}`}
             >
               <i className="ti ti-layout-grid" /> Grid
             </button>
             <button 
               onClick={() => setViewLayout("list")}
-              className={`px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-2 transition-all ${viewLayout === 'list' ? 'bg-white dark:bg-slate-700 text-[#004850]' : 'text-slate-500'}`}
+              className={`px-3 py-1 rounded text-[10px] font-bold uppercase flex items-center gap-2 transition-all active:scale-95 ${viewLayout === 'list' ? 'bg-white dark:bg-slate-700 text-[#004850]' : 'text-slate-500'}`}
             >
               <i className="ti ti-list" /> List
             </button>
@@ -379,7 +381,7 @@ export default function ClientCockpitDashboard() {
               <div 
                 key={img.id}
                 onClick={() => handleCardClick(img.id)}
-                className={`relative group border p-4 cursor-pointer transition-all duration-200 rounded
+                className={`relative group border p-4 cursor-pointer transition-all duration-200 rounded active:scale-[0.98]
                   ${viewLayout === 'grid' ? 'h-44 flex flex-col justify-between' : 'flex items-center gap-6 py-2 px-4'}
                   ${flashMode === 'pipedrive' ? 'border-emerald-500 bg-emerald-50/20 ring-1 ring-emerald-500' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-[#004850] '}
                   ${flashMode === 'rosewood' ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : ''}
@@ -416,7 +418,7 @@ export default function ClientCockpitDashboard() {
                   <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                     <button 
                       onClick={() => setOpenMenuId(openMenuId === img.id ? null : img.id)}
-                      className="h-7 w-7 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 flex items-center justify-center transition-colors"
+                      className="h-7 w-7 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 flex items-center justify-center transition-colors active:scale-95"
                     >
                       <i className="ti ti-dots" />
                     </button>
@@ -450,7 +452,7 @@ export default function ClientCockpitDashboard() {
                   <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">{activeDetail.version}</p>
                 </div>
               </div>
-              <button onClick={() => setDetailId(null)} className="h-8 w-8 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center text-slate-400">
+              <button onClick={() => setDetailId(null)} className="h-8 w-8 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center text-slate-400 active:scale-95">
                 <i className="ti ti-x text-lg" />
               </button>
             </div>
@@ -458,13 +460,13 @@ export default function ClientCockpitDashboard() {
             <div className="flex px-8 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
               <button 
                 onClick={() => setDetailTab("json")}
-                className={`px-6 py-4 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-all ${detailTab === 'json' ? 'border-[#004850] text-[#004850] dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                className={`px-6 py-4 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-all active:scale-95 ${detailTab === 'json' ? 'border-[#004850] text-[#004850] dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
               >
                 API JSON Logic
               </button>
               <button 
                 onClick={() => setDetailTab("guide")}
-                className={`px-6 py-4 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-all ${detailTab === 'guide' ? 'border-[#004850] text-[#004850] dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                className={`px-6 py-4 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-all active:scale-95 ${detailTab === 'guide' ? 'border-[#004850] text-[#004850] dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
               >
                 Automation Guide
               </button>
@@ -474,7 +476,7 @@ export default function ClientCockpitDashboard() {
               <div className="flex justify-end mb-4">
                 <button 
                   onClick={() => copyToClipboard(detailTab === 'json' ? JSON.stringify(activeDetail, null, 2) : activeDetail.automationInstructions || "")}
-                  className="px-3 py-1.5 bg-[#004850] text-white rounded text-[10px] font-bold uppercase tracking-tighthover:bg-[#003840] transition-all flex items-center gap-2"
+                  className="px-3 py-1.5 bg-[#004850] text-white rounded text-[10px] font-bold uppercase tracking-tighthover:bg-[#003840] transition-all flex items-center gap-2 active:scale-95"
                 >
                   <i className="ti ti-copy" /> Copy to Clipboard
                 </button>
@@ -503,7 +505,7 @@ export default function ClientCockpitDashboard() {
             )}
             <div className="flex justify-end gap-2 mt-2">
               {(uiModal.type === "confirm" || uiModal.type === "prompt") && (
-                <button onClick={uiModal.onCancel} className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded text-[10px] font-bold uppercase hover:bg-slate-50 transition-all">Cancel</button>
+                <button onClick={uiModal.onCancel} className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded text-[10px] font-bold uppercase hover:bg-slate-50 transition-all active:scale-95">Cancel</button>
               )}
               <button 
                 onClick={() => {
@@ -516,7 +518,7 @@ export default function ClientCockpitDashboard() {
                     uiModal.onCancel();
                   }
                 }}
-                className="px-4 py-2 bg-[#004850] text-white rounded text-[10px] font-bold uppercase hover:bg-[#003840] transition-all"
+                className="px-4 py-2 bg-[#004850] text-white rounded text-[10px] font-bold uppercase hover:bg-[#003840] transition-all active:scale-95"
               >
                 {uiModal.type === "alert" ? "OK" : "Proceed"}
               </button>
