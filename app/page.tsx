@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { CRMArchitectureBlueprint } from "@/types/blueprint";
+import { generateRunbookPrompt } from "@/utils/promptCompiler";
 
 /** 
  * PRODUCTION-GRADE TYPES
@@ -72,11 +73,7 @@ export default function ClientCockpitDashboard() {
   const [abPromptViewOpen, setAbPromptViewOpen] = useState(false);
 
   const compileRawModelPromptManifest = (targetImage: any) => {
-    const corePrompt = "Identity: You are an enterprise CRM Systems Architect deploying configurations natively for Pipedrive.";
-    const schema = JSON.stringify(targetImage, null, 2);
-    const integrations = `Natively Active Pipelines & Integration Channels Required: ${abSelectedIntegrations.join(", ")}`;
-    const instructions = "Strict Execution Schema Instructions detailing formatting goals for step-by-step triggers, parameters, rules, and conditions.";
-    return `${corePrompt}\n\n[SNAPSHOT SCHEMA]\n${schema}\n\n[INTEGRATION PARAMETERS]\n${integrations}\n\n[INSTRUCTIONS]\n${instructions}`;
+    return generateRunbookPrompt(targetImage, abSelectedIntegrations);
   };
 
   const compilePromptManifest = () => {
