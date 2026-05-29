@@ -3,7 +3,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { CRMArchitectureBlueprint } from "@/types/blueprint";
-import { generateRunbookPrompt, compileAutomationBlock } from "@/utils/promptCompiler";
+import { generateRunbookPrompt } from "@/utils/promptCompiler";
+import { PIPEDRIVE_CAPABILITIES_REGISTRY } from "@/config/pipedriveCapabilities";
 
 /** 
  * PRODUCTION-GRADE TYPES
@@ -117,9 +118,16 @@ export default function ClientCockpitDashboard() {
         currentStage: item.targetStage 
       });
       
-      // Execute the sub-agent string compilation routine
-      const blockMarkdown = compileAutomationBlock(item, abRoles, index + 1);
-      compiledAutomations += blockMarkdown + "\n\n";
+      const response = await fetch('/api/compile-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemPrompt: `You are an Enterprise CRM Systems Architect. Capabilities: ${JSON.stringify(PIPEDRIVE_CAPABILITIES_REGISTRY)}`,
+          userPrompt: `Generate configuration for: ${item.goal} in stage ${item.targetStage}`
+        })
+      });
+      const data = await response.json();
+      compiledAutomations += (data.markdownBlock || "Failed to compile.") + "\n\n";
     }
 
     setAbCompiledBlocks(compiledAutomations);
