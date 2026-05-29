@@ -6,6 +6,7 @@ import { CRMArchitectureBlueprint } from "@/types/blueprint";
 import { generateRunbookPrompt } from "@/utils/promptCompiler";
 import { PIPEDRIVE_CAPABILITIES_REGISTRY } from "@/config/pipedriveCapabilities";
 import { exportRunbookToDocx } from '@/utils/docxExporter';
+import { serializeToRwe, deserializeFromRwe } from '@/utils/fileSerializer';
 
 /** 
  * PRODUCTION-GRADE TYPES
@@ -98,6 +99,31 @@ export default function ClientCockpitDashboard() {
   const [tempRoleLabel, setTempRoleLabel] = useState("");
   const [tempRoleSeats, setTempRoleSeats] = useState(1);
   const [isAttached, setIsAttached] = useState(false);
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      try {
+        const { blueprint, abCompiledObjects: importedAbObjects } = deserializeFromRwe(text);
+        setImages(prev => [{ ...blueprint, owner: 'Imported', deals: 0 }, ...prev]);
+        setAbCompiledObjects(prev => [...prev, ...importedAbObjects]);
+        setCopyFeedback("◆ .rwe file imported successfully");
+        setTimeout(() => setCopyFeedback(null), 3000);
+      } catch (error) {
+        console.error("Import failed:", error);
+        setUiModal({
+            type: "alert",
+            title: "Import Error",
+            message: "Failed to import .rwe file. Ensure the file is valid.",
+            onCancel: () => setUiModal(null)
+        });
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const compileRawModelPromptManifest = (compiledObjects?: any[]) => {
     const targetImage = images.find(i => i.id === abSelectedImageId);
@@ -512,6 +538,13 @@ export default function ClientCockpitDashboard() {
           >
             <i className="ti ti-wand" /> AUTOMATION RUNBOOK BUILDER
           </button>
+          <button
+            onClick={() => document.getElementById('rwe-import-input')?.click()}
+            className="text-[10px] font-bold uppercase tracking-wider text-[#004850] dark:text-zinc-300 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 rounded-sm flex items-center gap-1 hover:bg-slate-50 transition-all active:scale-95"
+          >
+            <i className="ti ti-file-import" /> Import .rwe
+          </button>
+          <input type="file" id="rwe-import-input" accept=".rwe" className="hidden" onChange={handleImport} />
         </div>
 
         <div className="flex items-center gap-4 flex-1 max-w-xl px-8">
@@ -672,12 +705,13 @@ export default function ClientCockpitDashboard() {
               <div 
                 key={img.id}
                 onClick={() => handleCardClick(img.id)}
-                className={`relative group border p-4 cursor-pointer transition-all duration-200 rounded active:scale-[0.98]
-                  ${viewLayout === 'grid' ? 'h-44 flex flex-col justify-between' : 'flex items-center gap-6 py-2 px-4'}
+                className={`relative group border p-4 cursor-pointer transition-all duration-200 rounded-sm active:scale-[0.98]
+                  ${viewLayout === 'grid' ? 'w-72 h-52 flex flex-col justify-between' : 'flex items-center gap-6 py-2 px-4'}
                   ${flashMode === 'pipedrive' ? 'border-emerald-500 bg-emerald-50/20 ring-1 ring-emerald-500' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-[#004850] '}
                   ${flashMode === 'rosewood' ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : ''}
                 `}
               >
+
                 <div className="flex-1 min-w-0">
                   {renamingId === img.id ? (
                     <input 
@@ -703,7 +737,7 @@ export default function ClientCockpitDashboard() {
                   <div className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight flex items-center gap-1 ${
                     img.runbookManifest ? 'bg-emerald-100 text-emerald-700 dark:bg-[#004850]/20 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
                   }`}>
-                    {img.runbookManifest ? "◆ automated" : "no automation"}
+                    {img.runbookManifest ? "automation attached" : "no automation"}
                   </div>
                   
                   <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -716,7 +750,18 @@ export default function ClientCockpitDashboard() {
                     {openMenuId === img.id && (
                       <div className="absolute right-0 bottom-8 w-32 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded z-[50] p-1 flex flex-col">
                         <button onClick={() => { setRenamingId(img.id); setRenameValue(img.name); setOpenMenuId(null); }} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"><i className="ti ti-pencil" /> Rename</button>
-                        <button onClick={() => { copyToClipboard(JSON.stringify(img, null, 2)); setOpenMenuId(null); }} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"><i className="ti ti-download" /> Export</button>
+                        <button onClick={() => { 
+                            const blob = new Blob([serializeToRwe(img, abCompiledObjects)], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `${img.name.replace(/\s+/g, '-').toLowerCase()}.rwe`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            setOpenMenuId(null);
+                        }} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"><i className="ti ti-download" /> Export (.rwe)</button>
                         <button onClick={() => deleteCard(img.id)} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-rose-50 dark:hover:bg-rose-900/30 text-rose-600 font-bold border-t border-slate-200 dark:border-slate-700 mt-1 flex items-center gap-2"><i className="ti ti-trash" /> Delete</button>
                       </div>
                     )}
@@ -917,7 +962,7 @@ export default function ClientCockpitDashboard() {
                   <div key={i} className="py-8 border-b border-zinc-100 dark:border-zinc-900 last:border-0 animate-in fade-in slide-in-from-bottom-2 duration-500">
                     <div className="flex gap-6">
                       <div className={`shrink-0 w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold ${msg.sender === 'ai' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400' : 'bg-zinc-900 text-white'}`}>
-                        {msg.sender === 'ai' ? 'AI' : 'US'}
+                        {msg.sender === 'ai' ? 'AI' : '//'}
                       </div>
                       <div className="flex-1 space-y-1">
                         <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
