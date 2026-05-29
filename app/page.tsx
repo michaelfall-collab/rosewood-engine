@@ -50,6 +50,7 @@ export default function ClientCockpitDashboard() {
   const [flashMode, setFlashMode] = useState<"" | "pipedrive" | "rosewood">("");
   const [viewLayout, setViewLayout] = useState<"grid" | "list">("grid");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [temporaryRollbackBackup, setTemporaryRollbackBackup] = useState<CRMArchitectureBlueprint | null>(null);
   
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -74,6 +75,11 @@ export default function ClientCockpitDashboard() {
     } else {
       setImages([SYSTEM_SEED]);
     }
+    
+    // Clear on mount/reload as per requirements
+    setApiKey("");
+    setIsVerified(false);
+    setTemporaryRollbackBackup(null);
   }, []);
 
   useEffect(() => {
@@ -175,10 +181,25 @@ export default function ClientCockpitDashboard() {
       onConfirm: async () => {
         setUiModal(null);
         setIsProcessing(true);
-        
+
+        if (flashMode === "pipedrive") {
+          try {
+            const res = await fetch("/api/ingest", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: apiKey })
+            });
+            const data = await res.json();
+            if (data.success) {
+              setTemporaryRollbackBackup(data.blueprint);
+            }
+          } catch (e) {
+            console.error("Failed to capture rollback snapshot:", e);
+          }
+        }
+
         const endpoint = flashMode === "pipedrive" ? "/api/deploy" : "/api/ingest";
         const body = flashMode === "pipedrive" ? { token: apiKey, template: target } : { token: apiKey };
-
         try {
           const res = await fetch(endpoint, {
             method: "POST",
@@ -238,6 +259,43 @@ export default function ClientCockpitDashboard() {
     setRenamingId(null);
   };
 
+  const handleRestore = async () => {
+    if (!temporaryRollbackBackup) return;
+    setIsProcessing(true);
+    try {
+      const res = await fetch("/api/deploy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: apiKey, template: temporaryRollbackBackup })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTelemetryLogs(prev => [{ type: 'OUTBOUND', timestamp: new Date().toLocaleTimeString(), payload: temporaryRollbackBackup }, ...prev]);
+        setCopyFeedback("Rollback Successful");
+        setTemporaryRollbackBackup(null);
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const handlePromote = () => {
+    if (!temporaryRollbackBackup) return;
+    setUiModal({
+      type: "prompt",
+      title: "Promote Snapshot",
+      message: "Enter an archive title for this snapshot:",
+      placeholder: "New Archived Name...",
+      onCancel: () => setUiModal(null),
+      onConfirm: async (label) => {
+        setUiModal(null);
+        if (!label) return;
+        setImages(prev => [{ ...temporaryRollbackBackup, name: label, owner: "Recovery Snapshot", deals: 0 }, ...prev]);
+        setTemporaryRollbackBackup(null);
+      }
+    });
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-[#F1F5F9] dark:bg-[#0F172A] text-slate-800 dark:text-zinc-200 font-sans selection:bg-[#004850]/20">
       
@@ -257,12 +315,12 @@ export default function ClientCockpitDashboard() {
               type="password"
               placeholder="API Token..."
               value={apiKey}
-              onChange={(e) => { setApiKey(e.target.value); setIsVerified(false); }}
+              onChange={(e) => { setApiKey(e.target.value); setIsVerified(false); setTemporaryRollbackBackup(null); }}
               disabled={isProcessing}
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded py-1.5 pl-9 pr-8 text-xs font-mono focus:outline-none focus:border-[#004850] transition-all"
             />
             {apiKey && isVerified && (
-              <button onClick={() => {setApiKey(""); setIsVerified(false);}} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500">
+              <button onClick={() => {setApiKey(""); setIsVerified(false); setTemporaryRollbackBackup(null);}} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500">
                 <i className="ti ti-x text-[10px]" />
               </button>
             )}
@@ -299,7 +357,14 @@ export default function ClientCockpitDashboard() {
             {showTelemetry && (
               <div className="absolute right-0 top-10 w-96 bg-[#F1F5F9] border-l border-slate-300 rounded overflow-hidden z-[60] flex flex-col h-[80vh] min-h-0">
                 <div className="px-4 py-2 border-b border-slate-300 bg-slate-100 flex items-center justify-between">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Execution Telemetry // Local Stack</span>
+                  <div className="flex items-center gap-2">
+                    {temporaryRollbackBackup && (
+                      <button className="bg-amber-500 border border-amber-600 text-white font-black px-2 py-0.5 text-[9px] uppercase tracking-wider rounded-sm flex items-center gap-1 hover:bg-amber-600 cursor-pointer animate-in fade-in zoom-in duration-200">
+                        <i className="ti ti-shield-alert" /> Rescue
+                      </button>
+                    )}
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Execution Telemetry // Local Stack</span>
+                  </div>
                   <button onClick={() => setTelemetryLogs([])} className="text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400">Clear</button>
                 </div>
                 <div className="flex-1 flex flex-col overflow-y-auto p-4 space-y-2 font-mono text-[10px]">
@@ -329,6 +394,13 @@ export default function ClientCockpitDashboard() {
                     ))
                   )}
                 </div>
+                
+                {temporaryRollbackBackup && (
+                  <div className="border-t border-slate-300 p-2 bg-white dark:bg-slate-800 flex flex-col gap-2">
+                     <button onClick={handleRestore} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-slate-50 dark:hover:bg-slate-700 font-bold text-emerald-600 border border-emerald-600 rounded">Restore Original Baseline Framework</button>
+                     <button onClick={handlePromote} className="w-full text-left px-2 py-1.5 text-[10px] hover:bg-slate-50 dark:hover:bg-slate-700 font-bold border border-slate-300 dark:border-slate-700 rounded">Promote Fallout Snapshot to Permanent Card</button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -338,7 +410,7 @@ export default function ClientCockpitDashboard() {
             <button 
               onClick={() => setOpenMenuId(openMenuId === 'vault' ? null : 'vault')}
               disabled={isProcessing}
-              className="bg-[#6366F1] text-white hover:bg-[#4F46E5] rounded-sm font-bold uppercase tracking-wider text-[10px] px-3 py-1.5 flex items-center gap-1 shadow-sm transition-all"
+              className="bg-blue-700 text-white hover:bg-blue-800 rounded-sm font-bold uppercase tracking-wider text-[10px] px-3 py-1.5 flex items-center gap-1 shadow-sm transition-all"
             >
               Flash to Image Manager <i className="ti ti-chevron-down" />
             </button>
