@@ -113,6 +113,13 @@ export default function ClientCockpitDashboard() {
   const [tempRoleSeats, setTempRoleSeats] = useState(1);
   const [isAttached, setIsAttached] = useState(false);
 
+  const updateRunbookObjectField = (itemIndex: number, fieldKey: string, newValue: any) => {
+    setImages(prev => prev.map(img => img.id === detailId ? {
+      ...img,
+      compiledRunbook: (img.compiledRunbook || []).map((obj, i) => i === itemIndex ? { ...obj, [fieldKey]: newValue } : obj)
+    } : img));
+  };
+
   // Paste Importer States
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const [pastedConfig, setPastedConfig] = useState("");
@@ -900,10 +907,11 @@ export default function ClientCockpitDashboard() {
                           <div className="p-6 space-y-6">
                             {/* Operational Goal */}
                             <div>
-                              <p className="text-sm text-zinc-900 dark:text-zinc-100">
-                                <span className="font-bold">Goal: </span>
-                                {item.operationalGoal}
-                              </p>
+                              <input
+                                value={item.operationalGoal}
+                                onChange={(e) => updateRunbookObjectField(i, 'operationalGoal', e.target.value)}
+                                className="w-full bg-transparent border-b border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 outline-none py-1 text-sm font-bold text-zinc-900 dark:text-zinc-100"
+                              />
                             </div>
 
                             {/* Impacted Personnel Section */}
@@ -921,20 +929,31 @@ export default function ClientCockpitDashboard() {
                               <h4 className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">Setup Cadence</h4>
                               <ol className="list-decimal pl-5 font-sans text-xs tracking-normal text-zinc-700 dark:text-zinc-300 space-y-2">
                                 {item.setupSteps.map((step: string, idx: number) => (
-                                  <li key={idx} className="pl-2">{step}</li>
+                                  <li key={idx} className="pl-2">
+                                    <input
+                                      value={step}
+                                      onChange={(e) => {
+                                        const newSteps = [...item.setupSteps];
+                                        newSteps[idx] = e.target.value;
+                                        updateRunbookObjectField(i, 'setupSteps', newSteps);
+                                      }}
+                                      className="w-full bg-transparent border-b border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 outline-none py-1"
+                                    />
+                                  </li>
                                 ))}
                               </ol>
                             </div>
 
                             {/* Governance Box */}
-                            {item.governanceNotes && (
-                              <div className="mt-6 border-l-2 border-amber-500 bg-amber-500/5 p-4 rounded-sm flex gap-3 items-start">
-                                <i className="ti ti-info-circle text-amber-600 mt-0.5" />
-                                <div className="text-xs text-amber-700 dark:text-amber-400 font-medium leading-relaxed">
-                                  {item.governanceNotes}
-                                </div>
-                              </div>
-                            )}
+                            <div className="mt-6 border-l-2 border-amber-500 bg-amber-500/5 p-4 rounded-sm flex gap-3 items-start">
+                              <i className="ti ti-info-circle text-amber-600 mt-0.5" />
+                              <textarea
+                                value={item.governanceNotes || ""}
+                                onChange={(e) => updateRunbookObjectField(i, 'governanceNotes', e.target.value)}
+                                className="w-full bg-transparent outline-none text-xs text-amber-700 dark:text-amber-400 font-medium leading-relaxed resize-none"
+                                rows={3}
+                              />
+                            </div>
                           </div>
                         </div>
                       );
@@ -1277,7 +1296,7 @@ export default function ClientCockpitDashboard() {
                         Review {renderingSource.length} items
                       </span>
                     </div>
-                    <div className="flex flex-col border border-zinc-200 dark:border-zinc-800 rounded-sm bg-white dark:bg-zinc-900">
+                    <div className="flex flex-col border border-zinc-200 dark:border-zinc-800 rounded-sm bg-white dark:bg-zinc-900 max-h-[45vh] overflow-y-auto pr-1">
                       {(() => {
                         const activeItems = abRoadmap && abRoadmap.length > 0 ? abRoadmap : (abCompiledObjects || []);
                         return activeItems.map((item: any, i: number) => (

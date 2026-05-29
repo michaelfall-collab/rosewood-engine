@@ -33,6 +33,13 @@ ${roleImpact}
 6. Save and Activate.`;
 }
 
+const nomenclatureGuardrails = `
+CRITICAL PAIRED NOMENCLATURE RULES:
+1. In Pipedrive, the overarching system object is always called an "Activity". You must NEVER use the word "task" as a general noun in your prose, goals, or descriptions.
+2. If an automation assigns work to an individual, the Goal must explicitly read: "Create an Activity..." 
+3. You may only use the word 'Task' when strictly specifying the internal value parameters for an activity configuration (e.g., Type: 'Task'), matching your provided toolkit options exactly.
+`;
+
 export function generateRunbookPrompt(
   blueprint: any, 
   selectedIntegrations: string[], 
@@ -49,10 +56,12 @@ export function generateRunbookPrompt(
 Enterprise CRM Systems Architect for Pipedrive.
 
 === PIPEDRIVE NATIVE TOOLKIT ===
-- Triggers: Event-Driven (Added/Updated/Deleted for Activity, Deal, Lead, Org, Person, Project, Task) and Date-Driven (Exact Date, Before/After Date with daily offsets).
+- Triggers: Event-Driven (Added/Updated/Deleted for Activity, Deal, Lead, Organization, Person, Project, Task) and Date-Driven (Exact Date, Before/After Date with daily offsets).
 - Conditions: Instant conditions, If/Else branching logic, and Wait-for-condition states.
 - Actions: Create Activity (with native Zoom/Google Meet video field toggles), Update Field, Change Stage/Pipeline, Assign Owner, Send Pipedrive Template Email, Slack (Send channel message or DM), MS Teams (Send channel alert or DM), Asana (Create task/project), Trello (Create card/list/board), Webhooks (Outbound JSON payloads), Campaigns by Pipedrive (Add to list/update subscription), and Projects by Pipedrive (Create board/milestone tasks).
 - Delays: Up to 90 days per block step.
+
+${nomenclatureGuardrails}
 
 === INTEGRATION CHANNELS ===
 ${integrationSection}
