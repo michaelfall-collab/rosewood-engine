@@ -666,9 +666,9 @@ export default function ClientCockpitDashboard() {
 
       {/* AUTOMATION BUILDER MODAL */}
       {abOpen && (
-        <div className="fixed inset-0 bg-white dark:bg-slate-900 z-[200] flex flex-col overflow-hidden animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-white dark:bg-slate-900 z-[200] flex flex-col animate-in fade-in duration-200">
           {/* Header */}
-          <div className="h-14 flex items-center justify-between px-6 border-b border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 sticky top-0">
+          <div className="h-14 flex items-center justify-between px-6 border-b border-slate-300 dark:border-slate-800 bg-[#FFFFFF] dark:bg-[#1E293B] sticky top-0 z-[10]">
             <span className="text-xs font-bold uppercase tracking-tight">▲ AUTOMATION RUNBOOK BUILDER</span>
             <button
               onClick={() => {
@@ -684,126 +684,126 @@ export default function ClientCockpitDashboard() {
             </button>
           </div>
 
-          {/* Main Chat Viewport */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#FFFFFF] dark:bg-slate-900">
-            {/* Thread Container */}
-            <div className="max-w-3xl mx-auto space-y-4">
+          {/* Unified Chat Timeline Stream */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+            <div className="max-w-3xl mx-auto w-full space-y-6">
+              {/* History Messages */}
               {abChatHistory.map((msg, i) => (
                 <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.sender === 'ai' ? (
-                    <div className="bg-[#F1F5F9] dark:bg-slate-800 text-slate-700 dark:text-zinc-200 border border-slate-300 dark:border-slate-700 p-3 rounded-sm max-w-[85%] flex gap-3 items-start text-xs font-sans">
-                      <span className="font-bold">◆</span>
+                    <div className="bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-zinc-100 border border-slate-200 dark:border-slate-700 p-4 rounded-md max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
+                      <span className="font-bold text-lg">◆</span>
                       <div>{msg.text}</div>
-                      {msg.dataWidget}
                     </div>
                   ) : (
-                    <div className="bg-[#004850] text-white p-3 rounded-sm max-w-[80%] text-xs font-bold shadow-none text-right border border-[#003840]">
+                    <div className="bg-[#004850] text-white p-4 rounded-md max-w-[75%] ml-auto text-xs font-medium border border-[#003840] shadow-sm text-left">
                       {msg.text}
                     </div>
                   )}
                 </div>
               ))}
+
+              {/* Progressive Inline Widgets */}
+              {abStep === 'select' && (
+                <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-md max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
+                  <span className="font-bold text-lg">◆</span>
+                  <div className="space-y-4 w-full">
+                    <p>Select a blueprint to begin the automation assembly.</p>
+                    <div className="grid grid-cols-2 gap-2">
+                        {images.map(img => (
+                        <button
+                            key={img.id}
+                            onClick={() => {
+                                setAbSelectedImageId(img.id);
+                                setAbChatHistory(prev => [...prev, { sender: "ai", text: `Selected blueprint: ${img.name}.` }, { sender: "user", text: `Analyze blueprint: ${img.name}` }]);
+                                setAbStep('chat');
+                            }}
+                            className="p-3 border border-slate-200 dark:border-slate-700 rounded-sm hover:bg-white dark:hover:bg-slate-700 text-xs font-bold uppercase tracking-wider text-left active:scale-95 transition-transform"
+                        >
+                            {img.name}
+                        </button>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {abStep === 'chat' && (
+                <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-md max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
+                    <span className="font-bold text-lg">◆</span>
+                    <div className="space-y-4 w-full">
+                        <p>Select environment targets for this automation.</p>
+                        <div className="space-y-1">
+                        {['Slack', 'Microsoft Teams', 'Asana', 'Trello', 'Webhooks', 'Campaigns by Pipedrive', 'Projects by Pipedrive'].map(int => (
+                            <button
+                            key={int}
+                            onClick={() => setAbSelectedIntegrations(prev => prev.includes(int) ? prev.filter(i => i !== int) : [...prev, int])}
+                            className={`w-full p-2 border rounded-sm flex items-center gap-2 text-xs font-bold active:scale-95 transition-transform ${abSelectedIntegrations.includes(int) ? 'bg-[#004850]/10 border-[#004850] text-[#004850]' : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700'}`}
+                            disabled={isProcessing}
+                            >
+                            <i className={`ti ${abSelectedIntegrations.includes(int) ? 'ti-checkbox' : 'ti-square'}`} />
+                            {int}
+                            </button>
+                        ))}
+                        </div>
+                        <button
+                            disabled={isProcessing || abSelectedIntegrations.length === 0}
+                            onClick={() => {
+                                setAbChatHistory(prev => [...prev, { sender: "user", text: `Channels requested: ${abSelectedIntegrations.join(", ")}`}]);
+                                compilePromptManifest();
+                            }}
+                            className="w-full bg-[#004850] text-white py-2 rounded-sm text-xs font-bold uppercase hover:bg-[#003840] active:scale-95 disabled:opacity-50"
+                        >
+                            COMPILE PROMPT MANIFEST
+                        </button>
+                    </div>
+                </div>
+              )}
+
+              {abStep === 'building' && (
+                <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-md max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm items-center">
+                    <span className="font-bold text-lg">◆</span>
+                    <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 border-2 border-[#004850]/20 border-t-[#004850] rounded-full animate-spin" />
+                        <span className="font-bold">Assembling schema parameters... Compiling recipe manifest data.</span>
+                    </div>
+                </div>
+              )}
+
+              {abStep === 'preview' && (
+                <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-md max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
+                    <span className="font-bold text-lg">◆</span>
+                    <div className="w-full space-y-4">
+                        <button
+                            onClick={() => setAbPromptViewOpen(!abPromptViewOpen)}
+                            className="w-full flex items-center justify-between p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-bold uppercase tracking-widest text-[#004850] hover:bg-slate-50 rounded-sm"
+                        >
+                            AUDIT END-TO-END RAW AI MODEL PROMPT <i className={`ti ${abPromptViewOpen ? 'ti-chevron-up' : 'ti-chevron-down'}`} />
+                        </button>
+                        {abPromptViewOpen && (
+                            <pre className="w-full min-h-[250px] max-h-[400px] border border-slate-300 dark:border-slate-700 p-4 font-mono text-[11px] bg-slate-50 dark:bg-slate-950 overflow-y-auto rounded-sm whitespace-pre-wrap">{compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId))}</pre>
+                        )}
+                        <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
+                            <input type="checkbox" className="accent-[#004850]" />
+                            I have verified the prompt manifest structure.
+                        </label>
+                        <div className="flex gap-2">
+                            <button className="flex-1 border border-slate-300 dark:border-slate-700 py-2 rounded-sm text-[10px] font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-transform">Download Document File</button>
+                            <button className="flex-1 border border-slate-300 dark:border-slate-700 py-2 rounded-sm text-[10px] font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-transform">Keep Local Only</button>
+                            <button 
+                                onClick={() => {
+                                    setAbChatHistory(prev => [...prev, { sender: "user", text: "Verified and accepted."}]);
+                                    setAbStep("done");
+                                }}
+                                className="flex-1 bg-[#004850] text-white py-2 rounded-sm text-[10px] font-bold uppercase hover:bg-[#003840] active:scale-95 transition-transform"
+                            >
+                                Yes, Attach Runbook to Image Card
+                            </button>
+                        </div>
+                    </div>
+                </div>
+              )}
             </div>
-            
-            {/* Step-Specific Controls */}
-            {abStep === 'select' && (
-              <div className="max-w-2xl mx-auto space-y-2">
-                {images.map(img => (
-                  <button
-                    key={img.id}
-                    onClick={() => {
-                      setAbSelectedImageId(img.id);
-                      setAbChatHistory([{ sender: "ai", text: `Selected blueprint: ${img.name}. Initializing structural data analysis.` }]);
-                      setAbStep('chat');
-                    }}
-                    className="w-full border border-slate-300 dark:border-slate-700 p-4 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-left active:scale-95 transition-all"
-                  >
-                    <h3 className="font-bold uppercase text-xs">{img.name}</h3>
-                  </button>
-                ))}
-              </div>
-            )}
-            
-            {abStep === 'chat' && (
-              <div className="max-w-2xl mx-auto">
-                 {/* Option module */}
-                 <div className="space-y-2 mb-4">
-                  {['Slack', 'Microsoft Teams', 'Asana', 'Trello', 'Webhooks', 'Campaigns by Pipedrive', 'Projects by Pipedrive'].map(int => (
-                    <button
-                      key={int}
-                      onClick={() => setAbSelectedIntegrations(prev => prev.includes(int) ? prev.filter(i => i !== int) : [...prev, int])}
-                      className={`w-full p-2 border rounded flex items-center gap-2 ${abSelectedIntegrations.includes(int) ? 'bg-[#004850]/10 border-[#004850]' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700'}`}
-                    >
-                      <i className={`ti ${abSelectedIntegrations.includes(int) ? 'ti-checkbox' : 'ti-square'}`} />
-                      {int}
-                    </button>
-                  ))}
-                </div>
-                <button
-                    disabled={isProcessing}
-                    onClick={() => {
-                        setAbChatHistory(prev => [...prev, { sender: "user", text: `Channels requested: ${abSelectedIntegrations.join(", ")}`}]);
-                        compilePromptManifest();
-                    }}
-                    className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:bg-[#003840] active:scale-95"
-                >
-                    COMPILE PROMPT MANIFEST
-                </button>
-              </div>
-            )}
-
-            {abStep === 'building' && (
-              <div className="max-w-2xl mx-auto">
-                <div className="bg-[#F1F5F9] dark:bg-slate-800 p-3 rounded-sm border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-zinc-200">
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="animate-spin text-[#004850]">◆</span>
-                        <span className="font-bold">Assembling context parameters... Matrix compiling.</span>
-                    </div>
-                </div>
-              </div>
-            )}
-            
-            {abStep === 'preview' && (
-              <div className="max-w-2xl mx-auto space-y-4">
-                <button
-                    onClick={() => setAbPromptViewOpen(!abPromptViewOpen)}
-                    className="w-full text-left p-3 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase tracking-widest text-[#004850] hover:bg-slate-200 border border-slate-300 rounded"
-                >
-                    AUDIT END-TO-END RAW AI MODEL PROMPT
-                </button>
-                {abPromptViewOpen && (
-                    <div className="w-full border border-slate-300 p-4 font-mono text-[11px] bg-slate-50 dark:bg-slate-950 overflow-y-auto h-64 rounded">
-                        <pre className="whitespace-pre-wrap">{compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId))}</pre>
-                    </div>
-                )}
-                <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
-                    <input type="checkbox" className="accent-[#004850]" />
-                    Looks good — build complete file structure layout mapping guidelines
-                </label>
-                <button
-                    onClick={() => {
-                        setAbChatHistory(prev => [...prev, { sender: "user", text: "Confirmed — layout runbook looks good."}]);
-                        setAbStep("done");
-                    }}
-                    className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:bg-[#003840] active:scale-95"
-                >
-                    Confirm Blueprint Runbook
-                </button>
-              </div>
-            )}
-
-            {abStep === 'done' && (
-              <div className="max-w-2xl mx-auto space-y-4">
-                  <div className="bg-[#F1F5F9] dark:bg-slate-800 p-3 rounded-sm border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-zinc-200">
-                    Asset generation successful.
-                    <a href="#" className="block mt-2 font-bold text-[#004850] hover:underline">Download File</a>
-                  </div>
-                  <div className="flex gap-2">
-                      <button onClick={() => setAbOpen(false)} className="flex-1 border border-slate-300 py-2 rounded text-xs font-bold uppercase hover:bg-slate-50">Keep Local Only</button>
-                      <button onClick={() => { setAbOpen(false); }} className="flex-1 bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:bg-[#003840]">Yes, Attach Runbook</button>
-                  </div>
-              </div>
-            )}
           </div>
         </div>
       )}
