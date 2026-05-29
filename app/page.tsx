@@ -256,7 +256,7 @@ export default function ClientCockpitDashboard() {
 
       setAbCompiledObjects(newCompiledObjects);
       const assembledPromptText = compileRawModelPromptManifest(newCompiledObjects);
-      setAbCompiledBlocks(assembledPromptText);
+
       setTelemetryLogs(prev => [{
         type: "OUTBOUND",
         timestamp: new Date().toLocaleTimeString(),
