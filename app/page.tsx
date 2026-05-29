@@ -75,14 +75,15 @@ export default function ClientCockpitDashboard() {
   const [tempRoleLabel, setTempRoleLabel] = useState("");
   const [tempRoleSeats, setTempRoleSeats] = useState(1);
 
-  const compileRawModelPromptManifest = (targetImage: any) => {
+  const compileRawModelPromptManifest = () => {
+    const targetImage = images.find(i => i.id === abSelectedImageId);
     return generateRunbookPrompt(targetImage, abSelectedIntegrations, { userRoles: abRoles });
   };
 
   const compilePromptManifest = () => {
     const targetImage = images.find(i => i.id === abSelectedImageId);
     if (!targetImage) return;
-    const assembledPromptText = compileRawModelPromptManifest(targetImage);
+    const assembledPromptText = compileRawModelPromptManifest();
     setTelemetryLogs(prev => [{
       type: "OUTBOUND",
       timestamp: new Date().toLocaleTimeString(),
@@ -102,10 +103,10 @@ export default function ClientCockpitDashboard() {
 
   const openAB = () => {
     setAbOpen(true);
-    setAbStep('chat');
+    setAbStep('select');
     setAbSelectedImageId(null);
     setAbSelectedIntegrations([]);
-    setAbChatHistory([{ sender: "ai", text: "Who will be using this CRM workspace? Let's build your team registry and assign seat counts." }]);
+    setAbChatHistory([]);
     setAbPromptViewOpen(false);
     setAbRoles([]);
   };
@@ -730,7 +731,12 @@ export default function ClientCockpitDashboard() {
                               disabled={isProcessing}
                               onClick={() => {
                                   setAbSelectedImageId(img.id);
-                                  setAbChatHistory(prev => [...prev, { sender: "ai", text: `◆ Let's customize your native automation runbook layout. First, select an active configuration blueprint card to analyze.` }, { sender: "user", text: `Analyze blueprint: ${img.name}` }]);
+                                  setAbChatHistory(prev => [
+                                    ...prev, 
+                                    { sender: "ai", text: `◆ Let's customize your native automation runbook layout. First, select an active configuration blueprint card to analyze.` }, 
+                                    { sender: "user", text: `Analyze blueprint: ${img.name}` },
+                                    { sender: "ai", text: "Who will be using this CRM workspace? Let's build your team registry and assign seat counts." }
+                                  ]);
                                   setAbStep('chat');
                               }}
                               className="p-3 border border-zinc-700 rounded-sm hover:bg-white dark:hover:bg-zinc-700 text-xs font-bold uppercase tracking-wider text-left hover:scale-[1.01] active:scale-[0.99] transition-all duration-300"
@@ -746,65 +752,68 @@ export default function ClientCockpitDashboard() {
                 {/* Step: Conversational Team Registry & Integrations */}
                 {abStep === 'chat' && (
                     <div className="space-y-6">
-                        {/* Team Registry Phase */}
-                        <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
-                            <span className="font-bold text-lg text-emerald-500">◆</span>
-                            <div className="space-y-4 w-full">
-                            <p>◆ Let's build your team registry and assign seat counts.</p>
-                            <div className="flex gap-2">
-                                <input value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} placeholder="Role Name" className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-700 rounded p-2 text-xs" />
-                                <input type="number" value={tempRoleSeats} onChange={e => setTempRoleSeats(parseInt(e.target.value) || 0)} className="w-16 bg-white dark:bg-zinc-900 border border-zinc-700 rounded p-2 text-xs" />
-                                <button onClick={() => {
-                                    if (!tempRoleLabel) return;
-                                    setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]);
-                                    setTempRoleLabel("");
-                                    setTempRoleSeats(1);
-                                }} className="active:scale-95 bg-[#004850] text-white px-4 py-2 rounded text-xs font-bold hover:scale-[1.01] transition-all">Add Role</button>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                {abRoles.map((role, i) => (
-                                    <span key={i} className="bg-slate-200 dark:bg-zinc-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
-                                        {role.roleName} ({role.count})
-                                        <button onClick={() => setAbRoles(prev => prev.filter((_, idx) => idx !== i))}><i className="ti ti-x" /></button>
-                                    </span>
-                                ))}
-                            </div>
-                            <button onClick={() => {
-                                setAbChatHistory(prev => [...prev, { sender: "user", text: `Commit Team Registry: ${abRoles.map(r => r.roleName).join(", ")}` }]);
-                            }} className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all">Confirm Team Registry</button>
-                            </div>
-                        </div>
-
-                        {/* Integration Checklist Phase */}
-                        <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
-                            <span className="font-bold text-lg text-emerald-500">◆</span>
-                            <div className="space-y-4 w-full">
-                                <p>◆ Which integration channels should be natively provisioned into this guide?</p>
-                                <div className="space-y-1">
-                                {['Slack', 'Microsoft Teams', 'Asana', 'Trello', 'Webhooks', 'Campaigns by Pipedrive', 'Projects by Pipedrive'].map(int => (
-                                    <button
-                                    key={int}
-                                    onClick={() => setAbSelectedIntegrations(prev => prev.includes(int) ? prev.filter(i => i !== int) : [...prev, int])}
-                                    className={`w-full p-2 border rounded-sm flex items-center gap-2 text-xs font-bold active:scale-[0.99] transition-all ${abSelectedIntegrations.includes(int) ? 'bg-[#004850]/10 border-[#004850] text-[#004850]' : 'bg-white dark:bg-zinc-900 border-zinc-700'}`}
-                                    >
-                                    <i className={`ti ${abSelectedIntegrations.includes(int) ? 'ti-checkbox' : 'ti-square'}`} />
-                                    {int}
-                                    </button>
-                                ))}
+                        {/* Team Registry Phase (Render if registry not committed) */}
+                        {!abChatHistory.some(msg => msg.text.startsWith("Commit Team Registry")) && (
+                            <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
+                                <div className="space-y-4 w-full">
+                                    <div className="flex gap-2">
+                                        <input value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} placeholder="Role Name" className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-700 rounded p-2 text-xs" />
+                                        <input type="number" value={tempRoleSeats} onChange={e => setTempRoleSeats(parseInt(e.target.value) || 0)} className="w-16 bg-white dark:bg-zinc-900 border border-zinc-700 rounded p-2 text-xs" />
+                                        <button onClick={() => {
+                                            if (!tempRoleLabel) return;
+                                            setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]);
+                                            setTempRoleLabel("");
+                                            setTempRoleSeats(1);
+                                        }} className="active:scale-95 bg-[#004850] text-white px-4 py-2 rounded text-xs font-bold hover:scale-[1.01] transition-all">Add Role</button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {abRoles.map((role, i) => (
+                                            <span key={i} className="bg-slate-200 dark:bg-zinc-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
+                                                {role.roleName} ({role.count})
+                                                <button onClick={() => setAbRoles(prev => prev.filter((_, idx) => idx !== i))}><i className="ti ti-x" /></button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <button onClick={() => {
+                                        setAbChatHistory(prev => [...prev,
+                                            { sender: "user", text: `Commit Team Registry: ${abRoles.map(r => r.roleName).join(", ")}` },
+                                            { sender: "ai", text: `◆ Understood. Which integration channels should be natively provisioned into this guide?` }
+                                        ]);
+                                    }} className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all">Confirm Team Registry</button>
                                 </div>
-                                <button
-                                    disabled={isProcessing}
-                                    onClick={() => {
-                                        setAbChatHistory(prev => [...prev, { sender: "user", text: `Integrations: ${abSelectedIntegrations.join(", ")}`}]);
-                                        setAbStep('building');
-                                        compilePromptManifest();
-                                    }}
-                                    className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all"
-                                >
-                                    COMPILE AUTOMATION RUNBOOK
-                                </button>
                             </div>
-                        </div>
+                        )}
+
+                        {/* Integration Checklist Phase (Render if registry is committed) */}
+                        {abChatHistory.some(msg => msg.text.startsWith("Commit Team Registry")) && (
+                            <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
+                                <div className="space-y-4 w-full">
+                                    <div className="space-y-1">
+                                    {['Slack', 'Microsoft Teams', 'Asana', 'Trello', 'Webhooks', 'Campaigns by Pipedrive', 'Projects by Pipedrive'].map(int => (
+                                        <button
+                                        key={int}
+                                        onClick={() => setAbSelectedIntegrations(prev => prev.includes(int) ? prev.filter(i => i !== int) : [...prev, int])}
+                                        className={`w-full p-2 border rounded-sm flex items-center gap-2 text-xs font-bold active:scale-[0.99] transition-all ${abSelectedIntegrations.includes(int) ? 'bg-[#004850]/10 border-[#004850] text-[#004850]' : 'bg-white dark:bg-zinc-900 border-zinc-700'}`}
+                                        >
+                                        <i className={`ti ${abSelectedIntegrations.includes(int) ? 'ti-checkbox' : 'ti-square'}`} />
+                                        {int}
+                                        </button>
+                                    ))}
+                                    </div>
+                                    <button
+                                        disabled={isProcessing}
+                                        onClick={() => {
+                                            setAbChatHistory(prev => [...prev, { sender: "user", text: `Integrations: ${abSelectedIntegrations.join(", ")}`}]);
+                                            setAbStep('building');
+                                            compilePromptManifest();
+                                        }}
+                                        className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all"
+                                    >
+                                        COMPILE AUTOMATION RUNBOOK
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -825,18 +834,18 @@ export default function ClientCockpitDashboard() {
                           <p>◆ Your native automation guidelines have been successfully generated. Review the raw model prompt manifest below.</p>
                           <details className="group my-4">
                             <summary className="text-xs font-bold uppercase tracking-wider text-[#004850] dark:text-emerald-400 cursor-pointer select-none">View Compiled Prompt Payload</summary>
-                            <pre className="font-mono text-[11px] bg-[#0A0F1D] text-emerald-400/90 p-4 rounded-xl border border-zinc-800/80 shadow-inner overflow-x-auto whitespace-pre-wrap">{compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId))}</pre>
+                            <pre className="font-mono text-[11px] bg-[#0A0F1D] text-emerald-400/90 p-4 rounded-xl border border-zinc-800/80 shadow-inner overflow-x-auto whitespace-pre-wrap">{compileRawModelPromptManifest()}</pre>
                           </details>
                           
                           <div className="flex flex-wrap gap-2">
                               <button
-                                  onClick={() => copyToClipboard(compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId)))}
+                                  onClick={() => copyToClipboard(compileRawModelPromptManifest())}
                                   className="flex-1 flex items-center justify-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-zinc-700 text-[10px] font-bold uppercase tracking-wider text-[#004850] hover:scale-[1.01] active:scale-[0.99] transition-all rounded"
                               >
                                   <i className="ti ti-copy" /> Copy Payload
                               </button>
                               <button
-                                  onClick={() => downloadPayload(compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId)))}
+                                  onClick={() => downloadPayload(compileRawModelPromptManifest())}
                                   className="flex-1 flex items-center justify-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-zinc-700 text-[10px] font-bold uppercase tracking-wider text-[#004850] hover:scale-[1.01] active:scale-[0.99] transition-all rounded"
                               >
                                   <i className="ti ti-download" /> Download File
@@ -850,7 +859,7 @@ export default function ClientCockpitDashboard() {
                               <button 
                                   disabled={isProcessing}
                                   onClick={() => {
-                                      setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, automationInstructions: compileRawModelPromptManifest(img) } : img));
+                                      setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, automationInstructions: compileRawModelPromptManifest() } : img));
                                       setAbOpen(false);
                                       setAbStep('select');
                                   }}
