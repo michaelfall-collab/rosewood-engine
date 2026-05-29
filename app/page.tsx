@@ -185,7 +185,7 @@ export default function ClientCockpitDashboard() {
           const data = await res.json();
           if (data.success) {
             if (flashMode === "rosewood") {
-              setImages(prev => prev.map(img => img.id === id ? { ...img, ...data.blueprint, name: img.name } : img));
+              setImages(prev => prev.map(img => img.id === id ? { ...img, ...data.blueprint, name: target.name } : img));
               setTelemetryLogs(prev => [{ type: 'INBOUND', timestamp: new Date().toLocaleTimeString(), payload: data.blueprint }, ...prev]);
             } else {
               setTelemetryLogs(prev => [{ type: 'OUTBOUND', timestamp: new Date().toLocaleTimeString(), payload: target }, ...prev]);
