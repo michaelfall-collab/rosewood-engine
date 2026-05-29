@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const { systemPrompt, userPrompt } = await request.json();
 
     if (!systemPrompt || !userPrompt) {
-      return NextResponse.json({ error: "Missing prompt payloads" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Missing prompt payloads" }, { status: 400 });
     }
 
     // Execution uses the decoupled configuration parameter
@@ -33,6 +33,6 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     console.error(`Gemini Engine Execution Failure [${TARGET_MODEL}]:`, error);
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || "Unknown server error" }, { status: 500 });
   }
 }

@@ -81,7 +81,8 @@ export default function ClientCockpitDashboard() {
 
   const compileRawModelPromptManifest = (compiledBlocks?: string) => {
     const targetImage = images.find(i => i.id === abSelectedImageId);
-    return generateRunbookPrompt(targetImage, abSelectedIntegrations, { 
+    const sanitizedIntegrations = abSelectedIntegrations.map(i => typeof i === 'object' ? (i as any).name || JSON.stringify(i) : i);
+    return generateRunbookPrompt(targetImage, sanitizedIntegrations, { 
       userRoles: abRoles,
       automationBlocks: compiledBlocks || abCompiledBlocks 
     });
@@ -130,11 +131,11 @@ export default function ClientCockpitDashboard() {
         if (data.success && data.markdownBlock) {
           compiledAutomations += `${data.markdownBlock}\n\n---\n\n`;
         } else {
-          compiledAutomations += `### Automation [${index + 1}]: ${item.targetStage} - Error: Failed to generate instructions.\n\n---\n\n`;
+          compiledAutomations += `### Automation [${index + 1}]: ${item.targetStage} - Error: ${data.error || "Failed to generate instructions."}\n\n---\n\n`;
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Compilation failed:", error);
-        compiledAutomations += `### Automation [${index + 1}]: ${item.targetStage} - Error: Network failure during generation.\n\n---\n\n`;
+        compiledAutomations += `### Automation [${index + 1}]: ${item.targetStage} - Error: ${error.message || "Network failure during generation."}\n\n---\n\n`;
       }
     }
 
