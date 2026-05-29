@@ -76,6 +76,7 @@ export default function ClientCockpitDashboard() {
   const [abPromptViewOpen, setAbPromptViewOpen] = useState(false);
   const [abRoles, setAbRoles] = useState<{ roleName: string; count: number }[]>([]);
   const [abCompiledObjects, setAbCompiledObjects] = useState<any[]>([]);
+  const [abCompiledBlocks, setAbCompiledBlocks] = useState("");
   const [tempRoleLabel, setTempRoleLabel] = useState("");
   const [tempRoleSeats, setTempRoleSeats] = useState(1);
   const [isAttached, setIsAttached] = useState(false);
@@ -151,6 +152,7 @@ export default function ClientCockpitDashboard() {
 
     setAbCompiledObjects(newCompiledObjects);
     const assembledPromptText = compileRawModelPromptManifest(newCompiledObjects);
+    setAbCompiledBlocks(assembledPromptText);
     setTelemetryLogs(prev => [{
       type: "OUTBOUND",
       timestamp: new Date().toLocaleTimeString(),
@@ -350,11 +352,11 @@ export default function ClientCockpitDashboard() {
   };
 
   const handleDocxDownload = async () => {
-    if (!abCompiledBlocks) return;
+    if (!abCompiledObjects || abCompiledObjects.length === 0) return;
     
     // 1. Compile the text formatting straight into a binary file stream in memory
     const targetImage = images.find(i => i.id === abSelectedImageId);
-    const fileBlob = await exportRunbookToDocx(abCompiledBlocks, targetImage?.name || "Backup Workspace");
+    const fileBlob = await exportRunbookToDocx(abCompiledObjects, targetImage?.name || "Backup Workspace");
     
     // 2. Trigger browser event mechanism to catch data streams and download file automatically
     const downloadUrl = URL.createObjectURL(fileBlob);
