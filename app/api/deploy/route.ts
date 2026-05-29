@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
                   body: JSON.stringify({
                     name: field.name,
                     field_type: field.type,
-                    options: field.options ? field.options.map(option => option.label) : undefined
+                    options: field.options ? field.options.map(option => typeof option === "string" ? option : option.label) : undefined
                   }),
                 });
                 const createFieldData = await createFieldResponse.json();
