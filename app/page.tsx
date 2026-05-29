@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from "react";
 import { CRMArchitectureBlueprint } from "@/types/blueprint";
 import { generateRunbookPrompt } from "@/utils/promptCompiler";
 import { PIPEDRIVE_CAPABILITIES_REGISTRY } from "@/config/pipedriveCapabilities";
+import { exportRunbookToDocx } from '@/utils/docxExporter';
 
 /** 
  * PRODUCTION-GRADE TYPES
@@ -74,17 +75,19 @@ export default function ClientCockpitDashboard() {
   const [abChatHistory, setAbChatHistory] = useState<{ sender: "user" | "ai"; text: string; dataWidget?: any }[]>([]);
   const [abPromptViewOpen, setAbPromptViewOpen] = useState(false);
   const [abRoles, setAbRoles] = useState<{ roleName: string; count: number }[]>([]);
-  const [abCompiledBlocks, setAbCompiledBlocks] = useState("");
+  const [abCompiledObjects, setAbCompiledObjects] = useState<any[]>([]);
   const [tempRoleLabel, setTempRoleLabel] = useState("");
   const [tempRoleSeats, setTempRoleSeats] = useState(1);
   const [isAttached, setIsAttached] = useState(false);
 
-  const compileRawModelPromptManifest = (compiledBlocks?: string) => {
+  const compileRawModelPromptManifest = (compiledObjects?: any[]) => {
     const targetImage = images.find(i => i.id === abSelectedImageId);
     const sanitizedIntegrations = abSelectedIntegrations.map(i => typeof i === 'object' ? (i as any).name || JSON.stringify(i) : i);
+    // Convert object array back to markdown for the prompt generator
+    const markdown = (compiledObjects || abCompiledObjects).map(o => `### ${o.automationNumber}: ${o.stageName}\nGoal: ${o.operationalGoal}\nSteps: ${o.setupSteps.join(', ')}`).join('\n\n---\n\n');
     return generateRunbookPrompt(targetImage, sanitizedIntegrations, { 
       userRoles: abRoles,
-      automationBlocks: compiledBlocks || abCompiledBlocks 
+      automationBlocks: markdown
     });
   };
 
@@ -107,7 +110,7 @@ export default function ClientCockpitDashboard() {
     setAbStep('stapling');
     setStaplingState({ index: 0, total: automationQueue.length, currentStage: "" });
 
-    let compiledAutomations = "";
+    const newCompiledObjects = [];
 
     for (const [index, item] of automationQueue.entries()) {
       setStaplingState({ 
@@ -128,19 +131,26 @@ export default function ClientCockpitDashboard() {
 
         const data = await response.json();
         
-        if (data.success && data.markdownBlock) {
-          compiledAutomations += `${data.markdownBlock}\n\n---\n\n`;
+        if (data.success && data.jsonObject) {
+          newCompiledObjects.push(data.jsonObject);
         } else {
-          compiledAutomations += `### Automation [${index + 1}]: ${item.targetStage} - Error: ${data.error || "Failed to generate instructions."}\n\n---\n\n`;
+          // Fallback if structured generation fails
+          newCompiledObjects.push({
+            automationNumber: index + 1,
+            stageName: item.targetStage,
+            operationalGoal: "Error: Generation failed.",
+            impactedRoles: [],
+            setupSteps: [],
+            governanceNotes: data.error || "Failed."
+          });
         }
       } catch (error: any) {
         console.error("Compilation failed:", error);
-        compiledAutomations += `### Automation [${index + 1}]: ${item.targetStage} - Error: ${error.message || "Network failure during generation."}\n\n---\n\n`;
       }
     }
 
-    setAbCompiledBlocks(compiledAutomations);
-    const assembledPromptText = compileRawModelPromptManifest(compiledAutomations);
+    setAbCompiledObjects(newCompiledObjects);
+    const assembledPromptText = compileRawModelPromptManifest(newCompiledObjects);
     setTelemetryLogs(prev => [{
       type: "OUTBOUND",
       timestamp: new Date().toLocaleTimeString(),
@@ -339,15 +349,26 @@ export default function ClientCockpitDashboard() {
     setTimeout(() => setCopyFeedback(null), 3000);
   };
 
-  const downloadPayload = (text: string) => {
-    const blob = new Blob([text], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `pipedrive-runbook-${abSelectedImageId}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setCopyFeedback("◆ Runbook Downloaded");
+  const handleDocxDownload = async () => {
+    if (!abCompiledBlocks) return;
+    
+    // 1. Compile the text formatting straight into a binary file stream in memory
+    const targetImage = images.find(i => i.id === abSelectedImageId);
+    const fileBlob = await exportRunbookToDocx(abCompiledBlocks, targetImage?.name || "Backup Workspace");
+    
+    // 2. Trigger browser event mechanism to catch data streams and download file automatically
+    const downloadUrl = URL.createObjectURL(fileBlob);
+    const anchorElement = document.createElement('a');
+    anchorElement.href = downloadUrl;
+    anchorElement.download = `pipedrive-runbook-${abSelectedImageId || 'export'}.docx`;
+    
+    document.body.appendChild(anchorElement);
+    anchorElement.click();
+    
+    // 3. Clean up reference blocks instantly to avoid browser memory leaks
+    document.body.removeChild(anchorElement);
+    URL.revokeObjectURL(downloadUrl);
+    setCopyFeedback("◆ Runbook Downloaded (.docx)");
     setTimeout(() => setCopyFeedback(null), 3000);
   };
 
@@ -895,11 +916,30 @@ export default function ClientCockpitDashboard() {
                       <div className="w-full space-y-4">
                           <p>◆ Your native automation guidelines have been successfully generated. Review the raw model prompt manifest below.</p>
                           
-                          {/* Runbook Display Container */}
-                          <div className="max-h-[400px] overflow-y-auto mb-4 p-4 rounded-xl bg-white/50 dark:bg-zinc-900/50 border border-zinc-700/30">
-                            <div className="whitespace-pre-wrap text-xs text-slate-700 dark:text-zinc-300 leading-relaxed font-mono">
-                              {abCompiledBlocks || "◆ Reading aggregated sub-agent logs... No automation instructions found."}
-                            </div>
+                          {/* Runbook Accordion Display */}
+                          <div className="mb-4">
+                            {abCompiledObjects.length > 0 ? (
+                                abCompiledObjects.map((item, i) => (
+                                    <details key={i} className="group mb-2">
+                                        <summary className="bg-white/50 dark:bg-zinc-800/40 hover:bg-[#004850]/5 p-3 rounded-lg border border-zinc-700/20 mb-2 cursor-pointer transition-all text-xs font-bold uppercase tracking-wider text-[#004850] dark:text-emerald-400">
+                                            Automation Block {item.automationNumber}: {item.stageName}
+                                        </summary>
+                                        <div className="font-mono text-xs text-slate-600 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed mt-2 pl-4">
+                                            <p className="font-bold">Goal: {item.operationalGoal}</p>
+                                            <p className="font-bold mt-2">Impacted Roles:</p>
+                                            <ul className="list-disc pl-4 mb-2">
+                                              {item.impactedRoles.map((role: string, idx: number) => <li key={idx}>{role}</li>)}
+                                            </ul>
+                                            <p className="font-bold">Steps:</p>
+                                            <ol className="list-decimal pl-4">
+                                              {item.setupSteps.map((step: string, idx: number) => <li key={idx}>{step}</li>)}
+                                            </ol>
+                                        </div>
+                                    </details>
+                                ))
+                            ) : (
+                                <p className="text-xs text-slate-500 italic">◆ Reading aggregated sub-agent logs... No automation instructions found.</p>
+                            )}
                           </div>
 
                           <details className="group my-4">
@@ -909,16 +949,16 @@ export default function ClientCockpitDashboard() {
                           
                           <div className="flex flex-wrap gap-2">
                               <button
-                                  onClick={() => copyToClipboard(compileRawModelPromptManifest())}
+                                  onClick={() => copyToClipboard(JSON.stringify(abCompiledObjects, null, 2))}
                                   className="flex-1 flex items-center justify-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-zinc-700 text-[10px] font-bold uppercase tracking-wider text-[#004850] hover:scale-[1.01] active:scale-[0.99] transition-all rounded"
                               >
-                                  <i className="ti ti-copy" /> Copy Payload
+                                  <i className="ti ti-copy" /> Copy Runbook
                               </button>
                               <button
-                                  onClick={() => downloadPayload(compileRawModelPromptManifest())}
+                                  onClick={() => handleDocxDownload()}
                                   className="flex-1 flex items-center justify-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-zinc-700 text-[10px] font-bold uppercase tracking-wider text-[#004850] hover:scale-[1.01] active:scale-[0.99] transition-all rounded"
                               >
-                                  <i className="ti ti-download" /> Download File
+                                  <i className="ti ti-download" /> Download Runbook
                               </button>
                               <button
                                   onClick={() => { setAbOpen(false); setAbStep('select'); setIsAttached(false); }}
