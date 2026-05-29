@@ -781,9 +781,17 @@ export default function ClientCockpitDashboard() {
                       {img.name}
                     </h3>
                   )}
-                  <p className="font-mono text-[10px] tracking-widest uppercase text-zinc-400 mt-1">
-                    {(img.pipelines?.[0]?.stages || []).length} Stages &bull; {img.deals} Deals
-                  </p>
+                  {(() => {
+                    const pCount = img.pipelines?.length || 0;
+                    const sCount = img.pipelines?.reduce((acc, p) => acc + (p.stages?.length || 0), 0) || 0;
+                    const fCount = img.customFields?.length || 0;
+                    const aCount = img.abCompiledObjects?.length || img.compiledRunbook?.length || 0;
+                    return (
+                        <p className="font-mono text-[10px] tracking-widest uppercase text-zinc-400 mt-1">
+                            {pCount} PPL // {sCount} STG // {fCount} FLD // {aCount} AUTO
+                        </p>
+                    );
+                  })()}
                 </div>
 
                 <div className="flex items-center justify-between mt-4">
@@ -1259,36 +1267,56 @@ export default function ClientCockpitDashboard() {
               )}
 
               {/* Stage: Review (Roadmap) */}
-              {abStep === 'review' && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-400">Roadmap Validation</span>
-                    <span className="font-mono text-[10px] text-zinc-400 italic">Review {abRoadmap.length} items</span>
-                  </div>
-                  <div className="flex flex-col gap-2 p-1 bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm">
-                    <textarea 
-                      value={abReviewFeedback}
-                      onChange={(e) => setAbReviewFeedback(e.target.value)}
-                      placeholder="Enter feedback or refinement instructions..."
-                      className="w-full bg-transparent px-4 py-3 text-xs min-h-[60px] max-h-32 outline-none text-zinc-800 dark:text-zinc-200"
-                    />
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => { compilePromptManifest(abReviewFeedback); setAbReviewFeedback(""); }}
-                        className="flex-1 h-10 flex items-center justify-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm text-[10px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 active:scale-95 transition-all"
-                      >
-                        Rebuild
-                      </button>
-                      <button 
-                        onClick={() => compilePromptManifest()}
-                        className="flex-[2] h-10 flex items-center justify-center bg-zinc-900 dark:bg-white text-white dark:text-black rounded-sm text-[10px] font-bold uppercase tracking-widest active:scale-95 transition-all"
-                      >
-                        Approve & Execute
-                      </button>
+              {abStep === 'review' && (() => {
+                const renderingSource = abRoadmap.length > 0 ? abRoadmap : abCompiledObjects;
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-400">Roadmap Validation</span>
+                      <span className="font-mono text-[10px] text-zinc-400 italic">
+                        Review {renderingSource.length} items
+                      </span>
+                    </div>
+                    <div className="flex flex-col border border-zinc-200 dark:border-zinc-800 rounded-sm bg-white dark:bg-zinc-900">
+                      {(() => {
+                        const activeItems = abRoadmap && abRoadmap.length > 0 ? abRoadmap : (abCompiledObjects || []);
+                        return activeItems.map((item: any, i: number) => (
+                          <div key={i} className="border-b border-zinc-200/60 dark:border-zinc-800/60 py-3 last:border-b-0 px-4">
+                            <span className="font-bold text-zinc-900 dark:text-zinc-100 text-xs tracking-tight">
+                              {item.automationNumber}: {item.stageName}
+                            </span>
+                            <p className="text-xs text-zinc-500 font-sans mt-0.5">
+                              {item.operationalGoal}
+                            </p>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                    <div className="flex flex-col gap-2 p-1 bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm">
+                      <textarea
+                        value={abReviewFeedback}
+                        onChange={(e) => setAbReviewFeedback(e.target.value)}
+                        placeholder="Enter feedback or refinement instructions..."
+                        className="w-full bg-transparent px-4 py-3 text-xs min-h-[60px] max-h-32 outline-none text-zinc-800 dark:text-zinc-200"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { compilePromptManifest(abReviewFeedback); setAbReviewFeedback(""); }}
+                          className="flex-1 h-10 flex items-center justify-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm text-[10px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 active:scale-95 transition-all"
+                        >
+                          Rebuild
+                        </button>
+                        <button
+                          onClick={() => compilePromptManifest()}
+                          className="flex-[2] h-10 flex items-center justify-center bg-zinc-900 dark:bg-white text-white dark:text-black rounded-sm text-[10px] font-bold uppercase tracking-widest active:scale-95 transition-all"
+                        >
+                          Approve & Execute
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Stage: Preview Actions */}
               {abStep === 'preview' && (
