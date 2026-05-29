@@ -893,6 +893,14 @@ export default function ClientCockpitDashboard() {
                       <span className="font-bold text-lg text-emerald-500">◆</span>
                       <div className="w-full space-y-4">
                           <p>◆ Your native automation guidelines have been successfully generated. Review the raw model prompt manifest below.</p>
+                          
+                          {/* Runbook Display Container */}
+                          <div className="max-h-[400px] overflow-y-auto mb-4 p-4 rounded-xl bg-white/50 dark:bg-zinc-900/50 border border-zinc-700/30">
+                            <div className="whitespace-pre-wrap text-xs text-slate-700 dark:text-zinc-300 leading-relaxed font-mono">
+                              {abCompiledBlocks || "◆ Reading aggregated sub-agent logs... No automation instructions found."}
+                            </div>
+                          </div>
+
                           <details className="group my-4">
                             <summary className="text-xs font-bold uppercase tracking-wider text-[#004850] dark:text-emerald-400 cursor-pointer select-none">View Compiled Prompt Payload</summary>
                             <pre className="font-mono text-[11px] bg-[#0A0F1D] text-emerald-400/90 p-4 rounded-xl border border-zinc-800/80 shadow-inner overflow-x-auto whitespace-pre-wrap">{compileRawModelPromptManifest()}</pre>
