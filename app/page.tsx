@@ -94,11 +94,8 @@ export default function ClientCockpitDashboard() {
     // Transition to planning phase
     setAbStep('planning');
     setIsAttached(false);
-    
-    // Simulate Master Planner running to build the Footprint Map
-    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Programmatically extract target items (Mocked index array for simulation)
+    // Programmatically extract target items
     const automationQueue = [
       { id: "AUTO_101", targetStage: "Initial Contact & Screening", goal: "Assign owner and create screening activity" },
       { id: "AUTO_102", targetStage: "The Waitlist (Nurture Phase)", goal: "Generate physical welcome kit task and start native delayed touchpoint activity cycle" },
@@ -118,16 +115,27 @@ export default function ClientCockpitDashboard() {
         currentStage: item.targetStage 
       });
       
-      const response = await fetch('/api/compile-agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemPrompt: `You are an Enterprise CRM Systems Architect. Capabilities: ${JSON.stringify(PIPEDRIVE_CAPABILITIES_REGISTRY)}`,
-          userPrompt: `Generate configuration for: ${item.goal} in stage ${item.targetStage}`
-        })
-      });
-      const data = await response.json();
-      compiledAutomations += (data.markdownBlock || "Failed to compile.") + "\n\n";
+      try {
+        const response = await fetch('/api/compile-agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemPrompt: `You are an Enterprise CRM Systems Architect. Capabilities: ${JSON.stringify(PIPEDRIVE_CAPABILITIES_REGISTRY)}`,
+            userPrompt: `Generate configuration for automation goal: "${item.goal}" in stage "${item.targetStage}". Roles involved: ${JSON.stringify(abRoles)}`
+          })
+        });
+
+        const data = await response.json();
+        
+        if (data.success && data.markdownBlock) {
+          compiledAutomations += `${data.markdownBlock}\n\n---\n\n`;
+        } else {
+          compiledAutomations += `### Automation [${index + 1}]: ${item.targetStage} - Error: Failed to generate instructions.\n\n---\n\n`;
+        }
+      } catch (error) {
+        console.error("Compilation failed:", error);
+        compiledAutomations += `### Automation [${index + 1}]: ${item.targetStage} - Error: Network failure during generation.\n\n---\n\n`;
+      }
     }
 
     setAbCompiledBlocks(compiledAutomations);
