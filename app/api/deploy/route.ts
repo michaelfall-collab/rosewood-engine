@@ -53,6 +53,29 @@ export async function POST(request: NextRequest) {
                 const assignedHash = matchedField.key || '';
                 fieldKeyTranslationMap[field.key] = assignedHash;
                 deploymentLogs.push(`• Reusing Field: Custom field "${field.name}" verified under scope [${scope}] (Hash: ${assignedHash})`);
+
+                if (['enum', 'set'].includes(field.type) && field.options && field.options.length > 0) {
+                  const remoteOptions = matchedField.options || [];
+                  const existingLabels = remoteOptions.map((opt: any) => opt.label);
+                  const newOptionLabels = field.options.map(opt => typeof opt === "string" ? opt : opt.label);
+                  const missingLabels = newOptionLabels.filter(label => !existingLabels.includes(label));
+
+                  if (missingLabels.length > 0) {
+                    const mergedLabels = [...existingLabels, ...missingLabels];
+                    const updateFieldResponse = await fetch(buildUrl(`${scope}Fields/${matchedField.id}`), {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ options: mergedLabels }),
+                    });
+                    const updateData = await updateFieldResponse.json();
+
+                    if (updateData.success) {
+                      deploymentLogs.push(`• Synchronized Options: Custom field "${field.name}" updated with ${missingLabels.length} new choices.`);
+                    } else {
+                      deploymentLogs.push(`✗ Option Sync Failed: Custom field "${field.name}" could not be updated: ${updateData.error || 'API validation failure'}`);
+                    }
+                  }
+                }
               } else {
                 const createFieldResponse = await fetch(buildUrl(`${scope}Fields`), {
                   method: 'POST',

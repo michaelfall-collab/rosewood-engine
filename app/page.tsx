@@ -59,6 +59,8 @@ export default function ClientCockpitDashboard() {
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [telemetryLogs, setTelemetryLogs] = useState<{ type: 'OUTBOUND' | 'INBOUND', timestamp: string, payload: any }[]>([]);
   const [showTelemetry, setShowTelemetry] = useState(false);
+  const [accountName, setAccountName] = useState("");
+  const [expandedLogs, setExpandedLogs] = useState<number[]>([]);
 
   // Custom Modal State
   const [uiModal, setUiModal] = useState<ModalProps | null>(null);
@@ -98,6 +100,7 @@ export default function ClientCockpitDashboard() {
       const json = await res.json();
       if (json && json.success) {
         setIsVerified(true);
+        setAccountName(json.data?.company_name || json.data?.name || "Unknown");
         setCopyFeedback("Connection Verified");
         setTimeout(() => setCopyFeedback(null), 3000);
       } else {
@@ -256,22 +259,27 @@ export default function ClientCockpitDashboard() {
               value={apiKey}
               onChange={(e) => { setApiKey(e.target.value); setIsVerified(false); }}
               disabled={isProcessing}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded py-1.5 pl-9 pr-4 text-xs font-mono focus:outline-none focus:border-[#004850] transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded py-1.5 pl-9 pr-8 text-xs font-mono focus:outline-none focus:border-[#004850] transition-all"
             />
+            {apiKey && isVerified && (
+              <button onClick={() => {setApiKey(""); setIsVerified(false);}} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500">
+                <i className="ti ti-x text-[10px]" />
+              </button>
+            )}
           </div>
 
           <button 
-            onClick={() => isVerified ? (setApiKey(""), setIsVerified(false)) : verifyConnection()}
-            disabled={isProcessing}
+            onClick={verifyConnection}
+            disabled={isVerified || isProcessing}
             className={`flex items-center gap-2 px-3 py-1.5 rounded border transition-all active:scale-95 ${
               isVerified 
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 cursor-pointer hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-600' 
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 cursor-default' 
                 : 'bg-[#004850] border-[#004850] text-white cursor-pointer hover:bg-[#003840]'
             }`}
           >
             <span className={`h-1.5 w-1.5 rounded-sm ${isVerified ? 'bg-emerald-500 animate-pulse' : 'bg-slate-100'}`} />
             <span className="text-[10px] font-bold uppercase">
-              {isVerified ? "Connected" : "Connect"}
+              {isVerified ? `ACTIVE // ${accountName}` : "Connect"}
             </span>
           </button>
         </div>
@@ -294,19 +302,29 @@ export default function ClientCockpitDashboard() {
                   <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Execution Telemetry // Local Stack</span>
                   <button onClick={() => setTelemetryLogs([])} className="text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400">Clear</button>
                 </div>
-                <div className="flex-1 flex flex-col h-full min-h-0 overflow-y-auto p-4 space-y-3 font-mono text-[10px]">
+                <div className="flex-1 flex flex-col h-full overflow-y-auto p-4 space-y-2 font-mono text-[10px]">
                   {telemetryLogs.length === 0 ? (
                     <div className="text-slate-400 italic py-8 text-center">No active data streams captured.</div>
                   ) : (
                     telemetryLogs.map((log, i) => (
-                      <div key={i} className="border-l-2 border-slate-300 pl-3 py-1 group">
-                        <div className="flex items-center justify-between mb-1">
+                      <div key={i} className="border border-slate-200 dark:border-slate-700 rounded overflow-hidden">
+                        <div 
+                          onClick={() => setExpandedLogs(prev => prev.includes(i) ? prev.filter(idx => idx !== i) : [...prev, i])}
+                          className="p-2 bg-slate-100 dark:bg-slate-800 flex items-center justify-between cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700"
+                        >
                           <span className={`font-bold ${log.type === 'OUTBOUND' ? 'text-emerald-600' : 'text-[#004850]'}`}>[{log.type}] {log.timestamp}</span>
-                          <button onClick={() => copyToClipboard(JSON.stringify(log.payload, null, 2))} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-[#004850] transition-opacity"><i className="ti ti-copy" /></button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); copyToClipboard(JSON.stringify(log.payload, null, 2)); }} 
+                            className="text-[#004850] hover:underline font-bold text-[9px] mr-2"
+                          >
+                            COPY RAW DATA
+                          </button>
                         </div>
-                        <pre className="text-slate-700 font-bold overflow-x-auto whitespace-pre-wrap max-h-32 scrollbar-thin scrollbar-thumb-slate-300">
-                          {JSON.stringify(log.payload, null, 1)}
-                        </pre>
+                        {expandedLogs.includes(i) && (
+                          <pre className="p-2 text-slate-700 font-bold overflow-x-auto whitespace-pre-wrap bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
+                            {JSON.stringify(log.payload, null, 1)}
+                          </pre>
+                        )}
                       </div>
                     ))
                   )}
@@ -315,28 +333,19 @@ export default function ClientCockpitDashboard() {
             )}
           </div>
 
+          <button onClick={() => setFlashMode("pipedrive")} className="bg-slate-700 text-white hover:bg-slate-600 rounded-sm font-bold uppercase tracking-wider text-[10px] px-3 py-1.5">Flash to Pipedrive</button>
           <div className="relative">
             <button 
-              onClick={() => setOpenMenuId(openMenuId === 'global' ? null : 'global')}
+              onClick={() => setOpenMenuId(openMenuId === 'vault' ? null : 'vault')}
               disabled={isProcessing}
-              className="px-4 py-2 bg-[#004850] text-white rounded text-[11px] font-bold flex items-center gap-2 hover:bg-[#003840] active:scale-95 transition-all"
+              className="bg-[#004850] text-white hover:bg-[#003840] rounded-sm font-bold uppercase tracking-wider text-[10px] px-3 py-1.5 flex items-center gap-1"
             >
-              Flash Image <i className="ti ti-chevron-down" />
+              Vault Operations <i className="ti ti-chevron-down" />
             </button>
-            {openMenuId === 'global' && (
-              <div className="absolute right-0 top-11 w-60 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded overflow-hidden z-[50]">
-                <div className="p-1 flex flex-col">
-                  <button onClick={() => { setFlashMode('pipedrive'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 text-emerald-600 font-bold">
-                    <i className="ti ti-bolt" /> Flash to Pipedrive
-                  </button>
-                  <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
-                  <button onClick={() => { handleInboundNew(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2">
-                    <i className="ti ti-database-import" /> Capture New Card
-                  </button>
-                  <button onClick={() => { setFlashMode('rosewood'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 text-rose-600 font-bold">
-                    <i className="ti ti-replace" /> Overwrite Existing
-                  </button>
-                </div>
+            {openMenuId === 'vault' && (
+              <div className="absolute right-0 top-9 w-40 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded overflow-hidden z-[50]">
+                <button onClick={() => { handleInboundNew(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700">Capture New Card</button>
+                <button onClick={() => { setFlashMode('rosewood'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700">Overwrite Existing</button>
               </div>
             )}
           </div>
