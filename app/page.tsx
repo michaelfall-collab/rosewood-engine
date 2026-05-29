@@ -120,6 +120,51 @@ export default function ClientCockpitDashboard() {
     } : img));
   };
 
+  const handleAddNewManualBlock = () => {
+    if (!detailId) return;
+    setImages(prev => prev.map(img => img.id === detailId ? {
+      ...img,
+      compiledRunbook: [...(img.compiledRunbook || []), {
+        automationNumber: "1.X",
+        stageName: "MANUAL CONFIGURATION STAGE",
+        operationalGoal: "Enter manual goal...",
+        impactedRoles: [],
+        setupSteps: ["Configure trigger condition..."],
+        governanceNotes: ""
+      }]
+    } : img));
+  };
+
+  const handleDeleteAutomationBlock = (itemIndex: number) => {
+    if (!detailId) return;
+    setImages(prev => prev.map(img => img.id === detailId ? {
+      ...img,
+      compiledRunbook: (img.compiledRunbook || []).filter((_, idx) => idx !== itemIndex)
+    } : img));
+  };
+
+  const handleAddCadenceStep = (itemIndex: number) => {
+    if (!detailId) return;
+    setImages(prev => prev.map(img => img.id === detailId ? {
+      ...img,
+      compiledRunbook: (img.compiledRunbook || []).map((obj, i) => i === itemIndex ? { 
+        ...obj, 
+        setupSteps: [...obj.setupSteps, "New step..."] 
+      } : obj)
+    } : img));
+  };
+
+  const handleDeleteCadenceStep = (itemIndex: number, stepIndex: number) => {
+    if (!detailId) return;
+    setImages(prev => prev.map(img => img.id === detailId ? {
+      ...img,
+      compiledRunbook: (img.compiledRunbook || []).map((obj, i) => i === itemIndex ? { 
+        ...obj, 
+        setupSteps: obj.setupSteps.filter((_, sIdx) => sIdx !== stepIndex) 
+      } : obj)
+    } : img));
+  };
+
   // Paste Importer States
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const [pastedConfig, setPastedConfig] = useState("");
@@ -902,6 +947,9 @@ export default function ClientCockpitDashboard() {
                             <h3 className={`text-sm font-bold uppercase tracking-tight ${theme.text}`}>
                               Automation {item.automationNumber}: {item.stageName}
                             </h3>
+                            <button onClick={() => handleDeleteAutomationBlock(i)} className="text-zinc-400 hover:text-rose-500">
+                              <i className="ti ti-trash" />
+                            </button>
                           </div>
 
                           <div className="p-6 space-y-6">
@@ -929,7 +977,7 @@ export default function ClientCockpitDashboard() {
                               <h4 className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">Setup Cadence</h4>
                               <ol className="list-decimal pl-5 font-sans text-xs tracking-normal text-zinc-700 dark:text-zinc-300 space-y-2">
                                 {item.setupSteps.map((step: string, idx: number) => (
-                                  <li key={idx} className="pl-2">
+                                  <li key={idx} className="pl-2 flex items-center gap-2">
                                     <input
                                       value={step}
                                       onChange={(e) => {
@@ -939,9 +987,18 @@ export default function ClientCockpitDashboard() {
                                       }}
                                       className="w-full bg-transparent border-b border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 outline-none py-1"
                                     />
+                                    <button onClick={() => handleDeleteCadenceStep(i, idx)} className="text-zinc-400 hover:text-rose-500">
+                                       <i className="ti ti-trash text-[10px]" />
+                                    </button>
                                   </li>
                                 ))}
                               </ol>
+                              <button 
+                                onClick={() => handleAddCadenceStep(i)}
+                                className="text-[10px] font-mono font-bold text-[#004850] dark:text-zinc-400 hover:underline cursor-pointer mt-2 block"
+                              >
+                                + ADD NEXT CADENCE STEP
+                              </button>
                             </div>
 
                             {/* Governance Box */}
@@ -958,6 +1015,12 @@ export default function ClientCockpitDashboard() {
                         </div>
                       );
                     })}
+                    <button
+                        onClick={handleAddNewManualBlock}
+                        className="w-full py-3 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-400 dark:hover:border-zinc-500 transition-all font-mono text-[10px] font-bold uppercase tracking-widest active:scale-[0.99] mt-4"
+                    >
+                        + ADD AUTOMATION BLOCK
+                    </button>
                   </div>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center py-20 text-center">
