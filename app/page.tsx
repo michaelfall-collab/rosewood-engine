@@ -837,8 +837,7 @@ export default function ClientCockpitDashboard() {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* 6. CLIPBOARD FEEDBACK */}
       {copyFeedback && (
