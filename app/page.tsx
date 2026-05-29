@@ -666,7 +666,7 @@ export default function ClientCockpitDashboard() {
 
       {/* AUTOMATION BUILDER MODAL */}
       {abOpen && (
-        <div className="fixed inset-0 bg-white dark:bg-slate-900 z-[200] flex flex-col animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-white dark:bg-slate-950 z-[250] flex flex-col font-sans overflow-hidden animate-in fade-in duration-200">
           {/* Header */}
           <div className="h-14 flex items-center justify-between px-6 border-b border-slate-300 dark:border-slate-800 bg-[#FFFFFF] dark:bg-[#1E293B] sticky top-0 z-[10]">
             <span className="text-xs font-bold uppercase tracking-tight">▲ AUTOMATION RUNBOOK BUILDER</span>
@@ -691,12 +691,12 @@ export default function ClientCockpitDashboard() {
               {abChatHistory.map((msg, i) => (
                 <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.sender === 'ai' ? (
-                    <div className="bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-zinc-100 border border-slate-200 dark:border-slate-700 p-4 rounded-md max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
+                    <div className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-zinc-100 p-4 rounded-tr-xl rounded-br-xl rounded-bl-xl max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
                       <span className="font-bold text-lg">◆</span>
                       <div>{msg.text}</div>
                     </div>
                   ) : (
-                    <div className="bg-[#004850] text-white p-4 rounded-md max-w-[75%] ml-auto text-xs font-medium border border-[#003840] shadow-sm text-left">
+                    <div className="bg-[#004850] text-white p-4 rounded-tl-xl rounded-br-xl rounded-bl-xl max-w-[75%] ml-auto text-xs font-medium border border-[#003840] shadow-sm text-left active:scale-95 transition-transform">
                       {msg.text}
                     </div>
                   )}
@@ -705,7 +705,7 @@ export default function ClientCockpitDashboard() {
 
               {/* Progressive Inline Widgets */}
               {abStep === 'select' && (
-                <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-md max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
+                <div className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-zinc-100 p-4 rounded-tr-xl rounded-br-xl rounded-bl-xl max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
                   <span className="font-bold text-lg">◆</span>
                   <div className="space-y-4 w-full">
                     <p>Select a blueprint to begin the automation assembly.</p>
@@ -713,12 +713,13 @@ export default function ClientCockpitDashboard() {
                         {images.map(img => (
                         <button
                             key={img.id}
+                            disabled={isProcessing}
                             onClick={() => {
                                 setAbSelectedImageId(img.id);
                                 setAbChatHistory(prev => [...prev, { sender: "ai", text: `Selected blueprint: ${img.name}.` }, { sender: "user", text: `Analyze blueprint: ${img.name}` }]);
                                 setAbStep('chat');
                             }}
-                            className="p-3 border border-slate-200 dark:border-slate-700 rounded-sm hover:bg-white dark:hover:bg-slate-700 text-xs font-bold uppercase tracking-wider text-left active:scale-95 transition-transform"
+                            className="p-3 border border-slate-300 dark:border-slate-700 rounded-sm hover:bg-white dark:hover:bg-slate-700 text-xs font-bold uppercase tracking-wider text-left active:scale-95 transition-transform"
                         >
                             {img.name}
                         </button>
@@ -729,7 +730,7 @@ export default function ClientCockpitDashboard() {
               )}
 
               {abStep === 'chat' && (
-                <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-md max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
+                <div className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-zinc-100 p-4 rounded-tr-xl rounded-br-xl rounded-bl-xl max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
                     <span className="font-bold text-lg">◆</span>
                     <div className="space-y-4 w-full">
                         <p>Select environment targets for this automation.</p>
@@ -752,7 +753,7 @@ export default function ClientCockpitDashboard() {
                                 setAbChatHistory(prev => [...prev, { sender: "user", text: `Channels requested: ${abSelectedIntegrations.join(", ")}`}]);
                                 compilePromptManifest();
                             }}
-                            className="w-full bg-[#004850] text-white py-2 rounded-sm text-xs font-bold uppercase hover:bg-[#003840] active:scale-95 disabled:opacity-50"
+                            className="w-full bg-[#004850] text-white py-2 rounded-sm text-xs font-bold uppercase hover:bg-[#003840] active:scale-95 transition-transform disabled:opacity-50"
                         >
                             COMPILE PROMPT MANIFEST
                         </button>
@@ -761,39 +762,41 @@ export default function ClientCockpitDashboard() {
               )}
 
               {abStep === 'building' && (
-                <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-md max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm items-center">
+                <div className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-zinc-100 p-4 rounded-tr-xl rounded-br-xl rounded-bl-xl max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm items-center">
                     <span className="font-bold text-lg">◆</span>
                     <div className="flex items-center gap-2">
                         <div className="h-4 w-4 border-2 border-[#004850]/20 border-t-[#004850] rounded-full animate-spin" />
-                        <span className="font-bold">Assembling schema parameters... Compiling recipe manifest data.</span>
+                        <span className="font-bold">◆ Compiling schema matrix... Organizing context parameters into recipe manifest block.</span>
                     </div>
                 </div>
               )}
 
               {abStep === 'preview' && (
-                <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-md max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
+                <div className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-zinc-100 p-4 rounded-tr-xl rounded-br-xl rounded-bl-xl max-w-[85%] flex gap-3 text-xs leading-relaxed font-sans shadow-sm">
                     <span className="font-bold text-lg">◆</span>
                     <div className="w-full space-y-4">
                         <button
                             onClick={() => setAbPromptViewOpen(!abPromptViewOpen)}
-                            className="w-full flex items-center justify-between p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-bold uppercase tracking-widest text-[#004850] hover:bg-slate-50 rounded-sm"
+                            className="w-full flex items-center justify-between p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-[10px] font-bold uppercase tracking-widest text-[#004850] hover:bg-slate-50 rounded-sm active:scale-95 transition-transform"
                         >
                             AUDIT END-TO-END RAW AI MODEL PROMPT <i className={`ti ${abPromptViewOpen ? 'ti-chevron-up' : 'ti-chevron-down'}`} />
                         </button>
                         {abPromptViewOpen && (
-                            <pre className="w-full min-h-[250px] max-h-[400px] border border-slate-300 dark:border-slate-700 p-4 font-mono text-[11px] bg-slate-50 dark:bg-slate-950 overflow-y-auto rounded-sm whitespace-pre-wrap">{compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId))}</pre>
+                            <pre className="w-full min-h-[250px] max-h-[400px] border border-slate-300 dark:border-slate-700 p-4 font-mono text-[11px] bg-slate-900 text-emerald-400 overflow-y-auto rounded-md whitespace-pre-wrap">{compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId))}</pre>
                         )}
                         <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
-                            <input type="checkbox" className="accent-[#004850]" />
-                            I have verified the prompt manifest structure.
+                            <input type="checkbox" className="accent-[#004850]" disabled={isProcessing} />
+                            Looks good — build complete file structure layout guidelines
                         </label>
                         <div className="flex gap-2">
-                            <button className="flex-1 border border-slate-300 dark:border-slate-700 py-2 rounded-sm text-[10px] font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-transform">Download Document File</button>
-                            <button className="flex-1 border border-slate-300 dark:border-slate-700 py-2 rounded-sm text-[10px] font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-transform">Keep Local Only</button>
+                            <a href="#" className="flex-1 text-center border border-slate-300 dark:border-slate-700 py-2 rounded-sm text-[10px] font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-transform">Download File</a>
+                            <button onClick={() => setAbOpen(false)} className="flex-1 border border-slate-300 dark:border-slate-700 py-2 rounded-sm text-[10px] font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-transform">Keep Local Only</button>
                             <button 
+                                disabled={isProcessing}
                                 onClick={() => {
-                                    setAbChatHistory(prev => [...prev, { sender: "user", text: "Verified and accepted."}]);
-                                    setAbStep("done");
+                                    setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, automationInstructions: compileRawModelPromptManifest(img) } : img));
+                                    setAbOpen(false);
+                                    setAbStep('select');
                                 }}
                                 className="flex-1 bg-[#004850] text-white py-2 rounded-sm text-[10px] font-bold uppercase hover:bg-[#003840] active:scale-95 transition-transform"
                             >
