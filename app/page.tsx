@@ -66,7 +66,7 @@ export default function ClientCockpitDashboard() {
 
   // Automation Builder States
   const [abOpen, setAbOpen] = useState(false);
-  const [abStep, setAbStep] = useState<'select' | 'chat' | 'integrations' | 'building' | 'preview'>('select');
+  const [abStep, setAbStep] = useState<'select' | 'chat' | 'building' | 'preview'>('select');
   const [abSelectedImageId, setAbSelectedImageId] = useState<string | null>(null);
   const [abSelectedIntegrations, setAbSelectedIntegrations] = useState<string[]>([]);
   const [abChatHistory, setAbChatHistory] = useState<{ sender: "user" | "ai"; text: string; dataWidget?: any }[]>([]);
@@ -282,6 +282,18 @@ export default function ClientCockpitDashboard() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopyFeedback("✓ Copied to Clipboard");
+    setTimeout(() => setCopyFeedback(null), 3000);
+  };
+
+  const downloadPayload = (text: string) => {
+    const blob = new Blob([text], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `runbook-${abSelectedImageId}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setCopyFeedback("✓ File Downloaded");
     setTimeout(() => setCopyFeedback(null), 3000);
   };
 
@@ -667,7 +679,7 @@ export default function ClientCockpitDashboard() {
 
       {/* AUTOMATION BUILDER MODAL */}
       {abOpen && (
-        <div className="fixed inset-0 w-full h-full min-h-screen z-[250] flex flex-col font-sans bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-2xl animate-in fade-in duration-200">
+        <div className="fixed inset-0 w-full h-full min-h-screen z-[250] flex flex-col bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-2xl transition-all duration-300">
           {/* Header */}
           <div className="h-14 flex items-center justify-between px-6 border-b border-zinc-800/80">
             <span className="text-xs font-bold uppercase tracking-tight">▲ AUTOMATION RUNBOOK BUILDER</span>
@@ -731,69 +743,69 @@ export default function ClientCockpitDashboard() {
                   </div>
                 )}
                 
-                {/* Step: Team Registry */}
+                {/* Step: Conversational Team Registry & Integrations */}
                 {abStep === 'chat' && (
-                  <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
-                    <span className="font-bold text-lg text-emerald-500">◆</span>
-                    <div className="space-y-4 w-full">
-                      <p>◆ Who will be using this CRM workspace? Let's build your team registry and assign seat counts.</p>
-                      <div className="flex gap-2">
-                          <input value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} placeholder="Role Name" className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-700 rounded p-2 text-xs" />
-                          <input type="number" value={tempRoleSeats} onChange={e => setTempRoleSeats(parseInt(e.target.value) || 0)} className="w-16 bg-white dark:bg-zinc-900 border border-zinc-700 rounded p-2 text-xs" />
-                          <button onClick={() => {
-                              if (!tempRoleLabel) return;
-                              setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]);
-                              setTempRoleLabel("");
-                              setTempRoleSeats(1);
-                          }} className="active:scale-95 bg-[#004850] text-white px-4 py-2 rounded text-xs font-bold hover:scale-[1.01] transition-all">Add Role</button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                          {abRoles.map((role, i) => (
-                              <span key={i} className="bg-slate-200 dark:bg-zinc-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
-                                  {role.roleName} ({role.count})
-                                  <button onClick={() => setAbRoles(prev => prev.filter((_, idx) => idx !== i))}><i className="ti ti-x" /></button>
-                              </span>
-                          ))}
-                      </div>
-                      <button onClick={() => {
-                          setAbChatHistory(prev => [...prev, { sender: "user", text: `Commit Team Registry: ${abRoles.map(r => r.roleName).join(", ")}` }]);
-                          setAbChatHistory(prev => [...prev, { sender: "ai", text: `◆ Understood. Which integration channels should be natively provisioned into this guide?` }]);
-                          setAbStep('integrations');
-                      }} className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all">Confirm Team Registry</button>
-                    </div>
-                  </div>
-                )}
+                    <div className="space-y-6">
+                        {/* Team Registry Phase */}
+                        <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
+                            <span className="font-bold text-lg text-emerald-500">◆</span>
+                            <div className="space-y-4 w-full">
+                            <p>◆ Let's build your team registry and assign seat counts.</p>
+                            <div className="flex gap-2">
+                                <input value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} placeholder="Role Name" className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-700 rounded p-2 text-xs" />
+                                <input type="number" value={tempRoleSeats} onChange={e => setTempRoleSeats(parseInt(e.target.value) || 0)} className="w-16 bg-white dark:bg-zinc-900 border border-zinc-700 rounded p-2 text-xs" />
+                                <button onClick={() => {
+                                    if (!tempRoleLabel) return;
+                                    setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]);
+                                    setTempRoleLabel("");
+                                    setTempRoleSeats(1);
+                                }} className="active:scale-95 bg-[#004850] text-white px-4 py-2 rounded text-xs font-bold hover:scale-[1.01] transition-all">Add Role</button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {abRoles.map((role, i) => (
+                                    <span key={i} className="bg-slate-200 dark:bg-zinc-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
+                                        {role.roleName} ({role.count})
+                                        <button onClick={() => setAbRoles(prev => prev.filter((_, idx) => idx !== i))}><i className="ti ti-x" /></button>
+                                    </span>
+                                ))}
+                            </div>
+                            <button onClick={() => {
+                                setAbChatHistory(prev => [...prev, { sender: "user", text: `Commit Team Registry: ${abRoles.map(r => r.roleName).join(", ")}` }]);
+                            }} className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all">Confirm Team Registry</button>
+                            </div>
+                        </div>
 
-                {/* Step: Integrations */}
-                {abStep === 'integrations' && (
-                  <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
-                      <span className="font-bold text-lg text-emerald-500">◆</span>
-                      <div className="space-y-4 w-full">
-                          <p>◆ Understood. Which integration channels should be natively provisioned into this guide?</p>
-                          <div className="space-y-1">
-                          {['Slack', 'Microsoft Teams', 'Asana', 'Trello', 'Webhooks', 'Campaigns by Pipedrive', 'Projects by Pipedrive'].map(int => (
-                              <button
-                              key={int}
-                              onClick={() => setAbSelectedIntegrations(prev => prev.includes(int) ? prev.filter(i => i !== int) : [...prev, int])}
-                              className={`w-full p-2 border rounded-sm flex items-center gap-2 text-xs font-bold active:scale-[0.99] transition-all ${abSelectedIntegrations.includes(int) ? 'bg-[#004850]/10 border-[#004850] text-[#004850]' : 'bg-white dark:bg-zinc-900 border-zinc-700'}`}
-                              >
-                              <i className={`ti ${abSelectedIntegrations.includes(int) ? 'ti-checkbox' : 'ti-square'}`} />
-                              {int}
-                              </button>
-                          ))}
-                          </div>
-                          <button
-                              disabled={isProcessing}
-                              onClick={() => {
-                                  setAbChatHistory(prev => [...prev, { sender: "user", text: `Integrations: ${abSelectedIntegrations.join(", ")}`}]);
-                                  compilePromptManifest();
-                              }}
-                              className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all"
-                          >
-                              COMPILE AUTOMATION RUNBOOK
-                          </button>
-                      </div>
-                  </div>
+                        {/* Integration Checklist Phase */}
+                        <div className="bg-slate-100 dark:bg-zinc-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] flex gap-3 text-xs shadow-sm border border-zinc-700/50">
+                            <span className="font-bold text-lg text-emerald-500">◆</span>
+                            <div className="space-y-4 w-full">
+                                <p>◆ Which integration channels should be natively provisioned into this guide?</p>
+                                <div className="space-y-1">
+                                {['Slack', 'Microsoft Teams', 'Asana', 'Trello', 'Webhooks', 'Campaigns by Pipedrive', 'Projects by Pipedrive'].map(int => (
+                                    <button
+                                    key={int}
+                                    onClick={() => setAbSelectedIntegrations(prev => prev.includes(int) ? prev.filter(i => i !== int) : [...prev, int])}
+                                    className={`w-full p-2 border rounded-sm flex items-center gap-2 text-xs font-bold active:scale-[0.99] transition-all ${abSelectedIntegrations.includes(int) ? 'bg-[#004850]/10 border-[#004850] text-[#004850]' : 'bg-white dark:bg-zinc-900 border-zinc-700'}`}
+                                    >
+                                    <i className={`ti ${abSelectedIntegrations.includes(int) ? 'ti-checkbox' : 'ti-square'}`} />
+                                    {int}
+                                    </button>
+                                ))}
+                                </div>
+                                <button
+                                    disabled={isProcessing}
+                                    onClick={() => {
+                                        setAbChatHistory(prev => [...prev, { sender: "user", text: `Integrations: ${abSelectedIntegrations.join(", ")}`}]);
+                                        setAbStep('building');
+                                        compilePromptManifest();
+                                    }}
+                                    className="w-full bg-[#004850] text-white py-2 rounded text-xs font-bold uppercase hover:scale-[1.01] active:scale-[0.99] transition-all"
+                                >
+                                    COMPILE AUTOMATION RUNBOOK
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 )}
 
                 {abStep === 'building' && (
@@ -816,12 +828,24 @@ export default function ClientCockpitDashboard() {
                             <pre className="font-mono text-[11px] bg-[#0A0F1D] text-emerald-400/90 p-4 rounded-xl border border-zinc-800/80 shadow-inner overflow-x-auto whitespace-pre-wrap">{compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId))}</pre>
                           </details>
                           
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-2">
                               <button
                                   onClick={() => copyToClipboard(compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId)))}
                                   className="flex-1 flex items-center justify-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-zinc-700 text-[10px] font-bold uppercase tracking-wider text-[#004850] hover:scale-[1.01] active:scale-[0.99] transition-all rounded"
                               >
                                   <i className="ti ti-copy" /> Copy Payload
+                              </button>
+                              <button
+                                  onClick={() => downloadPayload(compileRawModelPromptManifest(images.find(i => i.id === abSelectedImageId)))}
+                                  className="flex-1 flex items-center justify-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-zinc-700 text-[10px] font-bold uppercase tracking-wider text-[#004850] hover:scale-[1.01] active:scale-[0.99] transition-all rounded"
+                              >
+                                  <i className="ti ti-download" /> Download File
+                              </button>
+                              <button
+                                  onClick={() => { setAbOpen(false); setAbStep('select'); }}
+                                  className="flex-1 flex items-center justify-center gap-2 p-2 bg-white dark:bg-zinc-900 border border-zinc-700 text-[10px] font-bold uppercase tracking-wider text-[#004850] hover:scale-[1.01] active:scale-[0.99] transition-all rounded"
+                              >
+                                  Keep Local Only
                               </button>
                               <button 
                                   disabled={isProcessing}
@@ -832,7 +856,7 @@ export default function ClientCockpitDashboard() {
                                   }}
                                   className="flex-1 flex items-center justify-center bg-[#004850] text-white rounded text-[10px] font-bold uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] transition-all"
                               >
-                                  Yes, Attach Runbook to Image Card
+                                  Attach Runbook to Image Card
                               </button>
                           </div>
                       </div>
