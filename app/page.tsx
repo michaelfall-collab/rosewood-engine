@@ -499,7 +499,7 @@ export default function ClientCockpitDashboard() {
   const typewriterAddMessage = async (msg: { sender: "ai"; text: string; dataWidget?: any }) => {
     // 1. Enter "Thinking" phase (Typing Indicator)
     setIsAiTyping(true);
-    const thinkingDelay = Math.random() * 800 + 700; // 700ms - 1500ms
+    const thinkingDelay = Math.random() * 800 + 700;
     await new Promise(r => setTimeout(r, thinkingDelay));
     setIsAiTyping(false);
 
@@ -511,15 +511,17 @@ export default function ClientCockpitDashboard() {
     setVisibleChatHistory(prev => [...prev, { ...msg, text: "", isTyping: true }]);
 
     // Scroll to the top of this new message bubble
+    // Added a slightly longer delay to ensure the DOM has rendered the bubble
     setTimeout(() => {
         const el = document.getElementById(`msg-${msgIndex}`);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 200);
 
     const chars = msg.text.split("");
     for (let i = 0; i < chars.length; i++) {
       currentText += chars[i];
-      // Faster typing for longer messages, slower for short quips
       const speed = msg.text.length > 100 ? 5 : 15; 
       await new Promise(r => setTimeout(r, speed));
       
@@ -2066,7 +2068,7 @@ export default function ClientCockpitDashboard() {
                     onChange={e => setAbChatInput(e.target.value)}
                     onInput={(e) => {
                       e.currentTarget.style.height = 'auto';
-                      e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                      e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 200) + 'px';
                     }}
                     onKeyDown={e => {
                       if (e.key === 'Enter' && !e.shiftKey) {
@@ -2076,7 +2078,7 @@ export default function ClientCockpitDashboard() {
                           setAbChatHistory(prev => [...prev, msg]);
                           setVisibleChatHistory(prev => [...prev, msg]);
                           setAbChatInput("");
-                          e.currentTarget.style.height = 'auto'; // Reset height
+                          e.currentTarget.style.height = '60px'; // Reset to min-height
                         }
                       }
                     }}
@@ -2086,7 +2088,7 @@ export default function ClientCockpitDashboard() {
                       abStep === 'preflight' ? "Tune your objectives in the matrix above..." :
                       "Type your automation instructions here... (Enter to Send)"
                     }
-                    className="w-full min-h-[60px] max-h-[200px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 pr-32 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-2xl shadow-black/5 disabled:opacity-50"
+                    className="w-full min-h-[60px] max-h-[200px] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 pr-32 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-2xl shadow-black/5 disabled:opacity-50 scrollbar-hide"
                   />
                   <div className="absolute bottom-5 right-5 flex gap-3">
                     <button 
