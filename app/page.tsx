@@ -507,7 +507,14 @@ export default function ClientCockpitDashboard() {
     let currentText = "";
     
     // Add initial empty message
+    const msgIndex = visibleChatHistory.length;
     setVisibleChatHistory(prev => [...prev, { ...msg, text: "", isTyping: true }]);
+
+    // Scroll to the top of this new message bubble
+    setTimeout(() => {
+        const el = document.getElementById(`msg-${msgIndex}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
 
     const chars = msg.text.split("");
     for (let i = 0; i < chars.length; i++) {
@@ -518,7 +525,7 @@ export default function ClientCockpitDashboard() {
       
       setVisibleChatHistory(prev => {
         const last = [...prev];
-        last[last.length - 1] = { ...msg, text: currentText, isTyping: i < chars.length - 1 };
+        last[msgIndex] = { ...msg, text: currentText, isTyping: i < chars.length - 1 };
         return last;
       });
     }
@@ -1777,7 +1784,7 @@ export default function ClientCockpitDashboard() {
               {/* MAIN CONVERSATIONAL BODY */}
               <div id="chat-history-container" className="flex-1 overflow-y-auto p-8 space-y-10 bg-white dark:bg-zinc-950 scroll-smooth">
                 {visibleChatHistory.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-500`}>
+                  <div key={i} id={`msg-${i}`} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-500`}>
                     <div className={`flex gap-5 w-full ${msg.sender === 'user' ? 'max-w-[70%] flex-row-reverse' : 'max-w-[95%]'}`}>
                       <div className={`h-9 w-9 rounded-2xl shrink-0 flex items-center justify-center text-[10px] font-black uppercase shadow-sm ${msg.sender === 'user' ? 'bg-zinc-900 text-white' : 'bg-[#004850] text-white shadow-[#004850]/20'}`}>
                         {msg.sender === 'user' ? 'U' : 'AI'}
@@ -1901,21 +1908,23 @@ export default function ClientCockpitDashboard() {
                                 <span className="font-mono text-[9px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Team Registry</span>
                                 <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
                               </div>
-                              <div className="flex flex-wrap gap-2">
-                                {abRoles.map((role, idx) => (
-                                  <div key={idx} className="flex items-center gap-3 pl-4 pr-1 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm animate-in zoom-in-95">
-                                    <span className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 uppercase">{role.roleName}</span>
-                                    <span className="h-6 px-2 bg-[#004850] rounded-full text-[9px] font-mono flex items-center justify-center text-white">{role.count}</span>
-                                    <button disabled={i < visibleChatHistory.length - 1} onClick={() => setAbRoles(prev => prev.filter((_, i) => i !== idx))} className="h-6 w-6 hover:text-rose-500 transition-colors flex items-center justify-center"><i className="ti ti-x text-xs" /></button>
-                                  </div>
-                                ))}
-                                <div className="flex items-center gap-2 pl-4 bg-white dark:bg-zinc-950 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-full shadow-sm overflow-hidden h-9">
-                                  <input disabled={i < visibleChatHistory.length - 1} placeholder="Add Role..." value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-24 py-1" />
-                                  <div className="flex items-center gap-1 border-x border-zinc-100 dark:border-zinc-800 px-2 h-full py-1">
+                              <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm overflow-hidden h-10 w-fit">
+                                  <input disabled={i < visibleChatHistory.length - 1} placeholder="Add Role..." value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-24 pl-4" />
+                                  <div className="flex items-center gap-1 border-x border-zinc-100 dark:border-zinc-800 px-3 h-full">
                                       <span className="text-[8px] font-mono text-zinc-400">#</span>
                                       <input disabled={i < visibleChatHistory.length - 1} type="number" value={tempRoleSeats} onChange={e => setTempRoleSeats(parseInt(e.target.value) || 1)} className="bg-transparent border-none outline-none text-[10px] font-mono font-bold w-6 text-center" />
                                   </div>
-                                  <button disabled={i < visibleChatHistory.length - 1} onClick={() => { if (tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="h-full w-10 text-[#004850] dark:text-emerald-500 hover:bg-[#004850] hover:text-white transition-all flex items-center justify-center"><i className="ti ti-plus" /></button>
+                                  <button disabled={i < visibleChatHistory.length - 1} onClick={() => { if (tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="h-full w-12 text-[#004850] dark:text-emerald-500 hover:bg-[#004850] hover:text-white transition-all flex items-center justify-center"><i className="ti ti-plus" /></button>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                  {abRoles.map((role, idx) => (
+                                    <div key={idx} className="flex items-center gap-3 pl-4 pr-1 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm animate-in zoom-in-95 w-fit">
+                                      <span className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 uppercase">{role.roleName}</span>
+                                      <span className="h-6 px-2 bg-[#004850] rounded-full text-[9px] font-mono flex items-center justify-center text-white">{role.count}</span>
+                                      <button disabled={i < visibleChatHistory.length - 1} onClick={() => setAbRoles(prev => prev.filter((_, i) => i !== idx))} className="h-6 w-6 hover:text-rose-500 transition-colors flex items-center justify-center"><i className="ti ti-x text-xs" /></button>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
                             </div>
@@ -2055,6 +2064,10 @@ export default function ClientCockpitDashboard() {
                   <textarea
                     value={abChatInput}
                     onChange={e => setAbChatInput(e.target.value)}
+                    onInput={(e) => {
+                      e.currentTarget.style.height = 'auto';
+                      e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                    }}
                     onKeyDown={e => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
@@ -2063,6 +2076,7 @@ export default function ClientCockpitDashboard() {
                           setAbChatHistory(prev => [...prev, msg]);
                           setVisibleChatHistory(prev => [...prev, msg]);
                           setAbChatInput("");
+                          e.currentTarget.style.height = 'auto'; // Reset height
                         }
                       }
                     }}
@@ -2072,7 +2086,7 @@ export default function ClientCockpitDashboard() {
                       abStep === 'preflight' ? "Tune your objectives in the matrix above..." :
                       "Type your automation instructions here... (Enter to Send)"
                     }
-                    className="w-full h-24 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 pr-32 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-2xl shadow-black/5 disabled:opacity-50"
+                    className="w-full min-h-[60px] max-h-[200px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 pr-32 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-2xl shadow-black/5 disabled:opacity-50"
                   />
                   <div className="absolute bottom-5 right-5 flex gap-3">
                     <button 
