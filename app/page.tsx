@@ -263,6 +263,7 @@ export default function ClientCockpitDashboard() {
   const [abSelectedImageId, setAbSelectedImageId] = useState<string | null>(null);
   const [abSelectedIntegrations, setAbSelectedIntegrations] = useState<string[]>([]);
   const [abChatHistory, setAbChatHistory] = useState<{ sender: "user" | "ai"; text: string; dataWidget?: any }[]>([]);
+  const [abChatInput, setAbChatInput] = useState("");
   const [abRoles, setAbRoles] = useState<{ roleName: string; count: number }[]>([]);
   const [abCompiledObjects, setAbCompiledObjects] = useState<any[]>([]);
   const [tempRoleLabel, setTempRoleLabel] = useState("");
@@ -270,6 +271,16 @@ export default function ClientCockpitDashboard() {
   const [isAttached, setIsAttached] = useState(false);
   const [abTelemetryGuesses, setAbTelemetryGuesses] = useState<Record<string, StageOperationalContext>>({});
   const [isFetchingGuesses, setIsFetchingGuesses] = useState(false);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (abStep === 'chat') {
+      const chatContainer = document.getElementById('chat-history-container');
+      if (chatContainer) {
+        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+      }
+    }
+  }, [abChatHistory, abStep]);
 
   // Fire a real Gemini background call for AI telemetry guesses the moment a card enters preflight
   useEffect(() => {
@@ -1853,88 +1864,107 @@ export default function ClientCockpitDashboard() {
                   )}
 
                   {abStep === 'chat' && (
-                    <div className="py-12 space-y-12">
-                      {/* Integration Selector */}
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Connected Tools</span>
-                          <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                    <div className="flex flex-col h-[calc(90vh-140px)] -mx-8 relative overflow-hidden font-sans">
+                      {/* 1. Context Ribbon (Integrations & Roles) */}
+                      <div className="shrink-0 px-8 py-3 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 whitespace-nowrap">Active Tools:</span>
+                          <div className="flex gap-1.5">
+                            {abSelectedIntegrations.length > 0 ? abSelectedIntegrations.map(slug => (
+                              <span key={slug} className="px-2 py-0.5 bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full text-[9px] font-bold uppercase flex items-center gap-1">
+                                <i className={`ti ti-brand-${slug === 'msteams' ? 'messenger' : slug === 'projects' ? 'clipboard' : slug === 'campaigns' ? 'mail' : slug}`} /> {slug}
+                              </span>
+                            )) : <span className="text-[9px] italic text-zinc-400">None selected</span>}
+                          </div>
+                          <span className="w-px h-3 bg-zinc-200 dark:bg-zinc-700 mx-1" />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 whitespace-nowrap">Team:</span>
+                          <div className="flex gap-1.5">
+                            {abRoles.length > 0 ? abRoles.map((role, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full text-[9px] font-bold uppercase">
+                                {role.roleName} ({role.count})
+                              </span>
+                            )) : <span className="text-[9px] italic text-zinc-400">Registry empty</span>}
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {Object.keys(PIPEDRIVE_CAPABILITIES_REGISTRY.supportedIntegrations).map((slug) => (
-                            <button
-                              key={slug}
-                              onClick={() => setAbSelectedIntegrations(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug])}
-                              className={`p-4 border rounded-xl transition-all flex flex-col items-center gap-3 text-center active:scale-95 ${abSelectedIntegrations.includes(slug) ? 'border-[#004850] bg-[#004850]/5 text-[#004850] dark:border-emerald-500 dark:text-emerald-400 shadow-md shadow-[#004850]/5' : 'border-zinc-200 dark:border-zinc-800 text-zinc-400 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
-                            >
-                              <i className={`ti ti-brand-${slug === 'msteams' ? 'messenger' : slug === 'projects' ? 'clipboard' : slug === 'campaigns' ? 'mail' : slug} text-2xl`} />
-                              <span className="text-[10px] font-black uppercase tracking-widest">{slug}</span>
-                            </button>
-                          ))}
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setAbStep('chat')} className="text-[9px] font-bold text-[#004850] dark:text-emerald-500 uppercase hover:underline">Edit Context</button>
                         </div>
                       </div>
 
-                      {/* Team Registry */}
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Team Registry</span>
-                          <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
-                        </div>
-                        <div className="flex flex-wrap gap-3">
-                          {abRoles.map((role, idx) => (
-                            <div key={idx} className="flex items-center gap-3 pl-4 pr-1 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm">
-                              <span className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 uppercase">{role.roleName}</span>
-                              <span className="h-6 px-2 bg-[#004850] rounded-full text-[9px] font-mono flex items-center justify-center text-white">{role.count}</span>
-                              <button onClick={() => setAbRoles(prev => prev.filter((_, i) => i !== idx))} className="h-6 w-6 hover:text-rose-500 transition-colors flex items-center justify-center">
-                                <i className="ti ti-x text-xs" />
-                              </button>
+                      {/* 2. Message History Window */}
+                      <div id="chat-history-container" className="flex-1 overflow-y-auto p-8 space-y-8 bg-white dark:bg-zinc-950">
+                        {abChatHistory.length === 0 ? (
+                          <div className="h-full flex flex-col items-center justify-center text-center space-y-4 py-20">
+                            <div className="h-16 w-16 bg-[#004850]/5 dark:bg-emerald-500/5 text-[#004850] dark:text-emerald-500 rounded-full flex items-center justify-center">
+                              <i className="ti ti-messages text-3xl" />
                             </div>
-                          ))}
-                          <div className="flex items-center gap-2 pl-4 bg-white dark:bg-zinc-950 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-full shadow-sm overflow-hidden">
-                            <input 
-                              placeholder="Add Role..." 
-                              value={tempRoleLabel}
-                              onChange={(e) => setTempRoleLabel(e.target.value)}
-                              className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-24 py-2"
-                            />
-                            <div className="flex items-center gap-1 border-x border-zinc-200 dark:border-zinc-800 px-2 h-full py-2">
-                                <span className="text-[9px] font-mono text-zinc-400">#</span>
-                                <input 
-                                    type="number" 
-                                    value={tempRoleSeats}
-                                    onChange={(e) => setTempRoleSeats(parseInt(e.target.value) || 1)}
-                                    className="bg-transparent border-none outline-none text-[10px] font-mono font-bold w-6 text-center"
-                                />
+                            <div className="max-w-md">
+                              <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Ready to build your process?</h3>
+                              <p className="text-sm text-zinc-500 mt-2 leading-relaxed">
+                                Describe how you want your pipelines to behave. Mention specific triggers, notifications, or fallback rules.
+                              </p>
                             </div>
+                          </div>
+                        ) : (
+                          abChatHistory.map((msg, i) => (
+                            <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2 duration-300`}>
+                              <div className={`flex gap-4 max-w-[80%] ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                                <div className={`h-8 w-8 rounded-full shrink-0 flex items-center justify-center text-[10px] font-black uppercase ${msg.sender === 'user' ? 'bg-zinc-900 text-white' : 'bg-[#004850] text-white shadow-lg shadow-[#004850]/20'}`}>
+                                  {msg.sender === 'user' ? 'U' : 'AI'}
+                                </div>
+                                <div className={`px-5 py-3.5 rounded-2xl text-sm leading-relaxed ${msg.sender === 'user' ? 'bg-[#004850] text-white rounded-tr-none' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 rounded-tl-none border border-zinc-200 dark:border-zinc-800'}`}>
+                                  {msg.text}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                        <div id="chat-end" />
+                      </div>
+
+                      {/* 3. Floating Action Bar (Prompt Input) */}
+                      <div className="shrink-0 p-8 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm border-t border-zinc-100 dark:border-zinc-800">
+                        <div className="max-w-4xl mx-auto relative group">
+                          <textarea
+                            value={abChatInput}
+                            onChange={(e) => setAbChatInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                if (abChatInput.trim()) {
+                                  setAbChatHistory(prev => [...prev, { sender: 'user', text: abChatInput }]);
+                                  setAbChatInput("");
+                                }
+                              }
+                            }}
+                            autoFocus
+                            placeholder="Type your process instructions here... (Enter to Send)"
+                            className="w-full h-24 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 pr-32 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-xl shadow-zinc-200/50 dark:shadow-none"
+                          />
+                          <div className="absolute bottom-4 right-4 flex gap-3">
                             <button 
-                              onClick={() => { if (tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }}
-                              className="h-9 w-10 text-[#004850] dark:text-emerald-500 hover:bg-[#004850] hover:text-white transition-all flex items-center justify-center"
+                              onClick={() => {
+                                if (abChatInput.trim()) {
+                                  setAbChatHistory(prev => [...prev, { sender: 'user', text: abChatInput }]);
+                                  setAbChatInput("");
+                                }
+                              }}
+                              className="h-10 w-10 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-xl flex items-center justify-center transition-all active:scale-90"
+                              title="Add to History"
                             >
-                              <i className="ti ti-plus" />
+                              <i className="ti ti-arrow-up text-lg" />
+                            </button>
+                            <button 
+                              onClick={() => compilePromptManifest()}
+                              className="h-10 px-5 bg-[#004850] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-2 shadow-lg active:scale-95"
+                            >
+                              Build Logic <i className="ti ti-wand" />
                             </button>
                           </div>
                         </div>
-                      </div>
-
-                      {/* Chat / Intent Input */}
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Build Instructions</span>
-                          <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
-                        </div>
-                        <div className="relative group">
-                          <textarea
-                            autoFocus
-                            placeholder="Example: 'When a new lead arrives, notify the Sales Lead on Slack. If a proposal stays in the same step for 10 days, create a follow-up task for the Account Executive...'"
-                            className="w-full h-44 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-7 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-inner"
-                          />
-                          <button 
-                            onClick={() => compilePromptManifest()}
-                            className="absolute bottom-6 right-6 h-12 px-8 bg-[#004850] text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95"
-                          >
-                            Build Sequence <i className="ti ti-wand" />
-                          </button>
-                        </div>
+                        <p className="text-center text-[9px] font-bold text-zinc-400 uppercase tracking-widest mt-4">
+                          Tip: Add your instructions to the chat log, then click "Build Logic" to architect the sequence.
+                        </p>
                       </div>
                     </div>
                   )}
