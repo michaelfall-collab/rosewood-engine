@@ -305,7 +305,7 @@ export default function ClientCockpitDashboard() {
   useEffect(() => {
     const chatContainer = document.getElementById('chat-history-container');
     if (chatContainer) {
-      chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+      chatContainer.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [visibleChatHistory, isAiTyping]);
 
