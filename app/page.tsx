@@ -220,22 +220,28 @@ const SYSTEM_SEED: LiveImage = {
 };
 
 export default function ClientCockpitDashboard() {
-  const [images, setImages] = useState<LiveImage[]>(() => {
+  const [images, setImages] = useState<LiveImage[]>([]);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
     if (typeof window !== "undefined") {
       const cached = localStorage.getItem("rw_workspace_cache");
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed)) {
-            return parsed.map(img => ensureStageTelemetry(img) as LiveImage);
+            setImages(parsed.map(img => ensureStageTelemetry(img) as LiveImage));
+            return;
           }
         } catch (e) {
-          console.error("Cache parsing error", e);
+          console.error("Cache parsing mismatch caught safely:", e);
         }
       }
     }
-    return [ensureStageTelemetry(SYSTEM_SEED) as LiveImage];
-  });
+    // If no user cache exists, fall back cleanly to your structured internal system seed configuration card
+    setImages([ensureStageTelemetry(SYSTEM_SEED) as LiveImage]);
+  }, []);
   const [apiKey, setApiKey] = useState("");
   const [isVerified, setIsVerified] = useState(false);
   const [flashMode, setFlashMode] = useState<"" | "pipedrive" | "rosewood">("");
@@ -1019,6 +1025,10 @@ export default function ClientCockpitDashboard() {
       }
     });
   };
+
+  if (!hasMounted) {
+    return <div className="min-h-screen w-full bg-zinc-50 dark:bg-black" />;
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-black text-zinc-800 dark:text-zinc-200 font-sans selection:bg-[#004850]/20">
