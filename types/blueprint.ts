@@ -1,12 +1,22 @@
 // types/blueprint.ts
 
 export interface StageOperationalContext {
-  humanObjective?: string;
-  desiredOutcome?: string;
+  targetDirective?: string; // Unified human objective + desired outcome
   stuckThreshold?: string;
   routingDropdownKey?: string;
   isRecurringLoop?: boolean;
   recurrenceDays?: number;
+}
+
+export interface AutomationBlock {
+  automationNumber: string;
+  stageName: string;
+  operationalGoal: string;
+  impactedRoles: string[];
+  setupSteps: string[];
+  governanceNotes: string;
+  pipelineId?: number | "GLOBAL";
+  stageId?: number | "GLOBAL";
 }
 
 export interface PipelineStageSpec {

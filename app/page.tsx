@@ -21,58 +21,93 @@ type LiveImage = CRMArchitectureBlueprint & {
 
 const generateRweId = () => "rwe_card_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
 
-export function getAIGuessesForStage(stageName: string): StageOperationalContext {
+// Fast local fallback heuristic — returns a targetDirective and stuckThreshold guess
+export function getLocalFallbackGuess(stageName: string): StageOperationalContext {
   const lower = stageName.toLowerCase();
-  
-  let humanObjective = "";
-  let desiredOutcome = "";
-  let stuckThreshold = "";
-  let routingDropdownKey = "";
-  let isRecurringLoop = false;
-  let recurrenceDays = 7;
+  let targetDirective = "";
+  let stuckThreshold = "7 Days";
 
   if (lower.includes("lead") || lower.includes("inbox") || lower.includes("intake") || lower.includes("inbound")) {
-    humanObjective = "Catch inbound inquiries and perform initial qualification check.";
-    desiredOutcome = "Confirm ICP fit and route to representative.";
+    targetDirective = "Catch inbound inquiries, perform initial qualification, and route to a representative once ICP fit is confirmed.";
     stuckThreshold = "3 Days";
   } else if (lower.includes("contact") || lower.includes("outreach") || lower.includes("call") || lower.includes("schedule") || lower.includes("phone")) {
-    humanObjective = "Outreach to scheduled prospect to establish contact.";
-    desiredOutcome = "Get a qualified discovery call booked on the calendar.";
+    targetDirective = "Outreach to prospect and get a qualified discovery call booked on the calendar.";
     stuckThreshold = "7 Days";
   } else if (lower.includes("demo") || lower.includes("present") || lower.includes("meeting") || lower.includes("pitch")) {
-    humanObjective = "Demonstrate core platform capabilities to client.";
-    desiredOutcome = "Customer requests pricing and formal implementation plan.";
+    targetDirective = "Demonstrate core platform capabilities. Success = prospect requests formal pricing and implementation plan.";
     stuckThreshold = "10 Days";
   } else if (lower.includes("proposal") || lower.includes("quote") || lower.includes("price") || lower.includes("pricing")) {
-    humanObjective = "Deliver custom agreement and answer contract questions.";
-    desiredOutcome = "Receive customer sign-off on pricing and mutual terms.";
+    targetDirective = "Deliver custom agreement and answer objections. Success = signed pricing approval received.";
     stuckThreshold = "14 Days";
   } else if (lower.includes("contract") || lower.includes("negotiat") || lower.includes("legal") || lower.includes("sign")) {
-    humanObjective = "Secure signed contract and collect setup deposit.";
-    desiredOutcome = "Fully executed contract received and deal marked won.";
+    targetDirective = "Secure signed contract and collect setup deposit. Success = fully executed agreement on file.";
     stuckThreshold = "14 Days";
-  } else if (lower.includes("onboard") || lower.includes("client") || lower.includes("welcome") || lower.includes("setup")) {
-    humanObjective = "Collect technical requirements and configure team workspace.";
-    desiredOutcome = "Client completes welcome kickoff and starts system usage.";
+  } else if (lower.includes("onboard") || lower.includes("welcome") || lower.includes("setup")) {
+    targetDirective = "Collect technical requirements and configure team workspace. Success = client completes kickoff call.";
     stuckThreshold = "14 Days";
   } else if (lower.includes("waitlist") || lower.includes("nurture") || lower.includes("hold")) {
-    humanObjective = "Maintain automated passive touchpoints and periodically check in.";
-    desiredOutcome = "Prospect requests to re-open active sales conversation.";
+    targetDirective = "Maintain passive touchpoints on a schedule. Success = prospect re-opens active sales conversation.";
     stuckThreshold = "30 Days";
   } else {
-    humanObjective = `Progress deal through ${stageName} and resolve dependencies.`;
-    desiredOutcome = "Confirm all requirements met and handoff to the next phase.";
+    targetDirective = `Progress deal through ${stageName} and resolve all blockers. Success = clean handoff to next phase.`;
     stuckThreshold = "7 Days";
   }
 
-  return {
-    humanObjective,
-    desiredOutcome,
-    stuckThreshold,
-    routingDropdownKey,
-    isRecurringLoop,
-    recurrenceDays
-  };
+  return { targetDirective, stuckThreshold, isRecurringLoop: false, recurrenceDays: 7 };
+}
+
+// Async AI-powered guesser — fires a background call to Gemini and returns enriched telemetry
+export async function fetchAITelemetryGuesses(
+  stages: { name: string; pipelineId: number }[]
+): Promise<Record<string, StageOperationalContext>> {
+  try {
+    const schema = {
+      type: "OBJECT",
+      properties: {
+        stages: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              stageName: { type: "STRING" },
+              targetDirective: { type: "STRING" },
+              stuckThreshold: { type: "STRING" }
+            },
+            required: ["stageName", "targetDirective", "stuckThreshold"]
+          }
+        }
+      },
+      required: ["stages"]
+    };
+    const response = await fetch('/api/compile-agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemPrompt: `You are a senior CRM operations strategist. For each pipeline stage name provided, write a single concise 'targetDirective' sentence (max 20 words) that describes what the team is physically doing AND what constitutes success in this stage. Also provide a realistic 'stuckThreshold' (e.g. "7 Days") after which a deal should be flagged as stalled. Be precise and operational, not generic.`,
+        userPrompt: `Generate telemetry for these CRM pipeline stages: ${JSON.stringify(stages.map(s => s.name))}`,
+        schema
+      })
+    });
+    const data = await response.json();
+    if (data.success && data.jsonObject?.stages) {
+      const result: Record<string, StageOperationalContext> = {};
+      for (const entry of data.jsonObject.stages) {
+        result[entry.stageName] = {
+          targetDirective: entry.targetDirective,
+          stuckThreshold: entry.stuckThreshold,
+          isRecurringLoop: false,
+          recurrenceDays: 7
+        };
+      }
+      return result;
+    }
+  } catch (e) {
+    console.warn("AI telemetry guess failed, using local fallback", e);
+  }
+  // Fallback: build from local heuristics
+  const fallback: Record<string, StageOperationalContext> = {};
+  for (const s of stages) fallback[s.name] = getLocalFallbackGuess(s.name);
+  return fallback;
 }
 
 export function ensureStageTelemetry(blueprint: CRMArchitectureBlueprint): CRMArchitectureBlueprint {
@@ -85,9 +120,12 @@ export function ensureStageTelemetry(blueprint: CRMArchitectureBlueprint): CRMAr
       stages: pipeline.stages.map(stage => {
         const rawTelemetry = (stage as any).operational_telemetry || {};
         
-        // Map snake_case to camelCase from loaded/imported RWE configurations
-        const humanObjective = rawTelemetry.stage_objective || rawTelemetry.humanObjective || "";
-        const desiredOutcome = rawTelemetry.desiredOutcome || "";
+        // Migrate legacy snake_case and split humanObjective/desiredOutcome into unified targetDirective
+        const legacyObjective = rawTelemetry.stage_objective || rawTelemetry.humanObjective || "";
+        const legacyOutcome = rawTelemetry.desiredOutcome || "";
+        const targetDirective = rawTelemetry.targetDirective ||
+          (legacyObjective && legacyOutcome ? `${legacyObjective} Success: ${legacyOutcome}` : legacyObjective || legacyOutcome || "");
+
         const stuckThreshold = rawTelemetry.real_world_friction || rawTelemetry.stuckThreshold || "";
         const routingDropdownKey = rawTelemetry.router_trigger_field || rawTelemetry.routingDropdownKey || "";
         const isRecurringLoop = rawTelemetry.is_recurring_loop !== undefined 
@@ -98,8 +136,7 @@ export function ensureStageTelemetry(blueprint: CRMArchitectureBlueprint): CRMAr
         return {
           ...stage,
           operational_telemetry: {
-            humanObjective,
-            desiredOutcome,
+            targetDirective,
             stuckThreshold,
             routingDropdownKey,
             isRecurringLoop,
@@ -117,36 +154,55 @@ export function ensureStageTelemetry(blueprint: CRMArchitectureBlueprint): CRMAr
 }
 
 export function deriveAutomationCoordinate(
-  stageName: string, 
-  itemIndex: number, 
-  runbook: any[], 
+  item: any,
+  itemIndex: number,
+  runbook: any[],
   blueprint?: CRMArchitectureBlueprint
 ): string {
-  if (!blueprint || !blueprint.pipelines) return `1.1.${itemIndex + 1}`;
-  let pIdx = 0;
-  let sIdx = 0;
-  let found = false;
-  
+  const stageName: string = item?.stageName || "";
+  const itemPipelineId = item?.pipelineId;
+  const itemStageId = item?.stageId;
+
+  // GLOBAL automation — cross-pipeline coordinate: G.0.Z
+  if (itemPipelineId === "GLOBAL" || itemStageId === "GLOBAL") {
+    const globalItems = runbook.filter((b: any) => b?.pipelineId === "GLOBAL" || b?.stageId === "GLOBAL");
+    const globalRank = globalItems.findIndex((_: any, gi: number) => {
+      // find which global item corresponds to this absolute index
+      let absCount = 0;
+      for (let i = 0; i < runbook.length; i++) {
+        if (runbook[i]?.pipelineId === "GLOBAL" || runbook[i]?.stageId === "GLOBAL") {
+          if (absCount === gi) return i === itemIndex;
+          absCount++;
+        }
+      }
+      return false;
+    });
+    return `G.0.${globalRank + 1}`;
+  }
+
+  // Stage-anchored coordinate: P.S.Z
+  // Find pipeline and stage indices
+  if (!blueprint || !blueprint.pipelines) return `1.1.1`;
+  let pIdx = -1;
+  let sIdx = -1;
+
   for (let pi = 0; pi < blueprint.pipelines.length; pi++) {
     const pipeline = blueprint.pipelines[pi];
     const si = pipeline.stages.findIndex(s => s.name === stageName);
-    if (si !== -1) {
-      pIdx = pi;
-      sIdx = si;
-      found = true;
-      break;
-    }
+    if (si !== -1) { pIdx = pi; sIdx = si; break; }
   }
-  
-  if (!found) return `1.1.${itemIndex + 1}`;
-  
+
+  if (pIdx === -1) return `1.1.1`;
+
+  // Critical fix: count ONLY items sharing the exact same stageName up to and including this index
   let count = 0;
   for (let i = 0; i <= itemIndex; i++) {
-    if (runbook[i]?.stageName === stageName) {
+    const b = runbook[i];
+    if (b?.stageName === stageName && b?.pipelineId !== "GLOBAL" && b?.stageId !== "GLOBAL") {
       count++;
     }
   }
-  
+
   return `${pIdx + 1}.${sIdx + 1}.${count}`;
 }
 
@@ -229,6 +285,34 @@ export default function ClientCockpitDashboard() {
   const [tempRoleLabel, setTempRoleLabel] = useState("");
   const [tempRoleSeats, setTempRoleSeats] = useState(1);
   const [isAttached, setIsAttached] = useState(false);
+  const [abTelemetryGuesses, setAbTelemetryGuesses] = useState<Record<string, StageOperationalContext>>({});
+  const [isFetchingGuesses, setIsFetchingGuesses] = useState(false);
+
+  // Fire a real Gemini background call for AI telemetry guesses the moment a card enters preflight
+  useEffect(() => {
+    if (abStep !== 'preflight' || !abSelectedImageId) return;
+    const targetImage = images.find(img => img.id === abSelectedImageId);
+    if (!targetImage) return;
+
+    // Seed immediately with fast local fallbacks so UI is never blank
+    const initial: Record<string, StageOperationalContext> = {};
+    for (const pipeline of targetImage.pipelines) {
+      for (const stage of pipeline.stages) {
+        initial[stage.name] = getLocalFallbackGuess(stage.name);
+      }
+    }
+    setAbTelemetryGuesses(initial);
+
+    // Then fire async AI call and upgrade guesses when it resolves
+    setIsFetchingGuesses(true);
+    const stageList = targetImage.pipelines.flatMap((p, pIdx) =>
+      p.stages.map(s => ({ name: s.name, pipelineId: pIdx + 1 }))
+    );
+    fetchAITelemetryGuesses(stageList).then(result => {
+      setAbTelemetryGuesses(result);
+      setIsFetchingGuesses(false);
+    }).catch(() => setIsFetchingGuesses(false));
+  }, [abStep, abSelectedImageId]);
 
   const updateRunbookObjectField = (itemIndex: number, fieldKey: string, newValue: any) => {
     setImages(prev => prev.map(img => img.id === detailId ? {
@@ -237,17 +321,24 @@ export default function ClientCockpitDashboard() {
     } : img));
   };
 
-  const handleAddNewManualBlock = () => {
+  const handleAddNewManualBlock = (mode: "stage" | "global" = "stage") => {
     if (!detailId) return;
+    const targetImg = images.find(img => img.id === detailId);
+    // For stage-anchored blocks: pick the first stage in the first pipeline as a starting anchor
+    const firstPipeline = targetImg?.pipelines?.[0];
+    const firstStage = firstPipeline?.stages?.[0];
+    const isGlobal = mode === "global";
     setImages(prev => prev.map(img => img.id === detailId ? {
       ...img,
       compiledRunbook: [...(img.compiledRunbook || []), {
-        automationNumber: "1.X",
-        stageName: "MANUAL CONFIGURATION STAGE",
-        operationalGoal: "Enter manual goal...",
+        automationNumber: "",  // derived at render time — never stored
+        stageName: isGlobal ? "GLOBAL" : (firstStage?.name || "MANUAL CONFIGURATION STAGE"),
+        operationalGoal: isGlobal ? "Define account-wide trigger and global action..." : "Enter stage automation goal...",
         impactedRoles: [],
-        setupSteps: ["Configure trigger condition..."],
-        governanceNotes: ""
+        setupSteps: [isGlobal ? "Configure global trigger condition..." : "Configure trigger condition..."],
+        governanceNotes: "",
+        pipelineId: isGlobal ? "GLOBAL" : undefined,
+        stageId: isGlobal ? "GLOBAL" : undefined,
       }]
     } : img));
   };
@@ -391,7 +482,7 @@ export default function ClientCockpitDashboard() {
     
     const objArray = compiledObjects || abCompiledObjects;
     const markdown = objArray.map((o, idx) => {
-      const coordinate = deriveAutomationCoordinate(o.stageName, idx, objArray, targetImage);
+      const coordinate = deriveAutomationCoordinate(o, idx, objArray, targetImage);
       return `### ${coordinate}: ${o.stageName}\nGoal: ${o.operationalGoal}\nSteps: ${o.setupSteps.join(', ')}`;
     }).join('\n\n---\n\n');
     
@@ -437,13 +528,15 @@ export default function ClientCockpitDashboard() {
             systemPrompt: `You are a Master CRM Planner. Analyze the provided CRM blueprint and team registry. 
             Generate a high-level roadmap of automations. 
             
-            STRICT NAMING RULE: For each automation, the automationNumber MUST use the 3-digit coordinate pattern "PipelineIndex.StageIndex.AutomationIndex" (e.g., "1.1.1", "1.1.2" for multiple automations in stage 1, "1.2.1", "2.1.1").
+            STRICT NAMING RULE: For each automation, the automationNumber MUST use the 3-digit coordinate pattern:
+            - Stage-anchored blocks: "PipelineIndex.StageIndex.AutomationIndex" (e.g., "1.1.1", "1.1.2" for multiple automations in stage 1, "1.2.1", "2.1.1").
+            - Global/account-wide blocks: "G.0.Z" (e.g., "G.0.1", "G.0.2") — these trigger across all pipelines and are not tied to any single stage.
             The first digit is Pipeline Index (1-based), second digit is Stage Index (1-based), and third digit is the sequential Automation Index (1-based) for that stage.
             
             CRITICAL ENRICHMENT DIRECTIVE:
             Analyze the 'operational_telemetry' object inside each stage of the blueprint:
-            - If 'humanObjective' or 'desiredOutcome' is set, construct a dedicated automation mapping to that business intent.
-            - If 'stuckThreshold' is set, you must generate a separate fallback automation for a Stalled Deal Alarm (e.g. "X.Y.2: Stalled Deal Alarm") that runs if a deal is stuck.
+            - If 'targetDirective' is set, construct a dedicated automation that operationalizes that directive — mapping it to concrete Pipedrive trigger/action steps.
+            - If 'stuckThreshold' is set, you must generate a separate fallback automation for a Stalled Deal Alarm (e.g. "X.Y.2: Stalled Deal Alarm") that runs if a deal is stuck for longer than the threshold.
             - If 'routingDropdownKey' is set, you must generate a separate Multi-Branch Dropdown Router automation (e.g. "X.Y.3: Dropdown Option Router") mapping that custom field's options.
             - If 'isRecurringLoop' is true, you must generate a separate automation for a Looping/Recurring Activity.
             
@@ -1147,130 +1240,171 @@ export default function ClientCockpitDashboard() {
                   <pre className="font-mono text-[11px] text-zinc-700 dark:text-emerald-400/90 whitespace-pre-wrap leading-normal">
                     {JSON.stringify(activeDetail, null, 2)}
                   </pre>
-                ) : activeDetail.compiledRunbook && activeDetail.compiledRunbook.length > 0 ? (
-                  <div className="space-y-8 font-sans">
-                    {activeDetail.compiledRunbook.map((item: any, i: number) => {
-                      const themeSelectionIndex = i % 4;
-                      const palette = [
-                        { border: 'border-[#008080]', text: 'text-[#008080]', bg: 'bg-[#008080]/5' }, // Deep Teal
-                        { border: 'border-[#000080]', text: 'text-[#000080]', bg: 'bg-[#000080]/5' }, // Navy Tone
-                        { border: 'border-[#006400]', text: 'text-[#006400]', bg: 'bg-[#006400]/5' }, // Dark Green
-                        { border: 'border-[#4B0082]', text: 'text-[#4B0082]', bg: 'bg-[#4B0082]/5' }  // Deep Purple
-                      ];
-                      const theme = palette[themeSelectionIndex];
+                ) : activeDetail.compiledRunbook && activeDetail.compiledRunbook.length > 0 ? (() => {
+                  const runbook: any[] = activeDetail.compiledRunbook || [];
+                  const palette = [
+                    { border: 'border-[#008080]', text: 'text-[#008080]', bg: 'bg-[#008080]/5' },
+                    { border: 'border-[#000080]', text: 'text-[#000080]', bg: 'bg-[#000080]/5' },
+                    { border: 'border-[#006400]', text: 'text-[#006400]', bg: 'bg-[#006400]/5' },
+                    { border: 'border-[#4B0082]', text: 'text-[#4B0082]', bg: 'bg-[#4B0082]/5' }
+                  ];
 
-                      return (
-                        <div key={i} className={`border ${theme.border} rounded-sm overflow-hidden bg-white dark:bg-zinc-900 shadow-none`}>
-                          {/* Stage Block Header */}
-                          <div className={`px-6 py-4 ${theme.bg} border-b ${theme.border} flex items-center justify-between`}>
-                            <h3 className={`text-sm font-bold uppercase tracking-tight ${theme.text}`}>
-                              Automation {deriveAutomationCoordinate(item.stageName, i, activeDetail.compiledRunbook || [], activeDetail)}: {item.stageName}
-                            </h3>
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-1 border-r border-zinc-200 dark:border-zinc-800 pr-3">
-                                <button 
-                                  onClick={() => moveAutomationBlockUp(i)} 
-                                  className="h-6 w-6 flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors text-[10px] active:scale-95"
-                                  title="Move Up"
-                                >
-                                  ▲
-                                </button>
-                                <button 
-                                  onClick={() => moveAutomationBlockDown(i)} 
-                                  className="h-6 w-6 flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors text-[10px] active:scale-95"
-                                  title="Move Down"
-                                >
-                                  ▼
-                                </button>
-                              </div>
-                              <button onClick={() => handleDeleteAutomationBlock(i)} className="text-zinc-400 hover:text-rose-500 transition-colors active:scale-95">
-                                <i className="ti ti-trash" />
-                              </button>
-                            </div>
-                          </div>
+                  const globalEntries = runbook
+                    .map((item: any, i: number) => ({ item, i }))
+                    .filter(({ item }) => item.stageName === "GLOBAL" || item.pipelineId === "GLOBAL" || item.stageId === "GLOBAL");
 
-                          <div className="p-6 space-y-6">
-                            {/* Operational Goal */}
-                            <div>
-                              <input
-                                value={item.operationalGoal}
-                                onChange={(e) => updateRunbookObjectField(i, 'operationalGoal', e.target.value)}
-                                className="w-full bg-transparent border-b border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 outline-none py-1 text-sm font-bold text-zinc-900 dark:text-zinc-100"
-                              />
-                            </div>
+                  const stageEntries = runbook
+                    .map((item: any, i: number) => ({ item, i }))
+                    .filter(({ item }) => item.stageName !== "GLOBAL" && item.pipelineId !== "GLOBAL" && item.stageId !== "GLOBAL");
 
-                            {/* Impacted Personnel Section */}
-                            <div className="space-y-2">
-                              <h4 className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">Impacted Personnel</h4>
-                              <input
-                                value={(item.impactedRoles || []).join(', ')}
-                                onChange={(e) => updateRunbookObjectField(i, 'impactedRoles', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
-                                placeholder="Role A, Role B, Role C..."
-                                className="w-full bg-transparent border-b border-zinc-100 dark:border-zinc-800 focus:border-zinc-400 outline-none py-1 text-sm text-zinc-700 dark:text-zinc-300"
-                              />
-                            </div>
-
-                            {/* Setup Cadence List */}
-                            <div className="space-y-2">
-                              <h4 className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">Setup Cadence</h4>
-                              <ol className="list-decimal pl-5 font-sans text-xs tracking-normal text-zinc-700 dark:text-zinc-300 space-y-2">
-                                {item.setupSteps.map((step: string, idx: number) => (
-                                  <li key={idx} className="pl-2 flex items-center gap-2">
-                                    <input
-                                      value={step}
-                                      onChange={(e) => {
-                                        const newSteps = [...item.setupSteps];
-                                        newSteps[idx] = e.target.value;
-                                        updateRunbookObjectField(i, 'setupSteps', newSteps);
-                                      }}
-                                      className="w-full bg-transparent border-b border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 outline-none py-1"
-                                    />
-                                    <button onClick={() => handleDeleteCadenceStep(i, idx)} className="text-zinc-400 hover:text-rose-500">
-                                       <i className="ti ti-trash text-[10px]" />
-                                    </button>
-                                  </li>
-                                ))}
-                              </ol>
-                              <button 
-                                onClick={() => handleAddCadenceStep(i)}
-                                className="text-[10px] font-mono font-bold text-[#004850] dark:text-zinc-400 hover:underline cursor-pointer mt-2 block"
-                              >
-                                + ADD NEXT CADENCE STEP
-                              </button>
-                            </div>
-
-                            {/* Governance Box */}
-                            {item.governanceNotes && (
-                              <div className="mt-6 border-l-2 border-amber-500 bg-amber-500/5 p-4 rounded-sm flex gap-3 items-start animate-in fade-in slide-in-from-left-2 duration-300">
-                                <i className="ti ti-info-circle text-amber-600 mt-0.5" />
-                                <div className="flex-1">
-                                  <textarea
-                                    value={item.governanceNotes || ""}
-                                    onChange={(e) => updateRunbookObjectField(i, 'governanceNotes', e.target.value)}
-                                    className="w-full bg-transparent outline-none text-xs text-amber-700 dark:text-amber-400 font-medium leading-relaxed resize-none"
-                                    rows={3}
-                                  />
-                                </div>
-                                <button 
-                                  onClick={() => updateRunbookObjectField(i, 'governanceNotes', "")}
-                                  className="text-[9px] font-bold uppercase tracking-widest text-amber-600 hover:text-amber-700 border border-amber-600/20 px-2 py-1 rounded-sm transition-colors active:scale-95"
-                                >
-                                  [OMIT NOTES]
-                                </button>
-                              </div>
+                  const renderBlock = (item: any, i: number) => {
+                    const isGlobalBlock = item.stageName === "GLOBAL" || item.pipelineId === "GLOBAL" || item.stageId === "GLOBAL";
+                    const theme = palette[i % 4];
+                    return (
+                      <div key={i} className={`border ${isGlobalBlock ? 'border-violet-400 dark:border-violet-700' : theme.border} rounded-sm overflow-hidden bg-white dark:bg-zinc-900 shadow-none`}>
+                        {/* Block Header */}
+                        <div className={`px-4 py-3 ${isGlobalBlock ? 'bg-violet-50/60 dark:bg-violet-950/20 border-b border-violet-200 dark:border-violet-800' : `${theme.bg} border-b ${theme.border}`} flex items-center gap-3`}>
+                          <span className={`shrink-0 font-mono text-[10px] font-black px-2 py-0.5 rounded-sm tracking-widest ${isGlobalBlock ? 'bg-violet-600 text-white' : 'bg-zinc-900 dark:bg-white text-white dark:text-black'}`}>
+                            {deriveAutomationCoordinate(item, i, runbook, activeDetail)}
+                          </span>
+                          <select
+                            value={isGlobalBlock ? "GLOBAL" : (item.stageName || "")}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "GLOBAL") {
+                                updateRunbookObjectField(i, 'stageName', 'GLOBAL');
+                                updateRunbookObjectField(i, 'pipelineId', 'GLOBAL');
+                                updateRunbookObjectField(i, 'stageId', 'GLOBAL');
+                              } else {
+                                updateRunbookObjectField(i, 'stageName', val);
+                                updateRunbookObjectField(i, 'pipelineId', undefined);
+                                updateRunbookObjectField(i, 'stageId', undefined);
+                              }
+                            }}
+                            className={`flex-1 min-w-0 bg-transparent border-b text-xs font-bold uppercase tracking-tight outline-none appearance-none cursor-pointer truncate ${isGlobalBlock ? 'border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-400' : `${theme.text} border-zinc-200 dark:border-zinc-700`}`}
+                          >
+                            <option value="GLOBAL" className="dark:bg-zinc-950 font-sans normal-case font-normal">⬡ GLOBAL (Account-Wide)</option>
+                            {activeDetail.pipelines?.flatMap((pipeline: any, pIdx: number) =>
+                              pipeline.stages?.map((stage: any, sIdx: number) => (
+                                <option key={`${pIdx}-${sIdx}`} value={stage.name} className="dark:bg-zinc-950 font-sans normal-case font-normal">
+                                  {pIdx + 1}.{sIdx + 1} — {stage.name}
+                                </option>
+                              ))
                             )}
+                          </select>
+                          <div className="shrink-0 flex items-center gap-3">
+                            <div className="flex items-center gap-1 border-r border-zinc-200 dark:border-zinc-800 pr-3">
+                              <button onClick={() => moveAutomationBlockUp(i)} className="h-6 w-6 flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors text-[10px] active:scale-95" title="Move Up">▲</button>
+                              <button onClick={() => moveAutomationBlockDown(i)} className="h-6 w-6 flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors text-[10px] active:scale-95" title="Move Down">▼</button>
+                            </div>
+                            <button onClick={() => handleDeleteAutomationBlock(i)} className="text-zinc-400 hover:text-rose-500 transition-colors active:scale-95"><i className="ti ti-trash" /></button>
                           </div>
                         </div>
-                      );
-                    })}
-                    <button
-                        onClick={handleAddNewManualBlock}
-                        className="w-full py-3 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-400 dark:hover:border-zinc-500 transition-all font-mono text-[10px] font-bold uppercase tracking-widest active:scale-[0.99] mt-4"
-                    >
-                        + ADD AUTOMATION BLOCK
-                    </button>
-                  </div>
-                ) : (
+
+                        <div className="p-6 space-y-6">
+                          <div>
+                            <input
+                              value={item.operationalGoal}
+                              onChange={(e) => updateRunbookObjectField(i, 'operationalGoal', e.target.value)}
+                              className="w-full bg-transparent border-b border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 outline-none py-1 text-sm font-bold text-zinc-900 dark:text-zinc-100"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <h4 className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">Impacted Personnel</h4>
+                            <input
+                              value={(item.impactedRoles || []).join(', ')}
+                              onChange={(e) => updateRunbookObjectField(i, 'impactedRoles', e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean))}
+                              placeholder="Role A, Role B, Role C..."
+                              className="w-full bg-transparent border-b border-zinc-100 dark:border-zinc-800 focus:border-zinc-400 outline-none py-1 text-sm text-zinc-700 dark:text-zinc-300"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <h4 className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">Setup Cadence</h4>
+                            <ol className="list-decimal pl-5 font-sans text-xs tracking-normal text-zinc-700 dark:text-zinc-300 space-y-2">
+                              {item.setupSteps.map((step: string, idx: number) => (
+                                <li key={idx} className="pl-2 flex items-center gap-2">
+                                  <input
+                                    value={step}
+                                    onChange={(e) => {
+                                      const newSteps = [...item.setupSteps];
+                                      newSteps[idx] = e.target.value;
+                                      updateRunbookObjectField(i, 'setupSteps', newSteps);
+                                    }}
+                                    className="w-full bg-transparent border-b border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 outline-none py-1"
+                                  />
+                                  <button onClick={() => handleDeleteCadenceStep(i, idx)} className="text-zinc-400 hover:text-rose-500"><i className="ti ti-trash text-[10px]" /></button>
+                                </li>
+                              ))}
+                            </ol>
+                            <button onClick={() => handleAddCadenceStep(i)} className="text-[10px] font-mono font-bold text-[#004850] dark:text-zinc-400 hover:underline cursor-pointer mt-2 block">
+                              + ADD NEXT CADENCE STEP
+                            </button>
+                          </div>
+                          {item.governanceNotes && (
+                            <div className="mt-6 border-l-2 border-amber-500 bg-amber-500/5 p-4 rounded-sm flex gap-3 items-start animate-in fade-in slide-in-from-left-2 duration-300">
+                              <i className="ti ti-info-circle text-amber-600 mt-0.5" />
+                              <div className="flex-1">
+                                <textarea
+                                  value={item.governanceNotes || ""}
+                                  onChange={(e) => updateRunbookObjectField(i, 'governanceNotes', e.target.value)}
+                                  className="w-full bg-transparent outline-none text-xs text-amber-700 dark:text-amber-400 font-medium leading-relaxed resize-none"
+                                  rows={3}
+                                />
+                              </div>
+                              <button onClick={() => updateRunbookObjectField(i, 'governanceNotes', "")} className="text-[9px] font-bold uppercase tracking-widest text-amber-600 hover:text-amber-700 border border-amber-600/20 px-2 py-1 rounded-sm transition-colors active:scale-95">
+                                [OMIT NOTES]
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  };
+
+                  return (
+                    <div className="space-y-6 font-sans">
+                      {/* ── GLOBAL AUTOMATION SHELF ─────────────────────── */}
+                      {globalEntries.length > 0 && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3 px-1">
+                            <span className="font-mono text-[9px] font-black uppercase tracking-[0.18em] text-violet-500">⬡ Global Automations</span>
+                            <span className="flex-1 h-px bg-violet-200 dark:bg-violet-900" />
+                            <span className="font-mono text-[9px] text-violet-400 tracking-widest">{globalEntries.length} block{globalEntries.length > 1 ? 's' : ''} · fires account-wide</span>
+                          </div>
+                          <div className="space-y-4">
+                            {globalEntries.map(({ item, i }) => renderBlock(item, i))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ── STAGE-ANCHORED BLOCKS ────────────────────────── */}
+                      {stageEntries.length > 0 && (
+                        <div className="space-y-3">
+                          {globalEntries.length > 0 && (
+                            <div className="flex items-center gap-3 px-1">
+                              <span className="font-mono text-[9px] font-black uppercase tracking-[0.18em] text-zinc-400">Stage Automations</span>
+                              <span className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800" />
+                            </div>
+                          )}
+                          <div className="space-y-8">
+                            {stageEntries.map(({ item, i }) => renderBlock(item, i))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ── ADD BUTTONS ──────────────────────────────────── */}
+                      <div className="flex gap-2 pt-2">
+                        <button onClick={() => handleAddNewManualBlock('stage')} className="flex-1 py-3 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:border-zinc-400 dark:hover:border-zinc-500 transition-all font-mono text-[10px] font-bold uppercase tracking-widest active:scale-[0.99]">
+                          + Add Stage Block
+                        </button>
+                        <button onClick={() => handleAddNewManualBlock('global')} className="flex-1 py-3 border border-dashed border-violet-300 dark:border-violet-800 text-violet-500 hover:text-violet-800 dark:hover:text-violet-300 hover:border-violet-500 transition-all font-mono text-[10px] font-bold uppercase tracking-widest active:scale-[0.99]">
+                          ⬡ Add Global Block
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()
+                : (
                   <div className="h-full flex flex-col items-center justify-center py-20 text-center">
                     <div className="h-12 w-12 rounded-sm bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
                       <i className="ti ti-clipboard-list text-zinc-400 text-xl" />
@@ -1386,15 +1520,15 @@ export default function ClientCockpitDashboard() {
             if (img.id !== abSelectedImageId) return img;
             const pipelinesCopy = img.pipelines.map((pipeline) => {
               const stagesCopy = pipeline.stages.map((stage) => {
-                const telemetryCopy = { ...(stage.operational_telemetry || {}) };
-                const guesses = getAIGuessesForStage(stage.name);
-                
-                if (!telemetryCopy.humanObjective) telemetryCopy.humanObjective = guesses.humanObjective;
-                if (!telemetryCopy.desiredOutcome) telemetryCopy.desiredOutcome = guesses.desiredOutcome;
+                const telemetryCopy = { ...(stage.operational_telemetry || {}) } as any;
+                // Use live AI guesses from background fetch; fall back to local heuristic
+                const guesses: StageOperationalContext = abTelemetryGuesses[stage.name] || getLocalFallbackGuess(stage.name);
+
+                if (!telemetryCopy.targetDirective) telemetryCopy.targetDirective = guesses.targetDirective;
                 if (!telemetryCopy.stuckThreshold) telemetryCopy.stuckThreshold = guesses.stuckThreshold;
-                if (telemetryCopy.isRecurringLoop === undefined) telemetryCopy.isRecurringLoop = guesses.isRecurringLoop;
-                if (telemetryCopy.recurrenceDays === undefined) telemetryCopy.recurrenceDays = guesses.recurrenceDays;
-                
+                if (telemetryCopy.isRecurringLoop === undefined) telemetryCopy.isRecurringLoop = guesses.isRecurringLoop ?? false;
+                if (telemetryCopy.recurrenceDays === undefined) telemetryCopy.recurrenceDays = guesses.recurrenceDays ?? 7;
+
                 return {
                   ...stage,
                   operational_telemetry: telemetryCopy
@@ -1468,8 +1602,7 @@ export default function ClientCockpitDashboard() {
                                   <thead>
                                     <tr className="bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-400">
                                       <th className="py-3 px-4 w-44">Stage</th>
-                                      <th className="py-3 px-4">Stage Objective</th>
-                                      <th className="py-3 px-4">Desired Outcome</th>
+                                      <th className="py-3 px-4">Target Directive {isFetchingGuesses && <span className="text-indigo-400 animate-pulse">⟳ AI</span>}</th>
                                       <th className="py-3 px-4 w-32">Stalled Threshold</th>
                                       <th className="py-3 px-4 w-48">Router Config</th>
                                       <th className="py-3 px-4 w-48">Loop Activity</th>
@@ -1477,57 +1610,49 @@ export default function ClientCockpitDashboard() {
                                   </thead>
                                   <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                                     {pipeline.stages.map((stage, sIdx) => {
-                                      const telemetry = stage.operational_telemetry || {
-                                        humanObjective: "",
-                                        desiredOutcome: "",
+                                      const telemetry: StageOperationalContext = (stage.operational_telemetry as StageOperationalContext) || {
+                                        targetDirective: "",
                                         stuckThreshold: "",
                                         routingDropdownKey: "",
                                         isRecurringLoop: false,
                                         recurrenceDays: 7
-                                      };
-                                      const guesses = getAIGuessesForStage(stage.name);
+                                       };
+                                       const guesses: StageOperationalContext = abTelemetryGuesses[stage.name] || getLocalFallbackGuess(stage.name);
 
-                                      return (
-                                        <tr key={sIdx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 text-xs transition-colors">
-                                          {/* Stage Name Column */}
-                                          <td className="py-4 px-4 align-top">
-                                            <span className="font-mono text-[10px] font-bold text-zinc-400 block">STAGE {pIdx + 1}.{sIdx + 1}</span>
-                                            <span className="font-bold text-zinc-900 dark:text-zinc-100 block tracking-tight truncate" title={stage.name}>
-                                              {stage.name}
-                                            </span>
-                                          </td>
+                                       return (
+                                         <tr key={sIdx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 text-xs transition-colors">
+                                           {/* Stage Name Column */}
+                                           <td className="py-4 px-4 align-top">
+                                             <span className="font-mono text-[10px] font-bold text-zinc-400 block">STAGE {pIdx + 1}.{sIdx + 1}</span>
+                                             <span className="font-bold text-zinc-900 dark:text-zinc-100 block tracking-tight truncate" title={stage.name}>
+                                               {stage.name}
+                                             </span>
+                                           </td>
 
-                                          {/* Stage Objective Column */}
-                                          <td className="py-3 px-3 align-top">
-                                            <textarea
-                                              value={telemetry.humanObjective || ""}
-                                              onChange={(e) => updateStageTelemetry(pIdx, sIdx, "humanObjective", e.target.value)}
-                                              onKeyDown={(e) => {
-                                                if (e.key === 'Tab' && !telemetry.humanObjective) {
-                                                  updateStageTelemetry(pIdx, sIdx, "humanObjective", guesses.humanObjective);
-                                                }
-                                              }}
-                                              placeholder={guesses.humanObjective}
-                                              rows={2}
-                                              className="w-full bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none p-1 text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 resize-none leading-normal transition-all"
-                                            />
-                                          </td>
-
-                                          {/* Desired Outcome Column */}
-                                          <td className="py-3 px-3 align-top">
-                                            <textarea
-                                              value={telemetry.desiredOutcome || ""}
-                                              onChange={(e) => updateStageTelemetry(pIdx, sIdx, "desiredOutcome", e.target.value)}
-                                              onKeyDown={(e) => {
-                                                if (e.key === 'Tab' && !telemetry.desiredOutcome) {
-                                                  updateStageTelemetry(pIdx, sIdx, "desiredOutcome", guesses.desiredOutcome);
-                                                }
-                                              }}
-                                              placeholder={guesses.desiredOutcome}
-                                              rows={2}
-                                              className="w-full bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none p-1 text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 resize-none leading-normal transition-all"
-                                            />
-                                          </td>
+                                           {/* Target Directive Column — merged objective + outcome */}
+                                           <td className="py-3 px-3 align-top">
+                                             <textarea
+                                               value={telemetry.targetDirective || ""}
+                                               onChange={(e) => updateStageTelemetry(pIdx, sIdx, "targetDirective", e.target.value)}
+                                               onKeyDown={(e) => {
+                                                 if (e.key === 'Tab' && !telemetry.targetDirective) {
+                                                   e.preventDefault();
+                                                   updateStageTelemetry(pIdx, sIdx, "targetDirective", guesses.targetDirective || "");
+                                                 }
+                                               }}
+                                               placeholder={guesses.targetDirective || "Describe what this stage does and what success looks like..."}
+                                               rows={3}
+                                               className="w-full bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none p-1 text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 resize-none leading-normal transition-all"
+                                             />
+                                             {!telemetry.targetDirective && guesses.targetDirective && (
+                                               <button
+                                                 onClick={() => updateStageTelemetry(pIdx, sIdx, "targetDirective", guesses.targetDirective || "")}
+                                                 className="text-[9px] font-mono text-indigo-400 hover:text-indigo-600 transition-colors mt-0.5"
+                                               >
+                                                 Tab to accept
+                                               </button>
+                                             )}
+                                           </td>
 
                                           {/* Stuck Threshold Column */}
                                           <td className="py-3 px-3 align-top">
@@ -1864,7 +1989,7 @@ export default function ClientCockpitDashboard() {
                         return activeItems.map((item: any, i: number) => (
                           <div key={i} className="border-b border-zinc-200/60 dark:border-zinc-800/60 py-3 last:border-b-0 px-4">
                             <span className="font-bold text-zinc-900 dark:text-zinc-100 text-xs tracking-tight">
-                              {deriveAutomationCoordinate(item.stageName, i, activeItems, targetImage)}: {item.stageName}
+                              {deriveAutomationCoordinate(item, i, activeItems, targetImage)}: {item.stageName}
                             </span>
                             <p className="text-xs text-zinc-500 font-sans mt-0.5">
                               {item.operationalGoal}
