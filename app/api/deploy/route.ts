@@ -34,8 +34,14 @@ export async function POST(request: NextRequest) {
       return `${PIPEDRIVE_API_BASE}/v1/${endpoint}${separator}api_token=${token}`;
     };
 
-    // Robust Normalization Helper to prevent false recreation attempts caused by whitespace or encoding differences
-    const normalizeName = (name: string) => (name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+    // Robust Normalization Helper to decode HTML ampersand entities before processing alphanumeric masks
+    const normalizeName = (name: string) => {
+      if (!name) return "";
+      return name
+        .toLowerCase()
+        .replace(/&amp;/g, '&') // Explicitly decode HTML entity strings to literal symbols
+        .replace(/[^a-z0-9]/g, ''); // Safely strip out leftover non-alphanumeric masks
+    };
 
     // =========================================================================
     // PASS 1: CUSTOM DATA FIELD PROVISIONING & HASH RECONCILIATION
@@ -53,7 +59,12 @@ export async function POST(request: NextRequest) {
 
           for (const field of targetFields) {
             try {
-              const matchedField = existingFields.find((existingField: any) => normalizeName(existingField.name) === normalizeName(field.name));
+              const matchedField = existingFields.find((existingField: any) => {
+                const n1 = normalizeName(existingField.name);
+                const n2 = normalizeName(field.name);
+                if (n1 === n2) return true;
+                return (existingField.name || "").toLowerCase().trim() === (field.name || "").toLowerCase().trim();
+              });
 
               if (matchedField) {
                 const assignedHash = matchedField.key || '';
@@ -176,7 +187,12 @@ export async function POST(request: NextRequest) {
               continue;
             }
 
-            const matchedActivity = existingActivities.find((existingActivity: any) => normalizeName(existingActivity.name) === normalizeName(activityType.name));
+            const matchedActivity = existingActivities.find((existingActivity: any) => {
+              const n1 = normalizeName(existingActivity.name);
+              const n2 = normalizeName(activityType.name);
+              if (n1 === n2) return true;
+              return (existingActivity.name || "").toLowerCase().trim() === (activityType.name || "").toLowerCase().trim();
+            });
 
             if (matchedActivity) {
               deploymentLogs.push(`• Reusing Activity: Engagement track layout variable "${activityType.name}" matches active parameters.`);
@@ -221,8 +237,16 @@ export async function POST(request: NextRequest) {
         let pipelineId: number;
         let isNewPipeline = false;
         
-        // Fixed lookup check using normalized formatting
-        const matchedPipeline = existingPipelines.find((pipeline: any) => normalizeName(pipeline.name) === normalizeName(pipelineSpec.name));
+        // Multi-Layer Fallback: Standardize clean name matching with decoded fallback checks
+        const matchedPipeline = existingPipelines.find((pipeline: any) => {
+          const n1 = normalizeName(pipeline.name);
+          const n2 = normalizeName(pipelineSpec.name);
+          if (n1 === n2) return true;
+          
+          const clean1 = (pipeline.name || "").toLowerCase().trim();
+          const clean2 = (pipelineSpec.name || "").toLowerCase().trim();
+          return clean1 === clean2 || clean1.replace(/&amp;/g, '&') === clean2;
+        });
 
         if (matchedPipeline) {
           pipelineId = matchedPipeline.id;
@@ -259,7 +283,15 @@ export async function POST(request: NextRequest) {
         for (let i = 0; i < pipelineSpec.stages.length; i++) {
           const stageSpec = pipelineSpec.stages[i];
           try {
-            let matchedStage = currentPipelineStages.find((stage: any) => normalizeName(stage.name) === normalizeName(stageSpec.name));
+            let matchedStage = currentPipelineStages.find((stage: any) => {
+              const n1 = normalizeName(stage.name);
+              const n2 = normalizeName(stageSpec.name);
+              if (n1 === n2) return true;
+              
+              const clean1 = (stage.name || "").toLowerCase().trim();
+              const clean2 = (stageSpec.name || "").toLowerCase().trim();
+              return clean1 === clean2 || clean1.replace(/&amp;/g, '&') === clean2;
+            });
             
             const stageBody = {
               name: stageSpec.name,
