@@ -256,7 +256,7 @@ export default function ClientCockpitDashboard() {
 
   // Automation Builder States
   const [abOpen, setAbOpen] = useState(false);
-  const [wizardStep, setWizardStep] = useState<'PROJECT_SELECT' | 'GOAL_CALIBRATION' | 'CONTEXT_TUNING' | 'LOGIC_REVIEW' | 'PREVIEW'>('PROJECT_SELECT');
+  const [wizardStep, setWizardStep] = useState<'PROJECT_SELECT' | 'GOAL_CALIBRATION' | 'CONTEXT_TUNING' | 'LOGIC_PLANNING' | 'LOGIC_REVIEW' | 'LOGIC_STAPLING' | 'PREVIEW'>('PROJECT_SELECT');
   const [abRoadmap, setAbRoadmap] = useState<any[]>([]);
   const [abReviewFeedback, setAbReviewFeedback] = useState("");
   const [staplingState, setStaplingState] = useState({ index: 0, total: 0, currentStage: "" });
@@ -551,8 +551,8 @@ export default function ClientCockpitDashboard() {
     if (!targetImage) return;
 
     // STAGE 1: Roadmap Generation (planning -> review)
-    if (wizardStep === 'select' || wizardStep === 'preflight' || wizardStep === 'chat' || (wizardStep === 'review' && feedback)) {
-      setWizardStep('planning');
+    if (wizardStep === 'PROJECT_SELECT' || wizardStep === 'GOAL_CALIBRATION' || wizardStep === 'CONTEXT_TUNING' || (wizardStep === 'LOGIC_REVIEW' && feedback)) {
+      setWizardStep('LOGIC_PLANNING');
       setIsAttached(false);
 
       // Conversational cue
@@ -616,7 +616,7 @@ export default function ClientCockpitDashboard() {
         if (data.success && data.jsonObject?.roadmap) {
           const roadmap = data.jsonObject.roadmap;
           setAbRoadmap(roadmap);
-          setWizardStep('review');
+          setWizardStep('LOGIC_REVIEW');
           
           typewriterAddMessage({
             sender: "ai",
@@ -625,18 +625,18 @@ export default function ClientCockpitDashboard() {
           });
         } else {
           typewriterAddMessage({ sender: "ai", text: "I encountered an error while generating the roadmap. Could you please try rephrasing your instructions?" });
-          setWizardStep('chat');
+          setWizardStep('CONTEXT_TUNING');
         }
       } catch (error) {
         typewriterAddMessage({ sender: "ai", text: "System connection error. Please try again." });
-        setWizardStep('chat');
+        setWizardStep('CONTEXT_TUNING');
       }
       return;
     }
 
     // STAGE 2: Detailed Stapling (review -> stapling -> preview)
-    if (wizardStep === 'review' && !feedback) {
-      setWizardStep('stapling');
+    if (wizardStep === 'LOGIC_REVIEW' && !feedback) {
+      setWizardStep('LOGIC_STAPLING');
       setStaplingState({ index: 0, total: abRoadmap.length, currentStage: "" });
 
       typewriterAddMessage({
@@ -723,7 +723,7 @@ export default function ClientCockpitDashboard() {
         payload: { promptManifestAuditTrail: assembledPromptText }
       }, ...prev]);
 
-      setWizardStep('preview');
+      setWizardStep('PREVIEW');
       typewriterAddMessage({
         sender: "ai",
         text: "Architecture complete. Your unified process guide is ready for review and export.",
@@ -734,7 +734,7 @@ export default function ClientCockpitDashboard() {
 
   const openAB = () => {
     setAbOpen(true);
-    setWizardStep('select');
+    setWizardStep('PROJECT_SELECT');
     setAbSelectedImageId(null);
     setAbSelectedIntegrations([]);
     setAbChatHistory([]);
@@ -1758,7 +1758,7 @@ export default function ClientCockpitDashboard() {
                       <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 whitespace-nowrap">Tools:</span>
                       <div className="flex gap-1">
                         {abSelectedIntegrations.length > 0 ? abSelectedIntegrations.map(slug => (
-                          <span key={slug} onClick={() => setWizardStep('chat')} className="px-2 py-0.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 rounded-full text-[9px] font-bold uppercase cursor-pointer hover:border-[#004850] transition-colors">{slug}</span>
+                          <span key={slug} onClick={() => setWizardStep('CONTEXT_TUNING')} className="px-2 py-0.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 rounded-full text-[9px] font-bold uppercase cursor-pointer hover:border-[#004850] transition-colors">{slug}</span>
                         )) : <span className="text-[9px] italic text-zinc-400">None</span>}
                       </div>
                     </div>
@@ -1772,12 +1772,12 @@ export default function ClientCockpitDashboard() {
                       </div>
                     </div>
                   </div>
-                  <button onClick={() => setWizardStep('chat')} className="shrink-0 text-[9px] font-bold text-[#004850] dark:text-emerald-500 uppercase hover:underline flex items-center gap-1.5"><i className="ti ti-settings" /> Edit Logic Context</button>
+                  <button onClick={() => setWizardStep('CONTEXT_TUNING')} className="shrink-0 text-[9px] font-bold text-[#004850] dark:text-emerald-500 uppercase hover:underline flex items-center gap-1.5"><i className="ti ti-settings" /> Edit Logic Context</button>
                 </div>
               )}
 
-              {/* MAIN CONVERSATIONAL BODY */}
-              <div id="chat-history-container" className="flex-1 overflow-y-auto p-8 space-y-10 bg-white dark:bg-zinc-950 scroll-smooth">
+              {/* MAIN WIZARD BODY */}
+              <div id="wizard-container" className="flex-1 overflow-y-auto p-8 bg-white dark:bg-zinc-950 scroll-smooth">
                 {visibleChatHistory.map((msg, i) => (
                   <div key={msg.id} id={`msg-${msg.id}`} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-500`}>
                     <div className={`flex gap-5 w-full ${msg.sender === 'user' ? 'max-w-[70%] flex-row-reverse' : 'max-w-[95%]'}`}>
@@ -1800,7 +1800,7 @@ export default function ClientCockpitDashboard() {
                                 setAbChatHistory(prev => [...prev, userMsg]);
                                 setVisibleChatHistory(prev => [...prev, userMsg]);
                                 typewriterAddMessage({ sender: 'ai', text: "Excellent choice. Let's calibrate your process track objectives. Tune the goals and thresholds in the matrix below.", dataWidget: "GOAL_MATRIX" });
-                                setWizardStep('preflight');
+                                setWizardStep('GOAL_CALIBRATION');
                               }} className="p-5 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900 hover:border-[#004850] dark:hover:border-emerald-500 transition-all text-left group active:scale-[0.98] shadow-sm">
                                 <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-[#004850] dark:group-hover:text-emerald-400 transition-colors uppercase">{img.name}</h3>
                                 <p className="text-[9px] text-zinc-400 mt-2 font-mono uppercase tracking-widest">{img.pipelines?.length || 0} TRACKS // {img.pipelines?.reduce((acc, p) => acc + (p.stages?.length || 0), 0) || 0} STEPS</p>
@@ -1932,7 +1932,7 @@ export default function ClientCockpitDashboard() {
                                 setAbChatHistory(prev => [...prev, userMsg]);
                                 setVisibleChatHistory(prev => [...prev, userMsg]);
                                 typewriterAddMessage({ sender: 'ai', text: "Perfect. Now, describe the automation behaviors you'd like to build for this project. Mention triggers, Slack notifications, or conditional fallback rules. I'll translate your instructions into a structured roadmap." });
-                                setWizardStep('chat');
+                                setWizardStep('CONTEXT_TUNING');
                               }} className="h-11 px-10 bg-[#004850] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95">Finalize Context & Start Building <i className="ti ti-wand" /></button>
                             </div>
                           </div>
@@ -2071,7 +2071,7 @@ export default function ClientCockpitDashboard() {
                     onKeyDown={e => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-                        if (abChatInput.trim() && wizardStep === 'chat') {
+                        if (abChatInput.trim() && wizardStep === 'CONTEXT_TUNING') {
                           const msg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: abChatInput };
                           setAbChatHistory(prev => [...prev, msg]);
                           setVisibleChatHistory(prev => [...prev, msg]);
@@ -2080,10 +2080,10 @@ export default function ClientCockpitDashboard() {
                         }
                       }
                     }}
-                    disabled={wizardStep === 'select' || wizardStep === 'preflight' || wizardStep === 'planning' || wizardStep === 'stapling'}
+                    disabled={wizardStep === 'PROJECT_SELECT' || wizardStep === 'GOAL_CALIBRATION' || wizardStep === 'LOGIC_PLANNING' || wizardStep === 'LOGIC_STAPLING'}
                     placeholder={
-                      wizardStep === 'select' ? "Please select a project track above first..." :
-                      wizardStep === 'preflight' ? "Tune your objectives in the matrix above..." :
+                      wizardStep === 'PROJECT_SELECT' ? "Please select a project track above first..." :
+                      wizardStep === 'GOAL_CALIBRATION' ? "Tune your objectives in the matrix above..." :
                       "Type your automation instructions here... (Enter to Send)"
                     }
                     className="w-full min-h-[60px] max-h-[200px] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 pr-32 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-2xl shadow-black/5 disabled:opacity-50 scrollbar-hide"
@@ -2091,7 +2091,7 @@ export default function ClientCockpitDashboard() {
                   <div className="absolute bottom-5 right-5 flex gap-3">
                     <button 
                       onClick={handleAiAutoFill}
-                      disabled={isAutoFilling || wizardStep !== 'chat'}
+                      disabled={isAutoFilling || wizardStep !== 'CONTEXT_TUNING'}
                       className={`h-11 w-11 bg-zinc-100 dark:bg-zinc-800 text-[#004850] dark:text-emerald-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-2xl flex items-center justify-center transition-all active:scale-90 disabled:opacity-30 shadow-sm ${isAutoFilling ? 'animate-pulse' : ''}`}
                       title="Magic AI Auto-fill"
                     >
@@ -2104,7 +2104,7 @@ export default function ClientCockpitDashboard() {
                         setVisibleChatHistory(prev => [...prev, msg]);
                         setAbChatInput(""); 
                       } }}
-                      disabled={!abChatInput.trim() || wizardStep !== 'chat'}
+                      disabled={!abChatInput.trim() || wizardStep !== 'CONTEXT_TUNING'}
                       className="h-11 w-11 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-2xl flex items-center justify-center transition-all active:scale-90 disabled:opacity-30 shadow-sm"
                       title="Add instruction to log"
                     >
@@ -2112,7 +2112,7 @@ export default function ClientCockpitDashboard() {
                     </button>
                     <button 
                       onClick={() => compilePromptManifest()}
-                      disabled={wizardStep !== 'chat'}
+                      disabled={wizardStep !== 'CONTEXT_TUNING'}
                       className="h-11 px-6 bg-[#004850] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-2 shadow-lg shadow-[#004850]/20 active:scale-95 disabled:opacity-30"
                     >
                       Build Logic <i className="ti ti-wand" />
