@@ -413,14 +413,14 @@ export default function ClientCockpitDashboard() {
         if (typeof window !== 'undefined') {
           localStorage.setItem('rw_workspace_cache', JSON.stringify(newImages));
         }
-        setCopyFeedback("◆ .rwe file imported successfully");
+        setCopyFeedback("◆ File imported successfully");
         setTimeout(() => setCopyFeedback(null), 3000);
       } catch (error) {
         console.error("Import failed:", error);
         setUiModal({
             type: "alert",
             title: "Import Error",
-            message: "Failed to import .rwe file. Ensure the file is valid.",
+            message: "Failed to import file. Ensure the file is valid.",
             onCancel: () => setUiModal(null)
         });
       }
@@ -443,16 +443,16 @@ export default function ClientCockpitDashboard() {
         setImages(prev => [hydratedObj, ...prev]);
         setIsPasteModalOpen(false);
         setPastedConfig("");
-        setCopyFeedback("◆ Configuration imported successfully");
+        setCopyFeedback("◆ Data imported successfully");
         setTimeout(() => setCopyFeedback(null), 3000);
       } else {
-        throw new Error("Invalid configuration type");
+        throw new Error("Invalid data type");
       }
     } catch (e) {
       setUiModal({
         type: "alert",
         title: "Import Error",
-        message: "Failed to parse configuration JSON. Ensure it is a valid .rwe export stream.",
+        message: "Failed to parse data. Ensure it is a valid export stream.",
         onCancel: () => setUiModal(null)
       });
     }
@@ -676,7 +676,7 @@ export default function ClientCockpitDashboard() {
       setUiModal({
         type: "alert",
         title: "Connection Error",
-        message: "Invalid API Token format. Please check your credential string.",
+        message: "Invalid Password format. Please check your credential string.",
         onCancel: () => setUiModal(null)
       });
       return;
@@ -689,14 +689,14 @@ export default function ClientCockpitDashboard() {
       if (json && json.success) {
         setIsVerified(true);
         setAccountName(json.data?.company_name || json.data?.name || "Unknown");
-        setCopyFeedback("Connection Verified");
+        setCopyFeedback("Handshake Finished");
         setTimeout(() => setCopyFeedback(null), 3000);
       } else {
         setIsVerified(false);
         setUiModal({
           type: "alert",
-          title: "Auth Rejected",
-          message: "The Pipedrive API rejected this handshake. Ensure the token is valid.",
+          title: "Sign In Failed",
+          message: "The system rejected this password. Ensure the token is valid.",
           onCancel: () => setUiModal(null)
         });
       }
@@ -712,8 +712,8 @@ export default function ClientCockpitDashboard() {
     
     setUiModal({
       type: "prompt",
-      title: "Capture Archive",
-      message: "Enter a structural name for this Captured Image Snapshot:",
+      title: "Copy Activity",
+      message: "Enter a name for this account copy:",
       placeholder: "New Setup Map...",
       onCancel: () => setUiModal(null),
       onConfirm: async (label) => {
@@ -728,7 +728,7 @@ export default function ClientCockpitDashboard() {
           });
           const data = await res.json();
           if (data.success) {
-            setImages(prev => [{ ...data.blueprint, id: generateRweId(), name: label, owner: "Live Ingest", deals: 0 }, ...prev]);
+            setImages(prev => [{ ...data.blueprint, id: generateRweId(), name: label, owner: "Live Copy", deals: 0 }, ...prev]);
             setTelemetryLogs(prev => [{ type: 'INBOUND', timestamp: new Date().toLocaleTimeString(), payload: data.blueprint }, ...prev]);
           }
         } finally {
@@ -754,8 +754,8 @@ export default function ClientCockpitDashboard() {
     if (!isVerified) {
       setUiModal({
         type: "alert",
-        title: "Matrix Locked",
-        message: "You must establish a secure handshake before performing data sync operations.",
+        title: "Action Blocked",
+        message: "You must sign in before syncing data.",
         onCancel: () => setUiModal(null)
       });
       return;
@@ -763,10 +763,10 @@ export default function ClientCockpitDashboard() {
 
     setUiModal({
       type: "confirm",
-      title: flashMode === "pipedrive" ? "Flash Confirmation" : "Overwrite Confirmation",
+      title: flashMode === "pipedrive" ? "Sync Confirmation" : "Overwrite Confirmation",
       message: flashMode === "pipedrive" 
-        ? `Are you sure you want to FLASH '${target.name}' to the live account? This will mutate production pipelines.`
-        : `Are you sure you want to OVERWRITE '${target.name}' with live data? Local logic will be lost.`,
+        ? `Are you sure you want to SYNC '${target.name}' to the live account? This will change your live pipelines.`
+        : `Are you sure you want to REPLACE '${target.name}' with live data? Local work will be lost.`,
       onCancel: () => setUiModal(null),
       onConfirm: async () => {
         setUiModal(null);
@@ -810,7 +810,7 @@ export default function ClientCockpitDashboard() {
           } else {
             setUiModal({
               type: "alert",
-              title: "Operation Failed",
+              title: "Update Failed",
               message: data.error || "An unknown error occurred.",
               onCancel: () => setUiModal(null)
             });
@@ -824,7 +824,7 @@ export default function ClientCockpitDashboard() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    setCopyFeedback("◆ Payload copied to clipboard");
+    setCopyFeedback("◆ Data copied to clipboard");
     setTimeout(() => setCopyFeedback(null), 3000);
   };
 
@@ -839,7 +839,7 @@ export default function ClientCockpitDashboard() {
     const downloadUrl = URL.createObjectURL(fileBlob);
     const anchorElement = document.createElement('a');
     anchorElement.href = downloadUrl;
-    anchorElement.download = `pipedrive-runbook-${abSelectedImageId || 'export'}.docx`;
+    anchorElement.download = `process-guide-${abSelectedImageId || 'export'}.docx`;
     
     document.body.appendChild(anchorElement);
     anchorElement.click();
@@ -847,7 +847,7 @@ export default function ClientCockpitDashboard() {
     // 3. Clean up reference blocks instantly to avoid browser memory leaks
     document.body.removeChild(anchorElement);
     URL.revokeObjectURL(downloadUrl);
-    setCopyFeedback("◆ Runbook Downloaded (.docx)");
+    setCopyFeedback("◆ Guide Downloaded (.docx)");
     setTimeout(() => setCopyFeedback(null), 3000);
   };
 
@@ -855,7 +855,7 @@ export default function ClientCockpitDashboard() {
     setUiModal({
       type: "confirm",
       title: "DELETE CARD",
-      message: "Are you sure? This structural rewrite cannot be undone.",
+      message: "Are you sure? This cannot be undone.",
       onCancel: () => setUiModal(null),
       onConfirm: () => {
         setImages(prev => prev.filter(i => i.id !== id));
@@ -884,7 +884,7 @@ export default function ClientCockpitDashboard() {
       const data = await res.json();
       if (data.success) {
         setTelemetryLogs(prev => [{ type: 'OUTBOUND', timestamp: new Date().toLocaleTimeString(), payload: temporaryRollbackBackup }, ...prev]);
-        setCopyFeedback("Rollback Successful");
+        setCopyFeedback("Revert Successful");
         setTemporaryRollbackBackup(null);
       }
     } finally {
@@ -896,14 +896,14 @@ export default function ClientCockpitDashboard() {
     if (!temporaryRollbackBackup) return;
     setUiModal({
       type: "prompt",
-      title: "Promote Snapshot",
-      message: "Enter an archive title for this snapshot:",
+      title: "Save Copy",
+      message: "Enter a title for this copy:",
       placeholder: "New Archived Name...",
       onCancel: () => setUiModal(null),
       onConfirm: async (label) => {
         setUiModal(null);
         if (!label) return;
-        setImages(prev => [{ ...temporaryRollbackBackup, id: generateRweId(), name: label, owner: "Recovery Snapshot", deals: 0 }, ...prev]);
+        setImages(prev => [{ ...temporaryRollbackBackup, id: generateRweId(), name: label, owner: "Internal Save", deals: 0 }, ...prev]);
         setTemporaryRollbackBackup(null);
       }
     });
@@ -923,19 +923,19 @@ export default function ClientCockpitDashboard() {
             onClick={openAB}
             className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#004850] dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-sm flex items-center gap-2 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all active:scale-95 disabled:opacity-50"
           >
-            <i className="ti ti-wand" /> BUILDER
+            <i className="ti ti-wand" /> AUTO-BUILDER
           </button>
           <button
             onClick={() => document.getElementById('rwe-import-input')?.click()}
             className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-sm flex items-center gap-2 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all active:scale-95"
           >
-            <i className="ti ti-file-import" /> IMPORT .RWE
+            <i className="ti ti-file-import" /> IMPORT FILE
           </button>
           <button
             onClick={() => setIsPasteModalOpen(true)}
             className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-sm flex items-center gap-2 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all active:scale-95"
           >
-            <i className="ti ti-clipboard-check" /> PASTE CONFIG
+            <i className="ti ti-clipboard-check" /> PASTE DATA
           </button>
         </div>
 
@@ -944,7 +944,7 @@ export default function ClientCockpitDashboard() {
             <i className="ti ti-lock text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 text-[10px]" />
             <input 
               type="password"
-              placeholder="API Token..."
+              placeholder="System Password..."
               value={apiKey}
               onChange={(e) => { setApiKey(e.target.value); setIsVerified(false); setTemporaryRollbackBackup(null); }}
               disabled={isProcessing}
@@ -968,13 +968,13 @@ export default function ClientCockpitDashboard() {
           >
             <span className={`h-1.5 w-1.5 rounded-full ${isVerified ? 'bg-emerald-500 animate-pulse' : 'bg-white/40'}`} />
             <span className="text-[10px] font-bold uppercase tracking-widest">
-              {isVerified ? `LIVE // ${accountName}` : "Connect"}
+              {isVerified ? `CONNECTED // ${accountName}` : "Sign In"}
             </span>
           </button>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Telemetry Icon & Rescue Dropdown */}
+          {/* Rescue Dropdown */}
           <div className="flex items-center gap-2">
             {temporaryRollbackBackup && (
               <div className="relative">
@@ -982,12 +982,12 @@ export default function ClientCockpitDashboard() {
                   onClick={() => setOpenMenuId(openMenuId === 'rescue' ? null : 'rescue')}
                   className="bg-amber-500 border border-amber-600 text-white font-bold px-3 py-1.5 text-[10px] uppercase tracking-widest rounded-sm flex items-center gap-2 hover:bg-amber-600 cursor-pointer"
                 >
-                  <i className="ti ti-shield-alert" /> RESCUE <i className="ti ti-chevron-down" />
+                  <i className="ti ti-shield-alert" /> UNDO <i className="ti ti-chevron-down" />
                 </button>
                 {openMenuId === 'rescue' && (
                   <div className="absolute right-0 top-9 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden z-[50]">
-                    <button onClick={() => { handleRestore(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 dark:hover:bg-zinc-800 text-emerald-600">Restore</button>
-                    <button onClick={() => { handlePromote(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest border-t border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800">Promote</button>
+                    <button onClick={() => { handleRestore(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 dark:hover:bg-zinc-800 text-emerald-600">Revert All Changes</button>
+                    <button onClick={() => { handlePromote(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest border-t border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800">Save as Copy</button>
                   </div>
                 )}
               </div>
@@ -997,7 +997,7 @@ export default function ClientCockpitDashboard() {
                 onClick={() => setShowTelemetry(!showTelemetry)}
                 disabled={isProcessing}
                 className={`h-9 w-9 flex items-center justify-center rounded-sm border transition-all active:scale-95 ${showTelemetry ? 'bg-zinc-900 border-zinc-700 text-emerald-400' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-600'}`}
-                title="Telemetry Terminal"
+                title="Activity Log"
               >
                 <i className="ti ti-terminal-2" />
                 {telemetryLogs.length > 0 && <span className="absolute top-2 right-2 h-1.5 w-1.5 bg-emerald-500 rounded-full" />}
@@ -1005,12 +1005,12 @@ export default function ClientCockpitDashboard() {
               {showTelemetry && (
                 <div className="absolute right-0 top-12 w-96 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden z-[60] flex flex-col h-[80vh] min-h-0 shadow-2xl">
                   <div className="px-4 py-2 border-b border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 flex items-center justify-between">
-                    <span className="font-mono text-[9px] font-black uppercase tracking-widest text-zinc-400">Execution Telemetry // Local Stack</span>
-                    <button onClick={() => setTelemetryLogs([])} className="font-mono text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400">CLEAR LOGS</button>
+                    <span className="font-mono text-[9px] font-black uppercase tracking-widest text-zinc-400">System Activity Log // Internal History</span>
+                    <button onClick={() => setTelemetryLogs([])} className="font-mono text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400">CLEAR HISTORY</button>
                   </div>
                   <div className="flex-1 flex flex-col overflow-y-auto p-4 space-y-2 font-mono text-[10px]">
                     {telemetryLogs.length === 0 ? (
-                      <div className="text-zinc-500 italic py-8 text-center uppercase tracking-tighter">No active data streams.</div>
+                      <div className="text-zinc-500 italic py-8 text-center uppercase tracking-tighter">No recent data activity.</div>
                     ) : (
                       telemetryLogs.map((log, i) => (
                         <div key={i} className="border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden">
@@ -1018,7 +1018,7 @@ export default function ClientCockpitDashboard() {
                             onClick={() => setExpandedLogs(prev => prev.includes(i) ? prev.filter(idx => idx !== i) : [...prev, i])}
                             className="p-2 bg-white dark:bg-zinc-950 flex items-center justify-between cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
                           >
-                            <span className={`font-bold ${log.type === 'OUTBOUND' ? 'text-emerald-600' : 'text-blue-600'}`}>[{log.type}] {log.timestamp}</span>
+                            <span className={`font-bold ${log.type === 'OUTBOUND' ? 'text-emerald-600' : 'text-blue-600'}`}>[{log.type === 'OUTBOUND' ? 'SENT' : 'RECEIVED'}] {log.timestamp}</span>
                             <button 
                               onClick={(e) => { e.stopPropagation(); copyToClipboard(JSON.stringify(log.payload, null, 2)); }} 
                               className="text-zinc-400 hover:text-zinc-100 font-bold text-[9px]"
@@ -1040,19 +1040,19 @@ export default function ClientCockpitDashboard() {
             </div>
           </div>
 
-          <button onClick={() => setFlashMode("pipedrive")} className="bg-emerald-600 text-white hover:bg-emerald-700 rounded-sm font-bold uppercase tracking-widest text-[10px] px-4 py-2 transition-all active:scale-95">Flash Live</button>
+          <button onClick={() => setFlashMode("pipedrive")} className="bg-emerald-600 text-white hover:bg-emerald-700 rounded-sm font-bold uppercase tracking-widest text-[10px] px-4 py-2 transition-all active:scale-95">Sync to Account</button>
           <div className="relative">
             <button 
               onClick={() => setOpenMenuId(openMenuId === 'vault' ? null : 'vault')}
               disabled={isProcessing}
               className="bg-blue-600 text-white hover:bg-blue-700 rounded-sm font-bold uppercase tracking-widest text-[10px] px-4 py-2 flex items-center gap-2 transition-all active:scale-95"
             >
-              Vault <i className="ti ti-chevron-down" />
+              Library <i className="ti ti-chevron-down" />
             </button>
             {openMenuId === 'vault' && (
               <div className="absolute right-0 top-10 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden z-[50]">
-                <button onClick={() => { handleInboundNew(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 dark:hover:bg-zinc-800">Capture Snapshot</button>
-                <button onClick={() => { setFlashMode('rosewood'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest border-t border-zinc-200 dark:border-zinc-800 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20">Overwrite Existing</button>
+                <button onClick={() => { handleInboundNew(); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 dark:hover:bg-zinc-800">Copy from Account</button>
+                <button onClick={() => { setFlashMode('rosewood'); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest border-t border-zinc-200 dark:border-zinc-800 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20">Replace with Live</button>
               </div>
             )}
           </div>
@@ -1065,7 +1065,7 @@ export default function ClientCockpitDashboard() {
           <div className="flex items-center gap-3">
             <i className={`ti ${flashMode === 'pipedrive' ? 'ti-bolt' : 'ti-refresh'} text-md animate-pulse text-zinc-400`} />
             <span className="text-[11px] font-bold uppercase tracking-widest">
-              {flashMode === 'pipedrive' ? 'READY TO FLASH // Select target image card to mutate production' : 'DESTRUCTIVE OVERWRITE // Select target card to replace with live image data'}
+              {flashMode === 'pipedrive' ? 'READY TO SYNC // Select a card to push changes to your account' : 'DANGER: OVERWRITE // Select a card to replace its data with live account info'}
             </span>
           </div>
           <button onClick={() => setFlashMode("")} className="text-[10px] font-black uppercase tracking-widest px-3 py-1 bg-white/10 hover:bg-white/20 rounded-sm active:scale-95 transition-all">Abort</button>
@@ -1078,13 +1078,13 @@ export default function ClientCockpitDashboard() {
           <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-sm border border-zinc-200 dark:border-zinc-800">
             <button 
               onClick={() => setViewLayout("grid")}
-              className={`px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${viewLayout === 'grid' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : 'text-zinc-500'}`}
+              className={`px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${viewLayout === 'grid' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : 'text-zinc-50'}`}
             >
               <i className="ti ti-layout-grid" /> GRID
             </button>
             <button 
               onClick={() => setViewLayout("list")}
-              className={`px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${viewLayout === 'list' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : 'text-zinc-500'}`}
+              className={`px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${viewLayout === 'list' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : 'text-zinc-50'}`}
             >
               <i className="ti ti-list" /> LIST
             </button>
@@ -1127,7 +1127,7 @@ export default function ClientCockpitDashboard() {
                     const aCount = (img as any).abCompiledObjects?.length || (img as any).compiledRunbook?.length || 0;
                     return (
                         <p className="font-mono text-[10px] tracking-widest uppercase text-zinc-400 mt-1">
-                            {pCount} PPL // {sCount} STG // {fCount} FLD // {aCount} AUTO
+                            {pCount} TRACKS // {sCount} STEPS // {fCount} FIELDS // {aCount} TASKS
                         </p>
                     );
                   })()}
@@ -1138,7 +1138,7 @@ export default function ClientCockpitDashboard() {
                     (img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 border border-transparent'
                   }`}>
                     <span className={`h-1 w-1 rounded-full ${(img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
-                    {(img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? "Automated" : "Static"}
+                    {(img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? "Automated" : "Basic"}
                   </div>
                   
                   <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -1199,7 +1199,7 @@ export default function ClientCockpitDashboard() {
                 onClick={() => setDetailTab("json")}
                 className={`px-6 py-4 text-[10px] font-bold uppercase tracking-widest border-b-2 transition-all active:scale-95 ${detailTab === 'json' ? 'border-[#004850] text-[#004850] dark:text-emerald-400' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}
               >
-                API JSON Logic
+                Project Summary
               </button>
               <button 
                 onClick={() => setDetailTab("guide")}
@@ -1496,7 +1496,7 @@ export default function ClientCockpitDashboard() {
                     </div>
                     <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">No Runbook Data</h3>
                     <p className="text-xs text-zinc-500 mt-2 max-w-xs leading-relaxed italic">
-                      Use the Automation Builder to compile logic for this card.
+                      Use the Auto-Builder to compile logic for this card.
                     </p>
                   </div>
                 )}
@@ -1544,12 +1544,12 @@ export default function ClientCockpitDashboard() {
         </div>
       )}
 
-      {/* 8. PASTE CONFIG MODAL */}
+      {/* 8. PASTE DATA MODAL */}
       {isPasteModalOpen && (
         <div className="fixed inset-0 bg-zinc-950/60 backdrop-blur-sm z-[350] flex items-center justify-center p-8 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm w-full max-w-2xl h-[60vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 shadow-2xl">
             <div className="px-6 py-4 border-b border-zinc-200/60 dark:border-zinc-800/60 flex items-center justify-between bg-white dark:bg-zinc-900">
-              <h3 className="font-bold uppercase text-[10px] tracking-widest text-[#004850] dark:text-emerald-500">PASTE CONFIGURATION STREAM</h3>
+              <h3 className="font-bold uppercase text-[10px] tracking-widest text-[#004850] dark:text-emerald-500">PASTE DATA STREAM</h3>
               <button onClick={() => setIsPasteModalOpen(false)} className="h-8 w-8 rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center text-zinc-400">
                 <i className="ti ti-x" />
               </button>
@@ -1558,32 +1558,31 @@ export default function ClientCockpitDashboard() {
               <textarea 
                 value={pastedConfig}
                 onChange={(e) => setPastedConfig(e.target.value)}
-                placeholder="Paste your raw .rwe configuration JSON text stream here..."
+                placeholder="Paste your raw data JSON text stream here..."
                 className="flex-1 w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-sm p-4 font-mono text-xs focus:outline-none focus:border-zinc-400 transition-all resize-none"
               />
               <button 
                 onClick={handlePasteImport}
                 className="w-full py-3 bg-[#004850] text-white rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-[#003840] transition-all active:scale-95"
               >
-                IMPORT CONFIG DATA
+                IMPORT DATA
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* AUTOMATION BUILDER MODAL */}
+      {/* AUTO-BUILDER MODAL */}
       {abOpen && (() => {
         const targetImage = images.find(img => img.id === abSelectedImageId);
         
-        // Helper to update stage operational telemetry
+        // Helper to update stage operational context
         const updateStageTelemetry = (
           pipelineIdx: number,
           stageIdx: number,
           field: string,
           value: any
         ) => {
-          if (!abSelectedImageId) return;
           setImages(prev => prev.map(img => {
             if (img.id !== abSelectedImageId) return img;
             const pipelinesCopy = [...img.pipelines];
@@ -1598,7 +1597,7 @@ export default function ClientCockpitDashboard() {
           }));
         };
 
-        // Helper to accept all AI-guessed telemetries
+        // Helper to accept all AI-guessed context
         const acceptAllAIGuesses = () => {
           if (!abSelectedImageId) return;
           setImages(prev => prev.map(img => {
@@ -1626,545 +1625,519 @@ export default function ClientCockpitDashboard() {
         };
 
         return (
-          <div className="fixed inset-0 w-full h-full min-h-screen z-[250] flex flex-col bg-zinc-50 dark:bg-black">
-            {/* Header */}
-            <div className="h-14 max-h-14 flex items-center justify-between px-6 border-b border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 sticky top-0 z-[60]">
-              <span className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">Runbook Builder // Stark Interface</span>
-              <button
-                onClick={() => {
-                  setAbOpen(false);
-                  setAbStep('select');
-                  setAbSelectedImageId(null);
-                  setAbSelectedIntegrations([]);
-                  setAbChatHistory([]);
-                  setAbRoles([]);
-                }}
-                className="h-8 w-8 flex items-center justify-center rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-400"
-              >
-                <i className="ti ti-x" />
-              </button>
-            </div>
+          <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-8 animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden shadow-2xl relative">
+              
+              {/* Modal Header */}
+              <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-sm bg-[#004850] flex items-center justify-center text-white shadow-lg shadow-[#004850]/20">
+                    <i className={`ti ${abStep === 'select' ? 'ti-apps' : abStep === 'preflight' ? 'ti-adjustments' : abStep === 'chat' ? 'ti-messages' : abStep === 'planning' ? 'ti-loader animate-spin' : abStep === 'review' ? 'ti-clipboard-check' : abStep === 'stapling' ? 'ti-package animate-pulse' : 'ti-eye'} text-xl`} />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase font-mono">
+                      {abStep === 'select' && "1. Select Project Track"}
+                      {abStep === 'preflight' && "2. Configure Goal Matrix"}
+                      {abStep === 'chat' && "3. Build Logic via Chat"}
+                      {abStep === 'planning' && "4. Generating Roadmap..."}
+                      {abStep === 'review' && "5. Review Proposed Sequence"}
+                      {abStep === 'stapling' && `6. Writing Automation Logic (${staplingState.index}/${staplingState.total})`}
+                      {abStep === 'preview' && "7. Final Process Review"}
+                    </h2>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.15em] mt-1">
+                      {abStep === 'select' && "Choose a process track to begin building automations"}
+                      {abStep === 'preflight' && "Ghost text shows AI-suggested goals for your steps"}
+                      {abStep === 'chat' && "Explain your process goals in plain English"}
+                      {abStep === 'planning' && "System is architecting the automation sequence"}
+                      {abStep === 'review' && "Verify the automation steps before writing logic"}
+                      {abStep === 'stapling' && `Current Step: ${staplingState.currentStage}`}
+                      {abStep === 'preview' && "Review and download your new process guide"}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setAbOpen(false)} className="h-10 w-10 rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 active:scale-90">
+                  <i className="ti ti-x text-xl" />
+                </button>
+              </div>
 
-            {/* Unified Chat Timeline Stream */}
-            <div className="flex-1 overflow-y-auto pb-48 pt-4">
-              <div className={`mx-auto w-full px-6 transition-all duration-300 ${abStep === 'preflight' ? 'max-w-5xl' : 'max-w-3xl'}`}>
-                  
-                  {/* Pre-Flight Context Matrix Screen */}
-                  {abStep === 'preflight' && (() => {
-                    if (!targetImage) return null;
-
-                    return (
-                      <div className="py-6 space-y-6 animate-in fade-in duration-300 font-sans">
-                        {/* Header section with description and Accept All Guesses */}
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-4">
-                          <div>
-                            <h2 className="text-lg font-bold text-zinc-950 dark:text-zinc-50 font-mono tracking-tight uppercase">
-                              Pre-Flight Context Matrix
-                            </h2>
-                            <p className="text-xs text-zinc-500 mt-1 font-sans">
-                              Define real-world telemetry parameters for each pipeline stage. Ghost text shows AI-guessed context; press <kbd className="px-1.5 py-0.5 border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-850 rounded font-mono text-[9px] text-zinc-800 dark:text-zinc-200">Tab</kbd> inside an empty field to accept it.
-                            </p>
-                          </div>
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto bg-white dark:bg-zinc-950">
+                <div className="max-w-5xl mx-auto px-8">
+                  {abStep === 'select' && (
+                    <div className="py-12">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {images.map((img) => (
                           <button
-                            onClick={acceptAllAIGuesses}
-                            className="shrink-0 h-9 px-4 flex items-center justify-center gap-2 border border-[#004850]/20 hover:border-[#004850] bg-[#004850]/5 hover:bg-[#004850]/15 text-[#004850] dark:text-[#008080] rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95"
+                            key={img.id}
+                            onClick={() => { setAbSelectedImageId(img.id); setAbStep('preflight'); }}
+                            className="p-6 border border-zinc-200 dark:border-zinc-800 rounded-sm bg-zinc-50/50 dark:bg-zinc-900/50 hover:border-[#004850] dark:hover:border-emerald-500 transition-all text-left group active:scale-[0.98]"
                           >
-                            [Accept All AI Guesses]
+                            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-[#004850] dark:group-hover:text-emerald-400 transition-colors uppercase">{img.name}</h3>
+                            <p className="text-[10px] text-zinc-400 mt-2 font-mono uppercase tracking-widest">
+                                {img.pipelines?.length || 0} TRACKS // {img.pipelines?.reduce((acc, p) => acc + (p.stages?.length || 0), 0) || 0} STEPS
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {abStep === 'preflight' && (
+                    (() => {
+                      if (!targetImage) return null;
+
+                      return (
+                        <div className="py-6 space-y-6 animate-in fade-in duration-300 font-sans">
+                          {/* Header section with description and Accept All Guesses */}
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-4">
+                            <div>
+                              <h2 className="text-lg font-bold text-zinc-950 dark:text-zinc-50 font-mono tracking-tight uppercase">
+                                Process Context Matrix
+                              </h2>
+                              <p className="text-xs text-zinc-500 mt-1 font-sans">
+                                Define goals for each step. Light text shows AI-suggested goals; press <kbd className="px-1.5 py-0.5 border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-850 rounded font-mono text-[9px] text-zinc-800 dark:text-zinc-200">Tab</kbd> inside an empty box to accept it.
+                              </p>
+                            </div>
+                            <button 
+                              onClick={acceptAllAIGuesses}
+                              className="shrink-0 h-9 px-4 flex items-center justify-center gap-2 border border-[#004850]/20 hover:border-[#004850] bg-[#004850]/5 hover:bg-[#004850]/15 text-[#004850] dark:text-[#008080] rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95"
+                            >
+                              [Accept All AI Suggestions]
+                            </button>
+                          </div>
+
+                          {/* Grid container */}
+                          <div className="space-y-8">
+                            {targetImage.pipelines.map((pipeline, pIdx) => (
+                              <div key={pIdx} className="space-y-4">
+                                <div className="flex items-center gap-2 font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                  <span>Track {pIdx + 1}: {pipeline.name}</span>
+                                  <span className="flex-1 h-[1px] bg-zinc-200 dark:bg-zinc-800" />
+                                </div>
+
+                                <div className="border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden bg-white dark:bg-zinc-900">
+                                  <table className="w-full text-left border-collapse table-fixed">
+                                    <thead>
+                                      <tr className="bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-400">
+                                        <th className="py-3 px-4 w-44">Step</th>
+                                        <th className="py-3 px-4">Work Goal {isFetchingGuesses && <span className="text-indigo-400 animate-pulse">⟳ AI</span>}</th>
+                                        <th className="py-3 px-4 w-32">Alert Time</th>
+                                        <th className="py-3 px-4 w-48">Router Config</th>
+                                        <th className="py-3 px-4 w-48">Loop Activity</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                                      {pipeline.stages.map((stage, sIdx) => {
+                                        const telemetry: StageOperationalContext = (stage.operational_telemetry as StageOperationalContext) || {
+                                          targetDirective: "",
+                                          stuckThreshold: "",
+                                          routingDropdownKey: "",
+                                          isRecurringLoop: false,
+                                          recurrenceDays: 7
+                                        };
+                                        const guesses: StageOperationalContext = abTelemetryGuesses[stage.name] || getLocalFallbackGuess(stage.name);
+
+                                        return (
+                                          <tr key={sIdx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 text-xs transition-colors">
+                                            {/* Stage Name Column */}
+                                            <td className="py-4 px-4 align-top">
+                                              <span className="font-mono text-[10px] font-bold text-zinc-400 block">STEP {pIdx + 1}.{sIdx + 1}</span>
+                                              <span className="font-bold text-zinc-900 dark:text-zinc-100 block tracking-tight truncate" title={stage.name}>
+                                                {stage.name}
+                                              </span>
+                                            </td>
+
+                                            {/* Target Directive Column — merged objective + outcome */}
+                                            <td className="py-3 px-3 align-top">
+                                              <textarea 
+                                                value={telemetry.targetDirective || ""}
+                                                onChange={(e) => updateStageTelemetry(pIdx, sIdx, "targetDirective", e.target.value)}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Tab' && !telemetry.targetDirective) {
+                                                    e.preventDefault();
+                                                    updateStageTelemetry(pIdx, sIdx, "targetDirective", guesses.targetDirective || "");
+                                                  }
+                                                }}
+                                                placeholder={guesses.targetDirective || "Describe the work and success criteria..."}
+                                                rows={3}
+                                                className="w-full bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none p-1 text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 resize-none leading-normal transition-all"
+                                              />
+                                              {!telemetry.targetDirective && guesses.targetDirective && (
+                                                <button 
+                                                  onClick={() => updateStageTelemetry(pIdx, sIdx, "targetDirective", guesses.targetDirective || "")}
+                                                  className="text-[9px] font-mono text-indigo-400 hover:text-indigo-600 transition-colors mt-0.5"
+                                                >
+                                                  Tab to accept
+                                                </button>
+                                              )}
+                                            </td>
+
+                                            {/* Stuck Threshold Column */}
+                                            <td className="py-3 px-3 align-top">
+                                              <input 
+                                                value={telemetry.stuckThreshold || ""}
+                                                onChange={(e) => updateStageTelemetry(pIdx, sIdx, "stuckThreshold", e.target.value)}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Tab' && !telemetry.stuckThreshold) {
+                                                    updateStageTelemetry(pIdx, sIdx, "stuckThreshold", guesses.stuckThreshold);
+                                                  }
+                                                }}
+                                                placeholder={guesses.stuckThreshold}
+                                                className="w-full bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none p-1 text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 font-mono tracking-tight transition-all"
+                                              />
+                                            </td>
+
+                                            {/* Router Config Column */}
+                                            <td className="py-3 px-3 align-top space-y-1">
+                                              <div className="flex items-center gap-1.5">
+                                                <i className="ti ti-git-fork text-zinc-400 text-xs shrink-0" />
+                                                <select 
+                                                  value={telemetry.routingDropdownKey || ""}
+                                                  onChange={(e) => updateStageTelemetry(pIdx, sIdx, "routingDropdownKey", e.target.value || undefined)}
+                                                  className="flex-1 bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none text-[10px] text-zinc-600 dark:text-zinc-400 transition-all py-1 appearance-none cursor-pointer"
+                                                >
+                                                  <option value="">No Automatic Routing</option>
+                                                  {targetImage.customFields?.filter(f => f.type === 'enum' || f.type === 'set').map(f => (
+                                                    <option key={f.key} value={f.key}>{f.name}</option>
+                                                  ))}
+                                                </select>
+                                              </div>
+                                            </td>
+
+                                            {/* Loop Activity Column */}
+                                            <td className="py-3 px-3 align-top">
+                                              <div className="flex flex-col gap-2">
+                                                <label className="flex items-center gap-2 cursor-pointer group">
+                                                  <input 
+                                                    type="checkbox"
+                                                    checked={telemetry.isRecurringLoop || false}
+                                                    onChange={(e) => updateStageTelemetry(pIdx, sIdx, "isRecurringLoop", e.target.checked)}
+                                                    className="accent-[#004850]"
+                                                  />
+                                                  <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">Enabled</span>
+                                                </label>
+                                                {telemetry.isRecurringLoop && (
+                                                  <div className="flex items-center gap-1 border-b border-zinc-100 dark:border-zinc-800 pb-1">
+                                                    <span className="text-[9px] font-mono text-zinc-400 uppercase">Every</span>
+                                                    <input 
+                                                      type="number"
+                                                      value={telemetry.recurrenceDays || 7}
+                                                      onChange={(e) => updateStageTelemetry(pIdx, sIdx, "recurrenceDays", parseInt(e.target.value) || 0)}
+                                                      className="w-8 bg-transparent outline-none text-[10px] font-mono font-bold text-center"
+                                                    />
+                                                    <span className="text-[9px] font-mono text-zinc-400 uppercase">Days</span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-end pt-4">
+                            <button 
+                              onClick={() => setAbStep('chat')}
+                              className="h-12 px-10 bg-[#004850] text-white rounded-sm text-xs font-bold uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95"
+                            >
+                              Confirm Matrix & Continue <i className="ti ti-arrow-right" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()
+                  )}
+
+                  {abStep === 'chat' && (
+                    <div className="py-12 space-y-12">
+                      {/* Integration Selector */}
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Connected Tools</span>
+                          <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {Object.keys(PIPEDRIVE_CAPABILITIES_REGISTRY.supportedIntegrations).map((slug) => (
+                            <button
+                              key={slug}
+                              onClick={() => setAbSelectedIntegrations(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug])}
+                              className={`p-4 border rounded-sm transition-all flex flex-col items-center gap-3 text-center active:scale-95 ${abSelectedIntegrations.includes(slug) ? 'border-[#004850] bg-[#004850]/5 text-[#004850] dark:border-emerald-500 dark:text-emerald-400 shadow-md shadow-[#004850]/5' : 'border-zinc-200 dark:border-zinc-800 text-zinc-400 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
+                            >
+                              <i className={`ti ti-brand-${slug === 'msteams' ? 'messenger' : slug === 'projects' ? 'clipboard' : slug === 'campaigns' ? 'mail' : slug} text-2xl`} />
+                              <span className="text-[10px] font-black uppercase tracking-widest">{slug}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Team Registry */}
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Team Registry</span>
+                          <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          {abRoles.map((role, idx) => (
+                            <div key={idx} className="flex items-center gap-3 pl-4 pr-1 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm">
+                              <span className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 uppercase">{role.roleName}</span>
+                              <span className="h-6 px-2 bg-[#004850] rounded-sm text-[9px] font-mono flex items-center justify-center text-white">{role.count}</span>
+                              <button onClick={() => setAbRoles(prev => prev.filter((_, i) => i !== idx))} className="h-6 w-6 hover:text-rose-500 transition-colors flex items-center justify-center">
+                                <i className="ti ti-x text-xs" />
+                              </button>
+                            </div>
+                          ))}
+                          <div className="flex items-center gap-2 pl-3 bg-white dark:bg-zinc-950 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-sm">
+                            <input 
+                              placeholder="Add Role..." 
+                              value={tempRoleLabel}
+                              onChange={(e) => setTempRoleLabel(e.target.value)}
+                              className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-24"
+                            />
+                            <div className="flex items-center gap-1 border-x border-zinc-200 dark:border-zinc-800 px-2 h-full py-1.5">
+                                <span className="text-[9px] font-mono text-zinc-400">#</span>
+                                <input 
+                                    type="number" 
+                                    value={tempRoleSeats}
+                                    onChange={(e) => setTempRoleSeats(parseInt(e.target.value) || 1)}
+                                    className="bg-transparent border-none outline-none text-[10px] font-mono font-bold w-6 text-center"
+                                />
+                            </div>
+                            <button 
+                              onClick={() => { if (tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }}
+                              className="h-8 w-8 text-[#004850] dark:text-emerald-500 hover:bg-[#004850] hover:text-white transition-all flex items-center justify-center rounded-r-sm"
+                            >
+                              <i className="ti ti-plus" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Chat / Intent Input */}
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Build Instructions</span>
+                          <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                        </div>
+                        <div className="relative group">
+                          <textarea
+                            autoFocus
+                            placeholder="Example: 'When a new lead arrives, notify the Sales Lead on Slack. If a proposal stays in the same step for 10 days, create a follow-up task for the Account Executive...'"
+                            className="w-full h-44 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm p-6 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-inner"
+                          />
+                          <button 
+                            onClick={() => compilePromptManifest()}
+                            className="absolute bottom-6 right-6 h-12 px-8 bg-[#004850] text-white rounded-sm text-xs font-bold uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95"
+                          >
+                            Build Sequence <i className="ti ti-wand" />
                           </button>
                         </div>
+                      </div>
+                    </div>
+                  )}
 
-                        {/* Grid container */}
-                        <div className="space-y-8">
-                          {targetImage.pipelines.map((pipeline, pIdx) => (
-                            <div key={pIdx} className="space-y-4">
-                              <div className="flex items-center gap-2 font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                                <span>Pipeline {pIdx + 1}: {pipeline.name}</span>
-                                <span className="flex-1 h-[1px] bg-zinc-200 dark:bg-zinc-800" />
+                  {abStep === 'review' && (
+                    <div className="py-12 space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Proposed Roadmap</span>
+                          <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                        </div>
+                        <div className="space-y-3">
+                          {abRoadmap.map((item, idx) => (
+                            <div key={idx} className="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm flex items-center justify-between group hover:border-zinc-300 dark:hover:border-zinc-700 transition-all">
+                              <div className="flex items-center gap-6">
+                                <span className="font-mono text-xs font-black px-2.5 py-1 bg-zinc-900 text-white rounded-sm shadow-sm">{item.automationNumber}</span>
+                                <div>
+                                  <span className="block text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1">{item.stageName}</span>
+                                  <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{item.operationalGoal}</span>
+                                </div>
                               </div>
-
-                              <div className="border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden bg-white dark:bg-zinc-900">
-                                <table className="w-full text-left border-collapse table-fixed">
-                                  <thead>
-                                    <tr className="bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-400">
-                                      <th className="py-3 px-4 w-44">Stage</th>
-                                      <th className="py-3 px-4">Target Directive {isFetchingGuesses && <span className="text-indigo-400 animate-pulse">⟳ AI</span>}</th>
-                                      <th className="py-3 px-4 w-32">Stalled Threshold</th>
-                                      <th className="py-3 px-4 w-48">Router Config</th>
-                                      <th className="py-3 px-4 w-48">Loop Activity</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                                    {pipeline.stages.map((stage, sIdx) => {
-                                      const telemetry: StageOperationalContext = (stage.operational_telemetry as StageOperationalContext) || {
-                                        targetDirective: "",
-                                        stuckThreshold: "",
-                                        routingDropdownKey: "",
-                                        isRecurringLoop: false,
-                                        recurrenceDays: 7
-                                       };
-                                       const guesses: StageOperationalContext = abTelemetryGuesses[stage.name] || getLocalFallbackGuess(stage.name);
-
-                                       return (
-                                         <tr key={sIdx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 text-xs transition-colors">
-                                           {/* Stage Name Column */}
-                                           <td className="py-4 px-4 align-top">
-                                             <span className="font-mono text-[10px] font-bold text-zinc-400 block">STAGE {pIdx + 1}.{sIdx + 1}</span>
-                                             <span className="font-bold text-zinc-900 dark:text-zinc-100 block tracking-tight truncate" title={stage.name}>
-                                               {stage.name}
-                                             </span>
-                                           </td>
-
-                                           {/* Target Directive Column — merged objective + outcome */}
-                                           <td className="py-3 px-3 align-top">
-                                             <textarea
-                                               value={telemetry.targetDirective || ""}
-                                               onChange={(e) => updateStageTelemetry(pIdx, sIdx, "targetDirective", e.target.value)}
-                                               onKeyDown={(e) => {
-                                                 if (e.key === 'Tab' && !telemetry.targetDirective) {
-                                                   e.preventDefault();
-                                                   updateStageTelemetry(pIdx, sIdx, "targetDirective", guesses.targetDirective || "");
-                                                 }
-                                               }}
-                                               placeholder={guesses.targetDirective || "Describe what this stage does and what success looks like..."}
-                                               rows={3}
-                                               className="w-full bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none p-1 text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 resize-none leading-normal transition-all"
-                                             />
-                                             {!telemetry.targetDirective && guesses.targetDirective && (
-                                               <button
-                                                 onClick={() => updateStageTelemetry(pIdx, sIdx, "targetDirective", guesses.targetDirective || "")}
-                                                 className="text-[9px] font-mono text-indigo-400 hover:text-indigo-600 transition-colors mt-0.5"
-                                               >
-                                                 Tab to accept
-                                               </button>
-                                             )}
-                                           </td>
-
-                                          {/* Stuck Threshold Column */}
-                                          <td className="py-3 px-3 align-top">
-                                            <input
-                                              value={telemetry.stuckThreshold || ""}
-                                              onChange={(e) => updateStageTelemetry(pIdx, sIdx, "stuckThreshold", e.target.value)}
-                                              onKeyDown={(e) => {
-                                                if (e.key === 'Tab' && !telemetry.stuckThreshold) {
-                                                  updateStageTelemetry(pIdx, sIdx, "stuckThreshold", guesses.stuckThreshold);
-                                                }
-                                              }}
-                                              placeholder={guesses.stuckThreshold}
-                                              className="w-full bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none p-1 text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 font-mono tracking-tight transition-all"
-                                            />
-                                          </td>
-
-                                          {/* Router Config Column */}
-                                          <td className="py-3 px-3 align-top space-y-1">
-                                            <div className="flex items-center gap-1.5">
-                                              <i className="ti ti-git-fork text-zinc-400 text-xs shrink-0" />
-                                              <select
-                                                value={telemetry.routingDropdownKey || ""}
-                                                onChange={(e) => updateStageTelemetry(pIdx, sIdx, "routingDropdownKey", e.target.value || undefined)}
-                                                className="w-full bg-transparent border-b border-zinc-100 dark:border-zinc-800 hover:border-zinc-300 focus:border-zinc-400 outline-none py-1 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 select-none appearance-none cursor-pointer"
-                                              >
-                                                <option value="" className="dark:bg-zinc-950">[No Router Field]</option>
-                                                {(targetImage?.customFields || [])
-                                                  .filter(f => f.type === 'enum' || f.type === 'set' || f.type === 'text' || f.type === 'varchar')
-                                                  .map(field => (
-                                                    <option key={field.key} value={field.key} className="dark:bg-zinc-950">
-                                                      {field.name} ({field.key})
-                                                    </option>
-                                                  ))}
-                                              </select>
-                                            </div>
-                                            {telemetry.routingDropdownKey && (() => {
-                                              const matchedField = (targetImage?.customFields || []).find(f => f.key === telemetry.routingDropdownKey);
-                                              if (matchedField?.options) {
-                                                return (
-                                                  <div className="text-[9px] font-mono text-zinc-400 pl-4 space-y-0.5 truncate">
-                                                    <span>Options: {matchedField.options.map(o => o.label).join(' | ')}</span>
-                                                  </div>
-                                                );
-                                              }
-                                              return null;
-                                            })()}
-                                          </td>
-
-                                          {/* Looping Recurrence Switch Column */}
-                                          <td className="py-3 px-3 align-top space-y-2">
-                                            <button
-                                              onClick={() => updateStageTelemetry(pIdx, sIdx, "isRecurringLoop", !telemetry.isRecurringLoop)}
-                                              className={`w-full py-1 text-[10px] font-bold uppercase tracking-widest rounded-sm border transition-all active:scale-95 ${
-                                                telemetry.isRecurringLoop
-                                                  ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/20 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400'
-                                                  : 'bg-zinc-50 border-zinc-200 dark:bg-zinc-800/30 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
-                                              }`}
-                                            >
-                                              {telemetry.isRecurringLoop ? '[LOOP: ACTIVE]' : '[LOOP ACTIVITY]'}
-                                            </button>
-                                            {telemetry.isRecurringLoop && (
-                                              <div className="flex items-center gap-1.5 animate-in fade-in duration-200">
-                                                <span className="text-[9px] font-mono text-zinc-400 shrink-0">Delay:</span>
-                                                <input
-                                                  type="number"
-                                                  min={1}
-                                                  max={90}
-                                                  value={telemetry.recurrenceDays || 7}
-                                                  onChange={(e) => updateStageTelemetry(pIdx, sIdx, "recurrenceDays", parseInt(e.target.value) || 7)}
-                                                  className="w-12 bg-transparent border-b border-zinc-200 dark:border-zinc-800 focus:border-zinc-400 outline-none text-center font-mono text-[10px] text-zinc-800 dark:text-zinc-200"
-                                                />
-                                                <span className="text-[9px] font-mono text-zinc-400 shrink-0">days</span>
-                                              </div>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
+                              <button onClick={() => setAbRoadmap(prev => prev.filter((_, i) => i !== idx))} className="h-8 w-8 text-zinc-300 hover:text-rose-500 transition-colors flex items-center justify-center active:scale-90">
+                                <i className="ti ti-trash text-lg" />
+                              </button>
                             </div>
                           ))}
                         </div>
-
-                        {/* Footer controls: Confirm Matrix */}
-                        <div className="flex justify-end pt-4 border-t border-zinc-200 dark:border-zinc-800">
-                          <button
-                            onClick={() => {
-                              // Confirm pre-flight telemetry, fill chat history and progress
-                              setAbChatHistory([
-                                { sender: "ai", text: `Let's customize your native automation runbook layout. First, select an active configuration blueprint card to analyze.` },
-                                { sender: "user", text: `Analyze blueprint: ${targetImage?.name}` },
-                                { sender: "ai", text: "Excellent! The CRM Stage Operational Telemetry Matrix has been injected successfully. Who will be using this CRM workspace? Let's build your team registry and assign seat counts." }
-                              ]);
-                              setAbStep('chat');
-                            }}
-                            className="h-12 px-8 bg-zinc-950 hover:bg-zinc-900 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-black rounded-sm text-[10px] font-bold uppercase tracking-[0.2em] transition-all active:scale-95 shadow-md"
-                          >
-                            Confirm Context Matrix
-                          </button>
-                        </div>
                       </div>
-                    );
-                  })()}
 
-                  {/* History Messages */}
-                  {abStep !== 'preflight' && abChatHistory.map((msg, i) => (
-                  <div key={i} className="py-8 border-b border-zinc-200/60 dark:border-zinc-800/60 last:border-0 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <div className="flex gap-6">
-                      <div className={`shrink-0 w-6 h-6 rounded-sm flex items-center justify-center text-[10px] font-mono font-bold ${msg.sender === 'ai' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400' : 'bg-[#004850] text-white'}`}>
-                        {msg.sender === 'ai' ? 'AI' : '//'}
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1">
-                          {msg.sender === 'ai' ? 'System Intelligence' : 'User Instruction'}
-                        </div>
-                        <div className={`text-sm leading-relaxed ${msg.sender === 'ai' ? 'text-zinc-800 dark:text-zinc-200' : 'text-zinc-600 dark:text-zinc-400'}`}>
-                          {msg.text}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Inline Status Indicators */}
-                {(abStep === 'planning' || abStep === 'stapling') && (
-                  <div className="py-8 animate-in fade-in duration-300">
-                    <div className="flex items-center gap-4 text-zinc-400">
-                      <div className="h-4 w-4 border-2 border-zinc-200 dark:border-zinc-800 border-t-zinc-400 dark:border-t-zinc-600 rounded-full animate-spin" />
-                      <div className="flex flex-col">
-                        <span className="text-xs font-mono font-medium italic uppercase tracking-tighter">
-                          {abStep === 'planning' 
-                            ? "Master Planner assembling global automation footprint map..." 
-                            : `Stapling Automation [${staplingState.index}/${staplingState.total}]: Compiling native configuration for '${staplingState.currentStage}'...`
-                          }
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Preview State Result Rendering */}
-                {abStep === 'preview' && (
-                  <div className="py-8 space-y-8">
-                    <div className="space-y-4">
-                      {abCompiledObjects.map((item, i) => (
-                        <details key={i} className="group border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden transition-all hover:border-zinc-400 dark:hover:border-zinc-600">
-                          <summary className="p-4 bg-zinc-50 dark:bg-zinc-900/50 cursor-pointer select-none flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <span className="font-mono text-[10px] font-bold bg-[#004850] text-white px-2 py-0.5 rounded-sm">{item.automationNumber}</span>
-                              <span className="text-xs font-bold uppercase tracking-widest text-zinc-800 dark:text-zinc-200">{item.stageName}</span>
-                            </div>
-                            <i className="ti ti-chevron-down text-zinc-400 group-open:rotate-180 transition-transform" />
-                          </summary>
-                          <div className="p-6 bg-white dark:bg-black space-y-6 text-sm">
-                            <div>
-                              <h4 className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">Operational Goal</h4>
-                              <p className="text-zinc-700 dark:text-zinc-300">{item.operationalGoal}</p>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                              <div>
-                                <h4 className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">Impacted Roles</h4>
-                                <ul className="space-y-1">
-                                  {item.impactedRoles.map((role: string, idx: number) => (
-                                    <li key={idx} className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
-                                      <span className="h-1 w-1 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
-                                      {role}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                              <div>
-                                <h4 className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">Setup Steps</h4>
-                                <ol className="space-y-2">
-                                  {item.setupSteps.map((step: string, idx: number) => (
-                                    <li key={idx} className="flex gap-3 text-zinc-600 dark:text-zinc-400">
-                                      <span className="font-mono text-[10px] font-bold text-zinc-300 dark:text-zinc-700 mt-0.5">{idx + 1}.</span>
-                                      {step}
-                                    </li>
-                                  ))}
-                                </ol>
-                              </div>
-                            </div>
-                          </div>
-                        </details>
-                      ))}
-                    </div>
-
-                    <details className="group border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden bg-white dark:bg-zinc-900">
-                      <summary className="p-4 cursor-pointer select-none flex items-center justify-between text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
-                        <span className="font-mono text-[10px] font-black uppercase tracking-widest">Raw Model Prompt Manifest</span>
-                        <i className="ti ti-code" />
-                      </summary>
-                      <div className="relative">
-                        <button
-                          onClick={() => copyToClipboard(compileRawModelPromptManifest())}
-                          className="absolute top-4 right-4 z-10 h-8 w-8 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-sm transition-all border border-zinc-700 shadow-xl"
-                        >
-                          <i className="ti ti-copy" />
-                        </button>
-                        <pre className="p-6 text-[11px] font-mono text-zinc-500 overflow-x-auto whitespace-pre-wrap leading-relaxed">
-                          {compileRawModelPromptManifest()}
-                        </pre>
-                      </div>
-                    </details>
-                  </div>
-                )}
-            </div>
-          </div>
-
-          {/* FLOATING ACTION STATION */}
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 max-w-3xl w-full px-6 z-[70] animate-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-sm p-4 overflow-hidden">
-              
-              {/* Stage: Selection */}
-              {abStep === 'select' && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-400">Select Target Blueprint</span>
-                    <span className="h-1.5 w-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {images.map(img => (
-                      <button
-                        key={img.id}
-                        disabled={isProcessing}
-                        onClick={() => {
-                          setAbSelectedImageId(img.id);
-                          setAbStep('preflight');
-                        }}
-                        className="px-4 py-3 text-left rounded-sm border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all group"
-                      >
-                        <span className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-white">{img.name}</span>
-                        <span className="font-mono text-[9px] text-zinc-400 uppercase tracking-widest">Asset // Local</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Stage: Chat (Team & Integrations) */}
-              {abStep === 'chat' && (
-                <div className="space-y-6">
-                  {!abChatHistory.some(msg => msg.text.startsWith("Commit Team Registry")) ? (
-                    <div className="space-y-4">
-                      <div className="flex gap-2 p-1 bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm">
+                      <div className="flex items-center gap-4 bg-zinc-50 dark:bg-zinc-900 p-4 rounded-sm border border-zinc-200 dark:border-zinc-800">
                         <input 
-                          value={tempRoleLabel} 
-                          onChange={e => setTempRoleLabel(e.target.value)} 
-                          placeholder="Role Name..." 
-                          className="flex-1 bg-transparent px-4 py-2 text-sm outline-none text-zinc-800 dark:text-zinc-200" 
-                        />
-                        <input 
-                          type="number" 
-                          value={tempRoleSeats} 
-                          onChange={e => setTempRoleSeats(parseInt(e.target.value) || 0)}
-                          className="w-16 bg-transparent px-2 py-2 text-sm text-center outline-none border-x border-zinc-200 dark:border-zinc-800 text-zinc-400 font-mono" 
+                            placeholder="Add adjustment instructions... (e.g. 'Add a Slack step to 1.1.1')"
+                            value={abReviewFeedback}
+                            onChange={(e) => setAbReviewFeedback(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && abReviewFeedback && compilePromptManifest(abReviewFeedback)}
+                            className="flex-1 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm py-3 px-4 text-sm font-sans focus:outline-none focus:border-[#004850] transition-all shadow-sm"
                         />
                         <button 
-                          onClick={() => {
-                            if (!tempRoleLabel) return;
-                            setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]);
-                            setTempRoleLabel("");
-                            setTempRoleSeats(1);
-                          }}
-                          className="bg-[#004850] text-white px-4 py-2 rounded-sm text-[10px] font-bold uppercase tracking-widest active:scale-95 transition-all"
+                            disabled={!abReviewFeedback}
+                            onClick={() => compilePromptManifest(abReviewFeedback)}
+                            className="h-11 px-6 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-sm text-[10px] font-black uppercase tracking-[0.2em] hover:opacity-80 transition-all disabled:opacity-30 active:scale-95"
                         >
-                          Add
+                            Update
                         </button>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {abRoles.map((role, i) => (
-                          <span key={i} className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 flex items-center gap-2">
-                            {role.roleName} <span className="font-mono text-zinc-400">{role.count}</span>
-                            <button onClick={() => setAbRoles(prev => prev.filter((_, idx) => idx !== i))} className="hover:text-rose-500"><i className="ti ti-x" /></button>
-                          </span>
-                        ))}
+
+                      <div className="flex justify-end gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-8">
+                        <button onClick={() => setAbStep('chat')} className="h-12 px-8 border border-zinc-200 dark:border-zinc-800 rounded-sm text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all active:scale-95">Go Back</button>
+                        <button onClick={() => compilePromptManifest()} className="h-12 px-10 bg-[#004850] text-white rounded-sm text-xs font-bold uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg shadow-[#004850]/20 active:scale-95">Generate Final Logic <i className="ti ti-wand" /></button>
                       </div>
-                      <button 
-                        onClick={() => {
-                          setAbChatHistory(prev => [...prev,
-                            { sender: "user", text: `Commit Team Registry: ${abRoles.map(r => r.roleName).join(", ")}` },
-                            { sender: "ai", text: `Understood. Which integration channels should be natively provisioned into this guide?` }
-                          ]);
-                        }} 
-                        className="w-full h-12 flex items-center justify-center bg-zinc-900 dark:bg-white text-white dark:text-black rounded-sm text-[10px] font-bold uppercase tracking-[0.2em] active:scale-95 transition-all"
-                      >
-                        Confirm Registry
-                      </button>
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                        {['Slack', 'Microsoft Teams', 'Asana', 'Trello', 'Webhooks', 'Campaigns', 'Projects'].map(int => (
-                          <button
-                            key={int}
-                            onClick={() => setAbSelectedIntegrations(prev => prev.includes(int) ? prev.filter(i => i !== int) : [...prev, int])}
-                            className={`p-3 rounded-sm border text-left transition-all ${abSelectedIntegrations.includes(int) ? 'bg-[#004850] border-[#004850] text-white' : 'border-zinc-200 dark:border-zinc-800 text-zinc-400'}`}
-                          >
-                            <span className="text-[10px] font-bold uppercase tracking-widest block">{int}</span>
-                          </button>
-                        ))}
+                  )}
+
+                  {abStep === 'stapling' && (
+                    <div className="py-24 flex flex-col items-center justify-center space-y-10 animate-in fade-in zoom-in-95 duration-700">
+                      <div className="relative">
+                        <div className="h-32 w-32 rounded-full border-4 border-zinc-100 dark:border-zinc-900 border-t-[#004850] animate-spin shadow-2xl" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <i className="ti ti-wand text-4xl text-[#004850] animate-pulse" />
+                        </div>
                       </div>
-                      <button
-                        disabled={isProcessing}
-                        onClick={() => {
-                          setAbChatHistory(prev => [...prev, { sender: "user", text: `Integrations: ${abSelectedIntegrations.join(", ")}`}]);
-                          compilePromptManifest();
-                        }}
-                        className="w-full h-12 flex items-center justify-center bg-zinc-900 dark:bg-white text-white dark:text-black rounded-sm text-[10px] font-bold uppercase tracking-[0.2em] active:scale-95 transition-all"
-                      >
-                        Compile Runbook
-                      </button>
+                      <div className="text-center space-y-4 max-w-md">
+                        <h3 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tighter">Crafting Logic</h3>
+                        <p className="text-sm text-zinc-500 font-sans leading-relaxed px-8">System is building step-by-step setup guides for <span className="font-mono text-[#004850] dark:text-emerald-500 font-bold">{staplingState.currentStage}</span> based on your architecture.</p>
+                        <div className="w-full bg-zinc-100 dark:bg-zinc-900 h-1.5 rounded-full overflow-hidden mt-8 shadow-inner">
+                          <div 
+                            className="bg-[#004850] h-full transition-all duration-700 ease-out shadow-[0_0_10px_#004850]" 
+                            style={{ width: `${(staplingState.index / staplingState.total) * 100}%` }} 
+                          />
+                        </div>
+                        <div className="flex justify-between font-mono text-[9px] text-zinc-400 uppercase tracking-[0.2em] font-black pt-2 px-1">
+                            <span>Initializing</span>
+                            <span>{staplingState.index} / {staplingState.total} Blocks</span>
+                            <span>Finalizing</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {abStep === 'preview' && (
+                    <div className="py-8 space-y-8 animate-in fade-in duration-500">
+                      <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Final Process Guide</span>
+                          <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-sm font-mono text-[9px] font-bold uppercase">Ready for export</span>
+                        </div>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={handleDocxDownload}
+                                className="h-9 px-4 bg-blue-600 text-white rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 active:scale-95 shadow-md"
+                            >
+                                <i className="ti ti-file-text" /> Download .Docx
+                            </button>
+                            <button 
+                                onClick={() => copyToClipboard(compileRawModelPromptManifest())}
+                                className="h-9 px-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all flex items-center gap-2 active:scale-95"
+                            >
+                                <i className="ti ti-copy" /> Copy Raw Text
+                            </button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Render individual automation preview cards */}
+                        <div className="space-y-6">
+                            {abCompiledObjects.map((item, idx) => (
+                                <div key={idx} className="border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden bg-zinc-50/50 dark:bg-zinc-900/50 shadow-sm hover:border-zinc-400 transition-all">
+                                    <div className="px-4 py-3 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
+                                        <span className="font-mono text-[10px] font-black px-2 py-0.5 bg-zinc-900 text-white rounded-sm tracking-widest">{item.automationNumber}</span>
+                                        <span className="text-[10px] font-bold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 truncate">{item.stageName}</span>
+                                    </div>
+                                    <div className="p-5 space-y-4">
+                                        <div>
+                                            <span className="block text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1">Operational Goal</span>
+                                            <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200 leading-relaxed">{item.operationalGoal}</p>
+                                        </div>
+                                        <div>
+                                            <span className="block text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1">Impacted Personnel</span>
+                                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                                {item.impactedRoles.map((role: string, rIdx: number) => (
+                                                    <span key={rIdx} className="px-2 py-0.5 bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-sm text-[9px] font-bold uppercase tracking-tight">{role}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Right column: prompt manifest final text */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2 mb-2">
+                                <i className="ti ti-terminal text-[#004850] dark:text-emerald-500" />
+                                <span className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">Process Logic Structure</span>
+                            </div>
+                            <div className="bg-zinc-900 dark:bg-black rounded-sm border border-zinc-800 p-6 h-[600px] overflow-y-auto font-mono text-[11px] leading-relaxed text-zinc-400 custom-scrollbar shadow-2xl">
+                                {compileRawModelPromptManifest().split('\n').map((line, lIdx) => (
+                                    <p key={lIdx} className={`${line.startsWith('===') ? 'text-emerald-500 font-bold mt-6 mb-2' : line.startsWith('###') ? 'text-[#004850] dark:text-emerald-300 font-bold mt-8 mb-3 text-sm' : line.startsWith('**') ? 'text-zinc-200 dark:text-zinc-300 font-bold mt-2' : 'text-zinc-500 dark:text-zinc-500'} py-0.5`}>
+                                        {line}
+                                    </p>
+                                ))}
+                            </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-center border-t border-zinc-100 dark:border-zinc-800 pt-10">
+                        <button 
+                          onClick={() => {
+                            setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, compiledRunbook: abCompiledObjects, selectedIntegrations: abSelectedIntegrations } : img));
+                            setIsAttached(true);
+                            setCopyFeedback("◆ Process guide attached to card");
+                            setTimeout(() => setCopyFeedback(null), 3000);
+                          }}
+                          disabled={isAttached}
+                          className={`h-14 px-12 rounded-sm text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-4 shadow-xl active:scale-95 ${isAttached ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 cursor-default' : 'bg-[#004850] text-white hover:bg-[#003840] shadow-[#004850]/20'}`}
+                        >
+                          <i className={`ti ${isAttached ? 'ti-check' : 'ti-bookmark'}`} />
+                          {isAttached ? "Process Attached to Card" : "Finalize & Attach to Card"}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
-              )}
+              </div>
 
-              {/* Stage: Review (Roadmap) */}
-              {abStep === 'review' && (() => {
-                const renderingSource = abRoadmap.length > 0 ? abRoadmap : abCompiledObjects;
-                return (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-400">Roadmap Validation</span>
-                      <span className="font-mono text-[10px] text-zinc-400 italic">
-                        Review {renderingSource.length} items
-                      </span>
-                    </div>
-                    <div className="flex flex-col border border-zinc-200 dark:border-zinc-800 rounded-sm bg-white dark:bg-zinc-900 max-h-[45vh] overflow-y-auto pr-1">
-                      {(() => {
-                        const activeItems = abRoadmap && abRoadmap.length > 0 ? abRoadmap : (abCompiledObjects || []);
-                        return activeItems.map((item: any, i: number) => (
-                          <div key={i} className="border-b border-zinc-200/60 dark:border-zinc-800/60 py-3 last:border-b-0 px-4">
-                            <span className="font-bold text-zinc-900 dark:text-zinc-100 text-xs tracking-tight">
-                              {deriveAutomationCoordinate(item, i, activeItems, targetImage)}: {item.stageName}
-                            </span>
-                            <p className="text-xs text-zinc-500 font-sans mt-0.5">
-                              {item.operationalGoal}
-                            </p>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                    <div className="flex flex-col gap-2 p-1 bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm">
-                      <textarea
-                        value={abReviewFeedback}
-                        onChange={(e) => setAbReviewFeedback(e.target.value)}
-                        placeholder="Enter feedback or refinement instructions..."
-                        className="w-full bg-transparent px-4 py-3 text-xs min-h-[60px] max-h-32 outline-none text-zinc-800 dark:text-zinc-200"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => { compilePromptManifest(abReviewFeedback); setAbReviewFeedback(""); }}
-                          className="flex-1 h-10 flex items-center justify-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm text-[10px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 active:scale-95 transition-all"
-                        >
-                          Rebuild
-                        </button>
-                        <button
-                          onClick={() => compilePromptManifest()}
-                          className="flex-[2] h-10 flex items-center justify-center bg-zinc-900 dark:bg-white text-white dark:text-black rounded-sm text-[10px] font-bold uppercase tracking-widest active:scale-95 transition-all"
-                        >
-                          Approve & Execute
-                        </button>
+              {/* Progress Stepper Footer */}
+              <div className="px-8 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center">
+                <div className="flex items-center gap-3">
+                  {['select', 'preflight', 'chat', 'planning', 'review', 'stapling', 'preview'].map((step, idx) => {
+                    const stepOrder = ['select', 'preflight', 'chat', 'planning', 'review', 'stapling', 'preview'];
+                    const currentIdx = stepOrder.indexOf(abStep);
+                    const thisIdx = stepOrder.indexOf(step);
+                    
+                    return (
+                      <div key={step} className="flex items-center gap-3">
+                        <div className={`h-2.5 w-2.5 rounded-full transition-all duration-500 ${thisIdx <= currentIdx ? 'bg-[#004850] dark:bg-emerald-500 scale-125' : 'bg-zinc-200 dark:bg-zinc-800'}`} />
+                        {idx < 6 && <div className={`h-0.5 w-8 rounded-full transition-all duration-700 ${thisIdx < currentIdx ? 'bg-[#004850]/40 dark:bg-emerald-500/40' : 'bg-zinc-200 dark:bg-zinc-800'}`} />}
                       </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Stage: Preview Actions */}
-              {abStep === 'preview' && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleDocxDownload()}
-                    className="flex-1 h-12 flex items-center justify-center gap-2 bg-zinc-100 dark:bg-zinc-800 rounded-sm text-[10px] font-bold uppercase tracking-widest text-zinc-800 dark:text-zinc-200 active:scale-95 transition-all"
-                  >
-                    <i className="ti ti-download" /> Download
-                  </button>
-                  <button 
-                    disabled={isProcessing || isAttached}
-                    onClick={() => {
-                        const payload = compileRawModelPromptManifest();
-                        setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, runbookManifest: payload, compiledRunbook: abCompiledObjects } : img));
-                        setIsAttached(true);
-                    }}
-                    className={`flex-[2] h-12 flex items-center justify-center rounded-sm text-[10px] font-bold uppercase tracking-widest active:scale-95 transition-all ${isAttached ? 'bg-emerald-600 text-white' : 'bg-zinc-900 dark:bg-white text-white dark:text-black'}`}
-                  >
-                    {isAttached ? "◆ Runbook Attached" : "Attach to Card"}
-                  </button>
-                  <button 
-                    onClick={() => { setAbOpen(false); setAbStep('select'); }}
-                    className="w-12 h-12 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-sm text-zinc-400 active:scale-95 transition-all"
-                  >
-                    <i className="ti ti-logout" />
-                  </button>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
 
-              {/* Neutral Loading Placeholder for Station */}
-              {(abStep === 'planning' || abStep === 'stapling') && (
-                <div className="p-4 flex items-center justify-center gap-3">
-                  <div className="h-1.5 w-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                  <div className="h-1.5 w-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                  <div className="h-1.5 w-1.5 bg-zinc-400 rounded-full animate-bounce" />
-                </div>
-              )}
             </div>
           </div>
-        </div>
-      )})()}
+        )
+      })()}
 
-      {/* 6. CLIPBOARD FEEDBACK */}
+      {/* FLOATING SUCCESS FEEDBACK */}
       {copyFeedback && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-zinc-900 text-white rounded-sm z-[400] flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 border border-zinc-700">
-          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-emerald-400">{copyFeedback}</span>
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black px-6 py-3 rounded-sm font-mono text-[10px] font-black uppercase tracking-widest shadow-2xl z-[500] animate-in fade-in slide-in-from-bottom-4 duration-300 border border-white/10 dark:border-black/10">
+          {copyFeedback}
         </div>
       )}
 
-      {/* 7. PROCESSING SPINNER */}
-      {isProcessing && (
-        <div className="fixed inset-0 z-[500] bg-zinc-950/20 backdrop-blur-[1px] flex items-center justify-center cursor-wait">
-          <div className="h-10 w-10 border-2 border-zinc-200 dark:border-zinc-800 border-t-[#004850] rounded-sm animate-spin " />
-        </div>
-      )}
-      <input type="file" id="rwe-import-input" accept=".rwe" className="hidden" onChange={handleImport} />
+      {/* HIDDEN IMPORT INPUT */}
+      <input 
+        id="rwe-import-input"
+        type="file" 
+        accept=".rwe"
+        onChange={handleImport}
+        className="hidden"
+      />
 
     </div>
   );
