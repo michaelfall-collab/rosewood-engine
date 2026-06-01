@@ -438,26 +438,27 @@ export default function ClientCockpitDashboard() {
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log("Import handler triggered");
     const file = e.target.files?.[0];
-    if (!file) {
-      console.log("No file selected");
-      return;
-    }
+    if (!file) return;
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
       try {
+        // Run file string through our dual-compatibility parser
         const importedData = deserializeFromRwe(text);
-        const enrichedBlueprint = ensureStageTelemetry(importedData);
+        const enrichedBlueprint = ensureStageTelemetry(importedData.blueprint);
         
         const rehydratedCard: LiveImage = { 
             ...enrichedBlueprint, 
             id: generateRweId(), 
-            owner: importedData.owner || 'Imported (File)', 
-            deals: importedData.deals || 0, 
-            abCompiledObjects: importedData.abCompiledObjects || [],
+            name: importedData.blueprint.name || 'Imported Account Map',
+            description: importedData.blueprint.description || '',
+            owner: importedData.blueprint.owner || 'Imported (File)', 
+            deals: importedData.blueprint.deals || 0, 
             compiledRunbook: importedData.compiledRunbook || [],
             selectedIntegrations: importedData.selectedIntegrations || []
         };
+        
         const newImages = [rehydratedCard, ...images];
         setImages(newImages);
         if (typeof window !== 'undefined') {
@@ -467,12 +468,6 @@ export default function ClientCockpitDashboard() {
         setTimeout(() => setCopyFeedback(null), 3000);
       } catch (error) {
         console.error("Import failed:", error);
-        setUiModal({
-            type: "alert",
-            title: "Import Error",
-            message: "Failed to import file. Ensure the file is valid.",
-            onCancel: () => setUiModal(null)
-        });
       }
     };
     reader.readAsText(file);
@@ -480,30 +475,38 @@ export default function ClientCockpitDashboard() {
  
   const handlePasteImport = () => {
     try {
-      const importedData = deserializeFromRwe(pastedConfig);
-      const enrichedBlueprint = ensureStageTelemetry(importedData);
-      
-      const hydratedObj: LiveImage = { 
-          ...enrichedBlueprint, 
-          id: generateRweId(), 
-          owner: importedData.owner || 'Imported (Paste)', 
-          deals: importedData.deals || 0, 
-          abCompiledObjects: importedData.abCompiledObjects || [],
-          compiledRunbook: importedData.compiledRunbook || [],
-          selectedIntegrations: importedData.selectedIntegrations || []
-      };
-      setImages(prev => [hydratedObj, ...prev]);
-      setIsPasteModalOpen(false);
-      setPastedConfig("");
-      setCopyFeedback("◆ Data imported successfully");
-      setTimeout(() => setCopyFeedback(null), 3000);
+      const importedObj = JSON.parse(pastedConfig);
+      if (importedObj.type === "ROSEWOOD_ENGINE_PROPRIETARY_EXPORT") {
+        // Mirror the same polymorphic normalization for immediate plain-text pastes
+        const baseBlueprint = importedObj.blueprint ? importedObj.blueprint : { ...importedObj };
+        const runbookPayload = importedObj.compiledRunbook || importedObj.abCompiledObjects || [];
+        
+        const enrichedBlueprint = ensureStageTelemetry(baseBlueprint);
+        const hydratedObj: LiveImage = {
+          ...enrichedBlueprint,
+          id: generateRweId(),
+          name: baseBlueprint.name || 'Pasted Setup Map',
+          description: baseBlueprint.description || '',
+          owner: baseBlueprint.owner || 'Imported (Paste)',
+          deals: baseBlueprint.deals || 0,
+          compiledRunbook: runbookPayload,
+          selectedIntegrations: importedObj.selectedIntegrations || baseBlueprint.selectedIntegrations || []
+        };
+        
+        const newImages = [hydratedObj, ...images];
+        setImages(newImages);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('rw_workspace_cache', JSON.stringify(newImages));
+        }
+        setIsPasteModalOpen(false);
+        setPastedConfig("");
+        setCopyFeedback("◆ Data imported successfully");
+        setTimeout(() => setCopyFeedback(null), 3000);
+      } else {
+        throw new Error("Invalid data type signature.");
+      }
     } catch (e) {
-      setUiModal({
-        type: "alert",
-        title: "Import Error",
-        message: "Failed to parse data. Ensure it is a valid export stream.",
-        onCancel: () => setUiModal(null)
-      });
+      console.error("Paste hydration error:", e);
     }
   };
 
