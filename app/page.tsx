@@ -271,7 +271,33 @@ export default function ClientCockpitDashboard() {
   const [tempRoleLabel, setTempRoleLabel] = useState("");
   const [tempRoleSeats, setTempRoleSeats] = useState(1);
   const [isAttached, setIsAttached] = useState(false);
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
   const [abTelemetryGuesses, setAbTelemetryGuesses] = useState<Record<string, StageOperationalContext>>({});
+
+  const handleAiAutoFill = async () => {
+    const targetImage = images.find(img => img.id === abSelectedImageId);
+    if (!targetImage) return;
+
+    setIsAutoFilling(true);
+    try {
+      const response = await fetch('/api/compile-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemPrompt: "You are a senior CRM strategist. Based on the provided pipeline stage objectives, write a cohesive 'Instruction Prompt' (150-200 words) for an automation builder. Describe standard Pipedrive automation behaviors including Slack notifications, deal movement triggers, and stalled-deal reminders that align with these objectives. Write in the first person as if the user is giving instructions. Do not use markdown formatting.",
+          userPrompt: `Generate instructions for this project: ${targetImage.name}. Objectives: ${JSON.stringify(targetImage.pipelines.flatMap(p => p.stages.map(s => ({ name: s.name, objective: (s.operational_telemetry as any)?.targetDirective }))))}`
+        })
+      });
+      const data = await response.json();
+      // The API might return text directly if no schema provided
+      const autoText = data.jsonObject?.text || data.text || "";
+      if (autoText) setAbChatInput(autoText);
+    } catch (e) {
+      console.warn("AI Auto-fill failed", e);
+    } finally {
+      setIsAutoFilling(false);
+    }
+  };
   const [isFetchingGuesses, setIsFetchingGuesses] = useState(false);
 
   // Auto-scroll chat to bottom
@@ -1763,9 +1789,9 @@ export default function ClientCockpitDashboard() {
                         
                         {/* WIDGETS */}
                         {msg.dataWidget === "SELECT_PROJECT" && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 ${i < visibleChatHistory.length - 1 ? 'opacity-40 pointer-events-none' : ''}`}>
                             {images.map(img => (
-                              <button key={img.id} onClick={() => {
+                              <button key={img.id} disabled={i < visibleChatHistory.length - 1} onClick={() => {
                                 setAbSelectedImageId(img.id);
                                 setAbChatHistory(prev => [...prev, { sender: 'user', text: `I've selected the '${img.name}' project.` }]);
                                 setVisibleChatHistory(prev => [...prev, { sender: 'user', text: `I've selected the '${img.name}' project.` }]);
@@ -1836,7 +1862,7 @@ export default function ClientCockpitDashboard() {
                               ))}
                             </div>
                             <div className="flex justify-end">
-                              <button onClick={() => {
+                              <button disabled={i < visibleChatHistory.length - 1} onClick={() => {
                                 setAbChatHistory(prev => [...prev, { sender: 'user', text: "Goals calibrated. Ready to define system context." }]);
                                 setVisibleChatHistory(prev => [...prev, { sender: 'user', text: "Goals calibrated. Ready to define system context." }]);
                                 typewriterAddMessage({ sender: 'ai', text: "Understood. Now, let's specify the connected tools and team roles involved in this project. You can update these parameters in the console below.", dataWidget: "CONTEXT_TUNING" });
@@ -1846,7 +1872,7 @@ export default function ClientCockpitDashboard() {
                         )}
 
                         {msg.dataWidget === "CONTEXT_TUNING" && (
-                          <div className="space-y-10 pt-2 animate-in fade-in duration-500">
+                          <div className={`space-y-10 pt-2 animate-in fade-in duration-500 ${i < visibleChatHistory.length - 1 ? 'opacity-40 pointer-events-none' : ''}`}>
                             {/* Integration Selector */}
                             <div className="space-y-4">
                               <div className="flex items-center gap-3">
@@ -1857,6 +1883,7 @@ export default function ClientCockpitDashboard() {
                                 {Object.keys(PIPEDRIVE_CAPABILITIES_REGISTRY.supportedIntegrations).map((slug) => (
                                   <button
                                     key={slug}
+                                    disabled={i < visibleChatHistory.length - 1}
                                     onClick={() => setAbSelectedIntegrations(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug])}
                                     className={`p-3 border rounded-2xl transition-all flex flex-col items-center gap-2 text-center active:scale-95 shadow-sm ${abSelectedIntegrations.includes(slug) ? 'border-[#004850] bg-[#004850]/5 text-[#004850] dark:border-emerald-500 dark:text-emerald-400 shadow-md' : 'border-zinc-200 dark:border-zinc-800 text-zinc-400 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 bg-white dark:bg-zinc-900'}`}
                                   >
@@ -1878,22 +1905,22 @@ export default function ClientCockpitDashboard() {
                                   <div key={idx} className="flex items-center gap-3 pl-4 pr-1 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm animate-in zoom-in-95">
                                     <span className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 uppercase">{role.roleName}</span>
                                     <span className="h-6 px-2 bg-[#004850] rounded-full text-[9px] font-mono flex items-center justify-center text-white">{role.count}</span>
-                                    <button onClick={() => setAbRoles(prev => prev.filter((_, i) => i !== idx))} className="h-6 w-6 hover:text-rose-500 transition-colors flex items-center justify-center"><i className="ti ti-x text-xs" /></button>
+                                    <button disabled={i < visibleChatHistory.length - 1} onClick={() => setAbRoles(prev => prev.filter((_, i) => i !== idx))} className="h-6 w-6 hover:text-rose-500 transition-colors flex items-center justify-center"><i className="ti ti-x text-xs" /></button>
                                   </div>
                                 ))}
                                 <div className="flex items-center gap-2 pl-4 bg-white dark:bg-zinc-950 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-full shadow-sm overflow-hidden h-9">
-                                  <input placeholder="Add Role..." value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-24 py-1" />
+                                  <input disabled={i < visibleChatHistory.length - 1} placeholder="Add Role..." value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-24 py-1" />
                                   <div className="flex items-center gap-1 border-x border-zinc-100 dark:border-zinc-800 px-2 h-full py-1">
                                       <span className="text-[8px] font-mono text-zinc-400">#</span>
-                                      <input type="number" value={tempRoleSeats} onChange={e => setTempRoleSeats(parseInt(e.target.value) || 1)} className="bg-transparent border-none outline-none text-[10px] font-mono font-bold w-6 text-center" />
+                                      <input disabled={i < visibleChatHistory.length - 1} type="number" value={tempRoleSeats} onChange={e => setTempRoleSeats(parseInt(e.target.value) || 1)} className="bg-transparent border-none outline-none text-[10px] font-mono font-bold w-6 text-center" />
                                   </div>
-                                  <button onClick={() => { if (tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="h-full w-10 text-[#004850] dark:text-emerald-500 hover:bg-[#004850] hover:text-white transition-all flex items-center justify-center"><i className="ti ti-plus" /></button>
+                                  <button disabled={i < visibleChatHistory.length - 1} onClick={() => { if (tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="h-full w-10 text-[#004850] dark:text-emerald-500 hover:bg-[#004850] hover:text-white transition-all flex items-center justify-center"><i className="ti ti-plus" /></button>
                                 </div>
                               </div>
                             </div>
 
                             <div className="flex justify-end pt-4">
-                              <button onClick={() => {
+                              <button disabled={i < visibleChatHistory.length - 1} onClick={() => {
                                 setAbChatHistory(prev => [...prev, { sender: 'user', text: "Context finalized. Ready to build logic." }]);
                                 setVisibleChatHistory(prev => [...prev, { sender: 'user', text: "Context finalized. Ready to build logic." }]);
                                 typewriterAddMessage({ sender: 'ai', text: "Perfect. Now, describe the automation behaviors you'd like to build for this project. Mention triggers, Slack notifications, or conditional fallback rules. I'll translate your instructions into a structured roadmap." });
@@ -2047,6 +2074,14 @@ export default function ClientCockpitDashboard() {
                     className="w-full h-24 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 pr-32 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-2xl shadow-black/5 disabled:opacity-50"
                   />
                   <div className="absolute bottom-5 right-5 flex gap-3">
+                    <button 
+                      onClick={handleAiAutoFill}
+                      disabled={isAutoFilling || abStep !== 'chat'}
+                      className={`h-11 w-11 bg-zinc-100 dark:bg-zinc-800 text-[#004850] dark:text-emerald-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-2xl flex items-center justify-center transition-all active:scale-90 disabled:opacity-30 shadow-sm ${isAutoFilling ? 'animate-pulse' : ''}`}
+                      title="Magic AI Auto-fill"
+                    >
+                      <i className={`ti ${isAutoFilling ? 'ti-loader animate-spin' : 'ti-sparkles'} text-xl`} />
+                    </button>
                     <button 
                       onClick={() => { if (abChatInput.trim()) { 
                         const msg = { sender: 'user' as const, text: abChatInput };
