@@ -511,13 +511,12 @@ export default function ClientCockpitDashboard() {
     setVisibleChatHistory(prev => [...prev, { ...msg, text: "", isTyping: true }]);
 
     // Scroll to the top of this new message bubble
-    // Added a slightly longer delay to ensure the DOM has rendered the bubble
-    setTimeout(() => {
+    requestAnimationFrame(() => {
         const el = document.getElementById(`msg-${msgIndex}`);
         if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-    }, 200);
+    });
 
     const chars = msg.text.split("");
     for (let i = 0; i < chars.length; i++) {
@@ -1803,8 +1802,9 @@ export default function ClientCockpitDashboard() {
                             {images.map(img => (
                               <button key={img.id} disabled={i < visibleChatHistory.length - 1} onClick={() => {
                                 setAbSelectedImageId(img.id);
-                                setAbChatHistory(prev => [...prev, { sender: 'user', text: `I've selected the '${img.name}' project.` }]);
-                                setVisibleChatHistory(prev => [...prev, { sender: 'user', text: `I've selected the '${img.name}' project.` }]);
+                                const userMsg = { sender: 'user' as const, text: `I've selected the '${img.name}' project.` };
+                                setAbChatHistory(prev => [...prev, userMsg]);
+                                setVisibleChatHistory(prev => [...prev, userMsg]);
                                 typewriterAddMessage({ sender: 'ai', text: "Excellent choice. Let's calibrate your process track objectives. Tune the goals and thresholds in the matrix below.", dataWidget: "GOAL_MATRIX" });
                                 setAbStep('preflight');
                               }} className="p-5 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900 hover:border-[#004850] dark:hover:border-emerald-500 transition-all text-left group active:scale-[0.98] shadow-sm">
