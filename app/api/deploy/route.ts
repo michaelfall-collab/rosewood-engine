@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     // =========================================================================
-    // PASS 2: SYSTEM FIELD MUTATIONS MATRIX RESOLUTION (THE MUTATION FIX)
+    // PASS 2: SYSTEM FIELD MUTATIONS MATRIX RESOLUTION
     // =========================================================================
     if (template.systemFieldMutations && template.systemFieldMutations.length > 0) {
       deploymentLogs.push("Initializing Pass 2: Overriding native system dropdown enumerators...");
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
     }
 
     // =========================================================================
-    // PASS 4: PIPELINES AND STAGES HYDRATION (THE AUTO-STAGE COLLISION FIX)
+    // PASS 4: PIPELINES AND STAGES HYDRATION
     // =========================================================================
     deploymentLogs.push("Initializing Pass 4: Deploying multi-channel pipelines and rotting constraints...");
     
@@ -229,7 +229,6 @@ export async function POST(request: NextRequest) {
           deploymentLogs.push(`• Created Track: Provisioned fresh operational track manual "${pipelineSpec.name}" (ID: ${pipelineId})`);
         }
 
-        // Character Safety Handshake: Post-Pipeline Stage Refresh Handshake
         const freshStagesResponse = await fetch(buildUrl('stages'));
         const freshStagesData = await freshStagesResponse.json();
         const activeStagesPool = freshStagesData.success ? (freshStagesData.data || []) : [];
@@ -244,7 +243,6 @@ export async function POST(request: NextRequest) {
           try {
             let matchedStage = currentPipelineStages.find((stage: any) => stage.name === stageSpec.name);
             
-            // Boolean-to-Integer Type Mutation Map Enforced
             const stageBody = {
               name: stageSpec.name,
               pipeline_id: pipelineId,
@@ -304,7 +302,6 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Prune remaining unassigned dummy stages from the account
         if (isNewPipeline && currentPipelineStages.length > pipelineSpec.stages.length) {
           const leftovers = currentPipelineStages.slice(pipelineSpec.stages.length);
           for (const remainingDummy of leftovers) {
@@ -332,7 +329,7 @@ export async function POST(request: NextRequest) {
     }
 
     // =========================================================================
-    // PASS 5: LOST REASONS RECONCILIATION
+    // PASS 5: LOST REASONS MULTI-FORMAT RECONCILIATION
     // =========================================================================
     if (template.lostReasons && template.lostReasons.length > 0) {
       deploymentLogs.push("Initializing Pass 5: Reconciling standard attrition reason options...");
@@ -341,37 +338,39 @@ export async function POST(request: NextRequest) {
         const lostReasonsData = await lostReasonsResponse.json();
         const existingReasons = lostReasonsData.success ? (lostReasonsData.data || []) : [];
 
-        for (const rawLostReason of template.lostReasons) {
+        for (const lostReason of template.lostReasons) {
           try {
-            // Defensive Type Check: Safely normalize both raw strings and object parameters
-            const normalizedReasonText = typeof rawLostReason === 'string' 
-              ? rawLostReason 
-              : (rawLostReason.reason || '');
+            // Polymorphic Schema Normalizer: Grabs text cleanly from strings or structured entries
+            const reasonText = typeof lostReason === 'string' 
+              ? lostReason 
+              : (lostReason && typeof lostReason === 'object' && 'reason' in lostReason) 
+                ? (lostReason as any).reason 
+                : '';
 
-            if (!normalizedReasonText) continue;
+            if (!reasonText || reasonText.trim() === '') continue;
 
             const matchedReason = existingReasons.find((existingReason: any) => 
-              existingReason.reason?.toLowerCase() === normalizedReasonText.toLowerCase()
+              existingReason.reason?.toLowerCase() === reasonText.toLowerCase()
             );
 
             if (matchedReason) {
-              deploymentLogs.push(`• Reusing Attrition Logic: Parameter tracking verified for choice label "${normalizedReasonText}"`);
+              deploymentLogs.push(`• Reusing Attrition Logic: Parameter tracking verified for choice label "${reasonText}"`);
             } else {
               const createReasonResponse = await fetch(buildUrl('lostReasons'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reason: normalizedReasonText }),
+                body: JSON.stringify({ reason: reasonText }),
               });
               const createReasonData = await createReasonResponse.json();
 
               if (createReasonData.success) {
-                deploymentLogs.push(`• Injected Attrition Logic: Appended drop value option item "${normalizedReasonText}"`);
+                deploymentLogs.push(`• Injected Attrition Logic: Appended drop value option item "${reasonText}"`);
               } else {
-                deploymentLogs.push(`✗ Reason Skipped: Dropdown entry "${normalizedReasonText}" rejected: ${createReasonData.error || 'API constraint'}`);
+                deploymentLogs.push(`✗ Reason Skipped: Dropdown entry "${reasonText}" rejected: ${createReasonData.error || 'API constraint'}`);
               }
             }
           } catch (lostReasonInnerError: any) {
-            deploymentLogs.push(`✗ Reason Exception: Failed to evaluate drop entry: ${lostReasonInnerError.message}`);
+            deploymentLogs.push(`✗ Reason Exception: Failed to evaluate attrition choice: ${lostReasonInnerError.message}`);
           }
         }
       } catch (error: any) {
