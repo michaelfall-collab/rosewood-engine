@@ -440,17 +440,17 @@ export default function ClientCockpitDashboard() {
     reader.onload = (event) => {
       const text = event.target?.result as string;
       try {
-        const { blueprint, compiledRunbook, abCompiledObjects: importedAbObjects } = deserializeFromRwe(text);
-        const runbookPayload = importedAbObjects || compiledRunbook || [];
-        const enrichedBlueprint = ensureStageTelemetry(blueprint);
+        const importedData = deserializeFromRwe(text);
+        const enrichedBlueprint = ensureStageTelemetry(importedData);
+        
         const rehydratedCard: LiveImage = { 
             ...enrichedBlueprint, 
             id: generateRweId(), 
-            owner: 'Imported', 
-            deals: 0, 
-            compiledRunbook: runbookPayload,
-            abCompiledObjects: runbookPayload,
-            selectedIntegrations: []
+            owner: importedData.owner || 'Imported (File)', 
+            deals: importedData.deals || 0, 
+            abCompiledObjects: importedData.abCompiledObjects || [],
+            compiledRunbook: importedData.compiledRunbook || [],
+            selectedIntegrations: importedData.selectedIntegrations || []
         };
         const newImages = [rehydratedCard, ...images];
         setImages(newImages);
@@ -474,26 +474,23 @@ export default function ClientCockpitDashboard() {
  
   const handlePasteImport = () => {
     try {
-      const importedObj = JSON.parse(pastedConfig);
-      if (importedObj.type === "ROSEWOOD_ENGINE_PROPRIETARY_EXPORT") {
-        const runbookPayload = importedObj.abCompiledObjects || importedObj.compiledRunbook || [];
-        const enrichedBlueprint = ensureStageTelemetry(importedObj.blueprint);
-        const hydratedObj: LiveImage = {
-          ...enrichedBlueprint,
-          id: generateRweId(),
-          owner: 'Imported (Paste)',
-          deals: 0,
-          compiledRunbook: runbookPayload,
-          abCompiledObjects: runbookPayload
-        };
-        setImages(prev => [hydratedObj, ...prev]);
-        setIsPasteModalOpen(false);
-        setPastedConfig("");
-        setCopyFeedback("◆ Data imported successfully");
-        setTimeout(() => setCopyFeedback(null), 3000);
-      } else {
-        throw new Error("Invalid data type");
-      }
+      const importedData = deserializeFromRwe(pastedConfig);
+      const enrichedBlueprint = ensureStageTelemetry(importedData);
+      
+      const hydratedObj: LiveImage = { 
+          ...enrichedBlueprint, 
+          id: generateRweId(), 
+          owner: importedData.owner || 'Imported (Paste)', 
+          deals: importedData.deals || 0, 
+          abCompiledObjects: importedData.abCompiledObjects || [],
+          compiledRunbook: importedData.compiledRunbook || [],
+          selectedIntegrations: importedData.selectedIntegrations || []
+      };
+      setImages(prev => [hydratedObj, ...prev]);
+      setIsPasteModalOpen(false);
+      setPastedConfig("");
+      setCopyFeedback("◆ Data imported successfully");
+      setTimeout(() => setCopyFeedback(null), 3000);
     } catch (e) {
       setUiModal({
         type: "alert",
