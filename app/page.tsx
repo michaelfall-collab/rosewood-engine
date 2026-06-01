@@ -1237,10 +1237,10 @@ export default function ClientCockpitDashboard() {
                   ) : (
                     <div className="space-y-8 font-sans">
                       <div className="pb-6 border-b border-zinc-200 dark:border-zinc-800">
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500 mb-4">Engine Blueprint Overview</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500 mb-4">Project Summary</h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                           <div>
-                            <span className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Architecture</span>
+                            <span className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Project Name</span>
                             <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{activeDetail.name}</span>
                           </div>
                           <div>
@@ -1248,11 +1248,11 @@ export default function ClientCockpitDashboard() {
                             <span className="text-sm font-mono text-zinc-900 dark:text-zinc-100">{activeDetail.version}</span>
                           </div>
                           <div>
-                            <span className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Pipelines</span>
+                            <span className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Process Tracks</span>
                             <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{activeDetail.pipelines?.length || 0}</span>
                           </div>
                           <div>
-                            <span className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Total Stages</span>
+                            <span className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Total Steps</span>
                             <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                               {activeDetail.pipelines?.reduce((acc: number, p: any) => acc + (p.stages?.length || 0), 0) || 0}
                             </span>
@@ -1260,7 +1260,7 @@ export default function ClientCockpitDashboard() {
                         </div>
                         {activeDetail.description && (
                           <div className="mt-6">
-                            <span className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Architectural Intent</span>
+                            <span className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Goal of this Project</span>
                             <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed italic">
                               "{activeDetail.description}"
                             </p>
@@ -1269,22 +1269,23 @@ export default function ClientCockpitDashboard() {
                       </div>
 
                       <div className="space-y-6">
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Workflow Structures</h3>
-                        <div className="space-y-4">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Stages by Process Track</h3>
+                        <div className="space-y-6">
                           {activeDetail.pipelines?.map((pipeline: any, pIdx: number) => (
-                            <div key={pIdx} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm p-4 shadow-sm">
-                              <div className="flex items-center justify-between mb-3">
+                            <div key={pIdx} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm p-5 shadow-sm">
+                              <div className="flex items-center justify-between mb-4 border-b border-zinc-100 dark:border-zinc-800 pb-2">
                                 <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">
                                   {pIdx + 1}. {pipeline.name}
                                 </span>
                                 <span className="font-mono text-[9px] text-zinc-400 tracking-widest">
-                                  {pipeline.stages?.length || 0} STAGES
+                                  {pipeline.stages?.length || 0} STEPS
                                 </span>
                               </div>
-                              <div className="flex flex-wrap gap-2">
+                              <div className="space-y-2">
                                 {pipeline.stages?.map((stage: any, sIdx: number) => (
-                                  <div key={sIdx} className="px-3 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-sm text-[10px] font-medium text-zinc-600 dark:text-zinc-400">
-                                    {stage.name}
+                                  <div key={sIdx} className="flex items-center gap-3 text-[11px] text-zinc-600 dark:text-zinc-400">
+                                    <span className="font-mono text-[9px] text-zinc-300 dark:text-zinc-700 w-4">{sIdx + 1}.</span>
+                                    <span className="font-medium">{stage.name}</span>
                                   </div>
                                 ))}
                               </div>
@@ -1295,19 +1296,30 @@ export default function ClientCockpitDashboard() {
 
                       {activeDetail.customFields && activeDetail.customFields.length > 0 && (
                         <div className="space-y-4">
-                          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Data Schema Extension</h3>
+                          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">New Data Folders</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {activeDetail.customFields.map((field: any, fIdx: number) => (
-                              <div key={fIdx} className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm">
-                                <div className="h-8 w-8 rounded-sm bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 flex items-center justify-center text-zinc-400">
-                                  <i className="ti ti-table-column" />
+                            {activeDetail.customFields.map((field: any, fIdx: number) => {
+                              // Convert tech types to simple words
+                              let simpleType = "Text";
+                              const t = field.type?.toLowerCase();
+                              if (t === 'enum' || t === 'set') simpleType = "Dropdown Menu";
+                              if (t === 'double' || t === 'monetary') simpleType = "Number / Currency";
+                              if (t === 'date' || t === 'daterange') simpleType = "Date";
+                              if (t === 'user') simpleType = "Staff Member";
+                              if (t === 'org' || t === 'people') simpleType = "Related Contact";
+                              
+                              return (
+                                <div key={fIdx} className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm">
+                                  <div className="h-8 w-8 rounded-sm bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 flex items-center justify-center text-zinc-400">
+                                    <i className="ti ti-folder" />
+                                  </div>
+                                  <div>
+                                    <span className="block text-[10px] font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]">{field.name}</span>
+                                    <span className="block font-mono text-[9px] text-zinc-400 uppercase tracking-widest">{simpleType}</span>
+                                  </div>
                                 </div>
-                                <div>
-                                  <span className="block text-[10px] font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]">{field.name}</span>
-                                  <span className="block font-mono text-[9px] text-zinc-400 uppercase tracking-widest">{field.type} · {field.field_type}</span>
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
