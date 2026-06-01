@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { CRMArchitectureBlueprint } from "@/types/blueprint";
+import { CRMArchitectureBlueprint, StageOperationalContext, PipelineStageSpec } from "@/types/blueprint";
 import { generateRunbookPrompt } from "@/utils/promptCompiler";
 import { PIPEDRIVE_CAPABILITIES_REGISTRY } from "@/config/pipedriveCapabilities";
 import { exportRunbookToDocx } from '@/utils/docxExporter';
@@ -20,6 +20,135 @@ type LiveImage = CRMArchitectureBlueprint & {
 };
 
 const generateRweId = () => "rwe_card_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+
+export function getAIGuessesForStage(stageName: string): StageOperationalContext {
+  const lower = stageName.toLowerCase();
+  
+  let humanObjective = "";
+  let desiredOutcome = "";
+  let stuckThreshold = "";
+  let routingDropdownKey = "";
+  let isRecurringLoop = false;
+  let recurrenceDays = 7;
+
+  if (lower.includes("lead") || lower.includes("inbox") || lower.includes("intake") || lower.includes("inbound")) {
+    humanObjective = "Catch inbound inquiries and perform initial qualification check.";
+    desiredOutcome = "Confirm ICP fit and route to representative.";
+    stuckThreshold = "3 Days";
+  } else if (lower.includes("contact") || lower.includes("outreach") || lower.includes("call") || lower.includes("schedule") || lower.includes("phone")) {
+    humanObjective = "Outreach to scheduled prospect to establish contact.";
+    desiredOutcome = "Get a qualified discovery call booked on the calendar.";
+    stuckThreshold = "7 Days";
+  } else if (lower.includes("demo") || lower.includes("present") || lower.includes("meeting") || lower.includes("pitch")) {
+    humanObjective = "Demonstrate core platform capabilities to client.";
+    desiredOutcome = "Customer requests pricing and formal implementation plan.";
+    stuckThreshold = "10 Days";
+  } else if (lower.includes("proposal") || lower.includes("quote") || lower.includes("price") || lower.includes("pricing")) {
+    humanObjective = "Deliver custom agreement and answer contract questions.";
+    desiredOutcome = "Receive customer sign-off on pricing and mutual terms.";
+    stuckThreshold = "14 Days";
+  } else if (lower.includes("contract") || lower.includes("negotiat") || lower.includes("legal") || lower.includes("sign")) {
+    humanObjective = "Secure signed contract and collect setup deposit.";
+    desiredOutcome = "Fully executed contract received and deal marked won.";
+    stuckThreshold = "14 Days";
+  } else if (lower.includes("onboard") || lower.includes("client") || lower.includes("welcome") || lower.includes("setup")) {
+    humanObjective = "Collect technical requirements and configure team workspace.";
+    desiredOutcome = "Client completes welcome kickoff and starts system usage.";
+    stuckThreshold = "14 Days";
+  } else if (lower.includes("waitlist") || lower.includes("nurture") || lower.includes("hold")) {
+    humanObjective = "Maintain automated passive touchpoints and periodically check in.";
+    desiredOutcome = "Prospect requests to re-open active sales conversation.";
+    stuckThreshold = "30 Days";
+  } else {
+    humanObjective = `Progress deal through ${stageName} and resolve dependencies.`;
+    desiredOutcome = "Confirm all requirements met and handoff to the next phase.";
+    stuckThreshold = "7 Days";
+  }
+
+  return {
+    humanObjective,
+    desiredOutcome,
+    stuckThreshold,
+    routingDropdownKey,
+    isRecurringLoop,
+    recurrenceDays
+  };
+}
+
+export function ensureStageTelemetry(blueprint: CRMArchitectureBlueprint): CRMArchitectureBlueprint {
+  if (!blueprint || !blueprint.pipelines) return blueprint;
+  
+  const updatedPipelines = blueprint.pipelines.map(pipeline => {
+    if (!pipeline.stages) return pipeline;
+    return {
+      ...pipeline,
+      stages: pipeline.stages.map(stage => {
+        const rawTelemetry = (stage as any).operational_telemetry || {};
+        
+        // Map snake_case to camelCase from loaded/imported RWE configurations
+        const humanObjective = rawTelemetry.stage_objective || rawTelemetry.humanObjective || "";
+        const desiredOutcome = rawTelemetry.desiredOutcome || "";
+        const stuckThreshold = rawTelemetry.real_world_friction || rawTelemetry.stuckThreshold || "";
+        const routingDropdownKey = rawTelemetry.router_trigger_field || rawTelemetry.routingDropdownKey || "";
+        const isRecurringLoop = rawTelemetry.is_recurring_loop !== undefined 
+          ? rawTelemetry.is_recurring_loop 
+          : (rawTelemetry.isRecurringLoop !== undefined ? rawTelemetry.isRecurringLoop : false);
+        const recurrenceDays = rawTelemetry.recurrenceDays !== undefined ? rawTelemetry.recurrenceDays : 7;
+        
+        return {
+          ...stage,
+          operational_telemetry: {
+            humanObjective,
+            desiredOutcome,
+            stuckThreshold,
+            routingDropdownKey,
+            isRecurringLoop,
+            recurrenceDays
+          }
+        };
+      })
+    };
+  });
+  
+  return {
+    ...blueprint,
+    pipelines: updatedPipelines
+  };
+}
+
+export function deriveAutomationCoordinate(
+  stageName: string, 
+  itemIndex: number, 
+  runbook: any[], 
+  blueprint?: CRMArchitectureBlueprint
+): string {
+  if (!blueprint || !blueprint.pipelines) return `1.1.${itemIndex + 1}`;
+  let pIdx = 0;
+  let sIdx = 0;
+  let found = false;
+  
+  for (let pi = 0; pi < blueprint.pipelines.length; pi++) {
+    const pipeline = blueprint.pipelines[pi];
+    const si = pipeline.stages.findIndex(s => s.name === stageName);
+    if (si !== -1) {
+      pIdx = pi;
+      sIdx = si;
+      found = true;
+      break;
+    }
+  }
+  
+  if (!found) return `1.1.${itemIndex + 1}`;
+  
+  let count = 0;
+  for (let i = 0; i <= itemIndex; i++) {
+    if (runbook[i]?.stageName === stageName) {
+      count++;
+    }
+  }
+  
+  return `${pIdx + 1}.${sIdx + 1}.${count}`;
+}
 
 interface ModalProps {
   title: string;
@@ -57,13 +186,16 @@ export default function ClientCockpitDashboard() {
       const cached = localStorage.getItem("rw_workspace_cache");
       if (cached) {
         try {
-          return JSON.parse(cached);
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            return parsed.map(img => ensureStageTelemetry(img) as LiveImage);
+          }
         } catch (e) {
           console.error("Cache parsing error", e);
         }
       }
     }
-    return [SYSTEM_SEED];
+    return [ensureStageTelemetry(SYSTEM_SEED) as LiveImage];
   });
   const [apiKey, setApiKey] = useState("");
   const [isVerified, setIsVerified] = useState(false);
@@ -85,7 +217,7 @@ export default function ClientCockpitDashboard() {
 
   // Automation Builder States
   const [abOpen, setAbOpen] = useState(false);
-  const [abStep, setAbStep] = useState<'select' | 'chat' | 'planning' | 'review' | 'stapling' | 'preview'>('select');
+  const [abStep, setAbStep] = useState<'select' | 'preflight' | 'chat' | 'planning' | 'review' | 'stapling' | 'preview'>('select');
   const [abRoadmap, setAbRoadmap] = useState<any[]>([]);
   const [abReviewFeedback, setAbReviewFeedback] = useState("");
   const [staplingState, setStaplingState] = useState({ index: 0, total: 0, currentStage: "" });
@@ -193,8 +325,9 @@ export default function ClientCockpitDashboard() {
       const text = event.target?.result as string;
       try {
         const { blueprint, abCompiledObjects: importedAbObjects } = deserializeFromRwe(text);
+        const enrichedBlueprint = ensureStageTelemetry(blueprint);
         const rehydratedCard: LiveImage = { 
-            ...blueprint, 
+            ...enrichedBlueprint, 
             id: generateRweId(), 
             owner: 'Imported', 
             deals: 0, 
@@ -220,13 +353,14 @@ export default function ClientCockpitDashboard() {
     };
     reader.readAsText(file);
   };
-
+ 
   const handlePasteImport = () => {
     try {
       const importedObj = JSON.parse(pastedConfig);
       if (importedObj.type === "ROSEWOOD_ENGINE_PROPRIETARY_EXPORT") {
+        const enrichedBlueprint = ensureStageTelemetry(importedObj.blueprint);
         const hydratedObj: LiveImage = {
-          ...importedObj.blueprint,
+          ...enrichedBlueprint,
           id: generateRweId(),
           owner: 'Imported (Paste)',
           deals: 0,
@@ -252,9 +386,15 @@ export default function ClientCockpitDashboard() {
 
   const compileRawModelPromptManifest = (compiledObjects?: any[]) => {
     const targetImage = images.find(i => i.id === abSelectedImageId);
+    if (!targetImage) return "";
     const sanitizedIntegrations = abSelectedIntegrations.map(i => typeof i === 'object' ? (i as any).name || JSON.stringify(i) : i);
-    // Convert object array back to markdown for the prompt generator
-    const markdown = (compiledObjects || abCompiledObjects).map(o => `### ${o.automationNumber}: ${o.stageName}\nGoal: ${o.operationalGoal}\nSteps: ${o.setupSteps.join(', ')}`).join('\n\n---\n\n');
+    
+    const objArray = compiledObjects || abCompiledObjects;
+    const markdown = objArray.map((o, idx) => {
+      const coordinate = deriveAutomationCoordinate(o.stageName, idx, objArray, targetImage);
+      return `### ${coordinate}: ${o.stageName}\nGoal: ${o.operationalGoal}\nSteps: ${o.setupSteps.join(', ')}`;
+    }).join('\n\n---\n\n');
+    
     return generateRunbookPrompt(targetImage, sanitizedIntegrations, { 
       userRoles: abRoles,
       automationBlocks: markdown
@@ -266,7 +406,7 @@ export default function ClientCockpitDashboard() {
     if (!targetImage) return;
 
     // STAGE 1: Roadmap Generation (planning -> review)
-    if (abStep === 'select' || abStep === 'chat' || (abStep === 'review' && feedback)) {
+    if (abStep === 'select' || abStep === 'preflight' || abStep === 'chat' || (abStep === 'review' && feedback)) {
       setAbStep('planning');
       setIsAttached(false);
 
@@ -296,7 +436,19 @@ export default function ClientCockpitDashboard() {
           body: JSON.stringify({
             systemPrompt: `You are a Master CRM Planner. Analyze the provided CRM blueprint and team registry. 
             Generate a high-level roadmap of automations. 
-            STRICT NAMING RULE: For each automation, automationNumber MUST use the pattern "[Pipeline Order ID + 1].[Stage Order ID + 1]" (e.g. "1.1", "1.2", "2.1").
+            
+            STRICT NAMING RULE: For each automation, the automationNumber MUST use the 3-digit coordinate pattern "PipelineIndex.StageIndex.AutomationIndex" (e.g., "1.1.1", "1.1.2" for multiple automations in stage 1, "1.2.1", "2.1.1").
+            The first digit is Pipeline Index (1-based), second digit is Stage Index (1-based), and third digit is the sequential Automation Index (1-based) for that stage.
+            
+            CRITICAL ENRICHMENT DIRECTIVE:
+            Analyze the 'operational_telemetry' object inside each stage of the blueprint:
+            - If 'humanObjective' or 'desiredOutcome' is set, construct a dedicated automation mapping to that business intent.
+            - If 'stuckThreshold' is set, you must generate a separate fallback automation for a Stalled Deal Alarm (e.g. "X.Y.2: Stalled Deal Alarm") that runs if a deal is stuck.
+            - If 'routingDropdownKey' is set, you must generate a separate Multi-Branch Dropdown Router automation (e.g. "X.Y.3: Dropdown Option Router") mapping that custom field's options.
+            - If 'isRecurringLoop' is true, you must generate a separate automation for a Looping/Recurring Activity.
+            
+            Therefore, instead of just 1 flat automation per stage, you must generate multiple distinct, rich operational automations per stage where these telemetry context parameters are present.
+            
             Integrations available: ${JSON.stringify(abSelectedIntegrations)}.
             Team Registry: ${JSON.stringify(abRoles)}.
             ${feedback ? `CRITICAL: The user has provided feedback for this revision: "${feedback}". Adjust the roadmap accordingly.` : ""}`,
@@ -334,6 +486,17 @@ export default function ClientCockpitDashboard() {
           currentStage: item.stageName 
         });
         
+        // Find stage operational telemetry
+        let stageTelemetry = null;
+        let customFieldsList = targetImage.customFields || [];
+        for (const pipeline of targetImage.pipelines) {
+          const found = pipeline.stages.find(s => s.name === item.stageName);
+          if (found) {
+            stageTelemetry = (found as any).operational_telemetry;
+            break;
+          }
+        }
+        
         try {
           const response = await fetch('/api/compile-agent', {
             method: 'POST',
@@ -341,8 +504,26 @@ export default function ClientCockpitDashboard() {
             body: JSON.stringify({
               systemPrompt: `You are an Enterprise CRM Systems Architect. Capabilities: ${JSON.stringify(PIPEDRIVE_CAPABILITIES_REGISTRY)}. 
               Generate detailed configuration for the following roadmap item.
-              STRICT NAMING RULE: automationNumber must remain "${item.automationNumber}".`,
-              userPrompt: `Generate configuration for automation goal: "${item.operationalGoal}" in stage "${item.stageName}". Roles involved: ${JSON.stringify(abRoles)}. Coordinate Index: ${item.automationNumber}`
+              STRICT NAMING RULE: automationNumber must remain "${item.automationNumber}".
+              
+              CRITICAL PATTERNS TO ENFORCE:
+              
+              Pattern A: Looping/Recurring State Machine
+              - If the operational telemetry has 'isRecurringLoop' set to true, you MUST implement a self-sustaining activity loop.
+              - The step-by-step layout MUST read: 'Trigger: Activity updated where subject matches [Name] and status matches DONE. Action: Instantly create a clean follow-up Activity with an identical subject line, natively mapped relative to the trigger execution timestamp with a relative delay offset of X days.' (where X is the recurrenceDays in telemetry).
+              
+              Pattern B: Multi-Branch Dropdown Router
+              - If a 'routingDropdownKey' is specified in the operational telemetry, you are PROHIBITED from creating simple activity list reminders.
+              - You must construct an explicit If/Else routing tree based entirely on the target field's valid options in the custom fields schema.
+              - The step-by-step layout MUST read: 'Trigger: Deal custom field [Field Key] updates. Branching Conditions: If field matches Option A -> move Deal natively to Stage X. Else if field matches Option B -> move Deal natively to Stage Y.'`,
+              userPrompt: `Generate configuration for automation goal: "${item.operationalGoal}" in stage "${item.stageName}".
+              Roles involved: ${JSON.stringify(abRoles)}.
+              Coordinate Index: ${item.automationNumber}
+              
+              Stage Operational Telemetry Context:
+              ${stageTelemetry ? JSON.stringify(stageTelemetry, null, 2) : "None provided."}
+              Custom Fields Schema:
+              ${JSON.stringify(customFieldsList, null, 2)}`
             })
           });
 
@@ -983,7 +1164,7 @@ export default function ClientCockpitDashboard() {
                           {/* Stage Block Header */}
                           <div className={`px-6 py-4 ${theme.bg} border-b ${theme.border} flex items-center justify-between`}>
                             <h3 className={`text-sm font-bold uppercase tracking-tight ${theme.text}`}>
-                              Automation {item.automationNumber}: {item.stageName}
+                              Automation {deriveAutomationCoordinate(item.stageName, i, activeDetail.compiledRunbook || [], activeDetail)}: {item.stageName}
                             </h3>
                             <div className="flex items-center gap-3">
                               <div className="flex items-center gap-1 border-r border-zinc-200 dark:border-zinc-800 pr-3">
@@ -1173,31 +1354,288 @@ export default function ClientCockpitDashboard() {
       )}
 
       {/* AUTOMATION BUILDER MODAL */}
-      {abOpen && (
-        <div className="fixed inset-0 w-full h-full min-h-screen z-[250] flex flex-col bg-zinc-50 dark:bg-black">
-          {/* Header */}
-          <div className="h-14 max-h-14 flex items-center justify-between px-6 border-b border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 sticky top-0 z-[60]">
-            <span className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">Runbook Builder // Stark Interface</span>
-            <button
-              onClick={() => {
-                setAbOpen(false);
-                setAbStep('select');
-                setAbSelectedImageId(null);
-                setAbSelectedIntegrations([]);
-                setAbChatHistory([]);
-                setAbRoles([]);
-              }}
-              className="h-8 w-8 flex items-center justify-center rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-400"
-            >
-              <i className="ti ti-x" />
-            </button>
-          </div>
+      {abOpen && (() => {
+        const targetImage = images.find(img => img.id === abSelectedImageId);
+        
+        // Helper to update stage operational telemetry
+        const updateStageTelemetry = (
+          pipelineIdx: number,
+          stageIdx: number,
+          field: string,
+          value: any
+        ) => {
+          if (!abSelectedImageId) return;
+          setImages(prev => prev.map(img => {
+            if (img.id !== abSelectedImageId) return img;
+            const pipelinesCopy = [...img.pipelines];
+            const stagesCopy = [...pipelinesCopy[pipelineIdx].stages];
+            const stageCopy = { ...stagesCopy[stageIdx] };
+            const telemetryCopy = { ...((stageCopy as any).operational_telemetry || {}) };
+            telemetryCopy[field] = value;
+            (stageCopy as any).operational_telemetry = telemetryCopy;
+            stagesCopy[stageIdx] = stageCopy;
+            pipelinesCopy[pipelineIdx] = { ...pipelinesCopy[pipelineIdx], stages: stagesCopy };
+            return { ...img, pipelines: pipelinesCopy };
+          }));
+        };
 
-          {/* Unified Chat Timeline Stream */}
-          <div className="flex-1 overflow-y-auto pb-48 pt-4">
-            <div className="max-w-3xl mx-auto w-full px-6">
-                {/* History Messages */}
-                {abChatHistory.map((msg, i) => (
+        // Helper to accept all AI-guessed telemetries
+        const acceptAllAIGuesses = () => {
+          if (!abSelectedImageId) return;
+          setImages(prev => prev.map(img => {
+            if (img.id !== abSelectedImageId) return img;
+            const pipelinesCopy = img.pipelines.map((pipeline) => {
+              const stagesCopy = pipeline.stages.map((stage) => {
+                const telemetryCopy = { ...(stage.operational_telemetry || {}) };
+                const guesses = getAIGuessesForStage(stage.name);
+                
+                if (!telemetryCopy.humanObjective) telemetryCopy.humanObjective = guesses.humanObjective;
+                if (!telemetryCopy.desiredOutcome) telemetryCopy.desiredOutcome = guesses.desiredOutcome;
+                if (!telemetryCopy.stuckThreshold) telemetryCopy.stuckThreshold = guesses.stuckThreshold;
+                if (telemetryCopy.isRecurringLoop === undefined) telemetryCopy.isRecurringLoop = guesses.isRecurringLoop;
+                if (telemetryCopy.recurrenceDays === undefined) telemetryCopy.recurrenceDays = guesses.recurrenceDays;
+                
+                return {
+                  ...stage,
+                  operational_telemetry: telemetryCopy
+                };
+              });
+              return { ...pipeline, stages: stagesCopy };
+            });
+            return { ...img, pipelines: pipelinesCopy };
+          }));
+        };
+
+        return (
+          <div className="fixed inset-0 w-full h-full min-h-screen z-[250] flex flex-col bg-zinc-50 dark:bg-black">
+            {/* Header */}
+            <div className="h-14 max-h-14 flex items-center justify-between px-6 border-b border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 sticky top-0 z-[60]">
+              <span className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">Runbook Builder // Stark Interface</span>
+              <button
+                onClick={() => {
+                  setAbOpen(false);
+                  setAbStep('select');
+                  setAbSelectedImageId(null);
+                  setAbSelectedIntegrations([]);
+                  setAbChatHistory([]);
+                  setAbRoles([]);
+                }}
+                className="h-8 w-8 flex items-center justify-center rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-400"
+              >
+                <i className="ti ti-x" />
+              </button>
+            </div>
+
+            {/* Unified Chat Timeline Stream */}
+            <div className="flex-1 overflow-y-auto pb-48 pt-4">
+              <div className={`mx-auto w-full px-6 transition-all duration-300 ${abStep === 'preflight' ? 'max-w-5xl' : 'max-w-3xl'}`}>
+                  
+                  {/* Pre-Flight Context Matrix Screen */}
+                  {abStep === 'preflight' && (() => {
+                    if (!targetImage) return null;
+
+                    return (
+                      <div className="py-6 space-y-6 animate-in fade-in duration-300 font-sans">
+                        {/* Header section with description and Accept All Guesses */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-4">
+                          <div>
+                            <h2 className="text-lg font-bold text-zinc-950 dark:text-zinc-50 font-mono tracking-tight uppercase">
+                              Pre-Flight Context Matrix
+                            </h2>
+                            <p className="text-xs text-zinc-500 mt-1 font-sans">
+                              Define real-world telemetry parameters for each pipeline stage. Ghost text shows AI-guessed context; press <kbd className="px-1.5 py-0.5 border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-850 rounded font-mono text-[9px] text-zinc-800 dark:text-zinc-200">Tab</kbd> inside an empty field to accept it.
+                            </p>
+                          </div>
+                          <button
+                            onClick={acceptAllAIGuesses}
+                            className="shrink-0 h-9 px-4 flex items-center justify-center gap-2 border border-[#004850]/20 hover:border-[#004850] bg-[#004850]/5 hover:bg-[#004850]/15 text-[#004850] dark:text-[#008080] rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95"
+                          >
+                            [Accept All AI Guesses]
+                          </button>
+                        </div>
+
+                        {/* Grid container */}
+                        <div className="space-y-8">
+                          {targetImage.pipelines.map((pipeline, pIdx) => (
+                            <div key={pIdx} className="space-y-4">
+                              <div className="flex items-center gap-2 font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                <span>Pipeline {pIdx + 1}: {pipeline.name}</span>
+                                <span className="flex-1 h-[1px] bg-zinc-200 dark:bg-zinc-800" />
+                              </div>
+
+                              <div className="border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden bg-white dark:bg-zinc-900">
+                                <table className="w-full text-left border-collapse table-fixed">
+                                  <thead>
+                                    <tr className="bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-400">
+                                      <th className="py-3 px-4 w-44">Stage</th>
+                                      <th className="py-3 px-4">Stage Objective</th>
+                                      <th className="py-3 px-4">Desired Outcome</th>
+                                      <th className="py-3 px-4 w-32">Stalled Threshold</th>
+                                      <th className="py-3 px-4 w-48">Router Config</th>
+                                      <th className="py-3 px-4 w-48">Loop Activity</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                                    {pipeline.stages.map((stage, sIdx) => {
+                                      const telemetry = stage.operational_telemetry || {
+                                        humanObjective: "",
+                                        desiredOutcome: "",
+                                        stuckThreshold: "",
+                                        routingDropdownKey: "",
+                                        isRecurringLoop: false,
+                                        recurrenceDays: 7
+                                      };
+                                      const guesses = getAIGuessesForStage(stage.name);
+
+                                      return (
+                                        <tr key={sIdx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 text-xs transition-colors">
+                                          {/* Stage Name Column */}
+                                          <td className="py-4 px-4 align-top">
+                                            <span className="font-mono text-[10px] font-bold text-zinc-400 block">STAGE {pIdx + 1}.{sIdx + 1}</span>
+                                            <span className="font-bold text-zinc-900 dark:text-zinc-100 block tracking-tight truncate" title={stage.name}>
+                                              {stage.name}
+                                            </span>
+                                          </td>
+
+                                          {/* Stage Objective Column */}
+                                          <td className="py-3 px-3 align-top">
+                                            <textarea
+                                              value={telemetry.humanObjective || ""}
+                                              onChange={(e) => updateStageTelemetry(pIdx, sIdx, "humanObjective", e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Tab' && !telemetry.humanObjective) {
+                                                  updateStageTelemetry(pIdx, sIdx, "humanObjective", guesses.humanObjective);
+                                                }
+                                              }}
+                                              placeholder={guesses.humanObjective}
+                                              rows={2}
+                                              className="w-full bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none p-1 text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 resize-none leading-normal transition-all"
+                                            />
+                                          </td>
+
+                                          {/* Desired Outcome Column */}
+                                          <td className="py-3 px-3 align-top">
+                                            <textarea
+                                              value={telemetry.desiredOutcome || ""}
+                                              onChange={(e) => updateStageTelemetry(pIdx, sIdx, "desiredOutcome", e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Tab' && !telemetry.desiredOutcome) {
+                                                  updateStageTelemetry(pIdx, sIdx, "desiredOutcome", guesses.desiredOutcome);
+                                                }
+                                              }}
+                                              placeholder={guesses.desiredOutcome}
+                                              rows={2}
+                                              className="w-full bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none p-1 text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 resize-none leading-normal transition-all"
+                                            />
+                                          </td>
+
+                                          {/* Stuck Threshold Column */}
+                                          <td className="py-3 px-3 align-top">
+                                            <input
+                                              value={telemetry.stuckThreshold || ""}
+                                              onChange={(e) => updateStageTelemetry(pIdx, sIdx, "stuckThreshold", e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Tab' && !telemetry.stuckThreshold) {
+                                                  updateStageTelemetry(pIdx, sIdx, "stuckThreshold", guesses.stuckThreshold);
+                                                }
+                                              }}
+                                              placeholder={guesses.stuckThreshold}
+                                              className="w-full bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none p-1 text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 font-mono tracking-tight transition-all"
+                                            />
+                                          </td>
+
+                                          {/* Router Config Column */}
+                                          <td className="py-3 px-3 align-top space-y-1">
+                                            <div className="flex items-center gap-1.5">
+                                              <i className="ti ti-git-fork text-zinc-400 text-xs shrink-0" />
+                                              <select
+                                                value={telemetry.routingDropdownKey || ""}
+                                                onChange={(e) => updateStageTelemetry(pIdx, sIdx, "routingDropdownKey", e.target.value || undefined)}
+                                                className="w-full bg-transparent border-b border-zinc-100 dark:border-zinc-800 hover:border-zinc-300 focus:border-zinc-400 outline-none py-1 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 select-none appearance-none cursor-pointer"
+                                              >
+                                                <option value="" className="dark:bg-zinc-950">[No Router Field]</option>
+                                                {(targetImage?.customFields || [])
+                                                  .filter(f => f.type === 'enum' || f.type === 'set' || f.type === 'text' || f.type === 'varchar')
+                                                  .map(field => (
+                                                    <option key={field.key} value={field.key} className="dark:bg-zinc-950">
+                                                      {field.name} ({field.key})
+                                                    </option>
+                                                  ))}
+                                              </select>
+                                            </div>
+                                            {telemetry.routingDropdownKey && (() => {
+                                              const matchedField = (targetImage?.customFields || []).find(f => f.key === telemetry.routingDropdownKey);
+                                              if (matchedField?.options) {
+                                                return (
+                                                  <div className="text-[9px] font-mono text-zinc-400 pl-4 space-y-0.5 truncate">
+                                                    <span>Options: {matchedField.options.map(o => o.label).join(' | ')}</span>
+                                                  </div>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
+                                          </td>
+
+                                          {/* Looping Recurrence Switch Column */}
+                                          <td className="py-3 px-3 align-top space-y-2">
+                                            <button
+                                              onClick={() => updateStageTelemetry(pIdx, sIdx, "isRecurringLoop", !telemetry.isRecurringLoop)}
+                                              className={`w-full py-1 text-[10px] font-bold uppercase tracking-widest rounded-sm border transition-all active:scale-95 ${
+                                                telemetry.isRecurringLoop
+                                                  ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/20 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400'
+                                                  : 'bg-zinc-50 border-zinc-200 dark:bg-zinc-800/30 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                                              }`}
+                                            >
+                                              {telemetry.isRecurringLoop ? '[LOOP: ACTIVE]' : '[LOOP ACTIVITY]'}
+                                            </button>
+                                            {telemetry.isRecurringLoop && (
+                                              <div className="flex items-center gap-1.5 animate-in fade-in duration-200">
+                                                <span className="text-[9px] font-mono text-zinc-400 shrink-0">Delay:</span>
+                                                <input
+                                                  type="number"
+                                                  min={1}
+                                                  max={90}
+                                                  value={telemetry.recurrenceDays || 7}
+                                                  onChange={(e) => updateStageTelemetry(pIdx, sIdx, "recurrenceDays", parseInt(e.target.value) || 7)}
+                                                  className="w-12 bg-transparent border-b border-zinc-200 dark:border-zinc-800 focus:border-zinc-400 outline-none text-center font-mono text-[10px] text-zinc-800 dark:text-zinc-200"
+                                                />
+                                                <span className="text-[9px] font-mono text-zinc-400 shrink-0">days</span>
+                                              </div>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Footer controls: Confirm Matrix */}
+                        <div className="flex justify-end pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                          <button
+                            onClick={() => {
+                              // Confirm pre-flight telemetry, fill chat history and progress
+                              setAbChatHistory([
+                                { sender: "ai", text: `Let's customize your native automation runbook layout. First, select an active configuration blueprint card to analyze.` },
+                                { sender: "user", text: `Analyze blueprint: ${targetImage?.name}` },
+                                { sender: "ai", text: "Excellent! The CRM Stage Operational Telemetry Matrix has been injected successfully. Who will be using this CRM workspace? Let's build your team registry and assign seat counts." }
+                              ]);
+                              setAbStep('chat');
+                            }}
+                            className="h-12 px-8 bg-zinc-950 hover:bg-zinc-900 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-black rounded-sm text-[10px] font-bold uppercase tracking-[0.2em] transition-all active:scale-95 shadow-md"
+                          >
+                            Confirm Context Matrix
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* History Messages */}
+                  {abStep !== 'preflight' && abChatHistory.map((msg, i) => (
                   <div key={i} className="py-8 border-b border-zinc-200/60 dark:border-zinc-800/60 last:border-0 animate-in fade-in slide-in-from-bottom-2 duration-500">
                     <div className="flex gap-6">
                       <div className={`shrink-0 w-6 h-6 rounded-sm flex items-center justify-center text-[10px] font-mono font-bold ${msg.sender === 'ai' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400' : 'bg-[#004850] text-white'}`}>
@@ -1319,13 +1757,7 @@ export default function ClientCockpitDashboard() {
                         disabled={isProcessing}
                         onClick={() => {
                           setAbSelectedImageId(img.id);
-                          setAbChatHistory(prev => [
-                            ...prev, 
-                            { sender: "ai", text: `Let's customize your native automation runbook layout. First, select an active configuration blueprint card to analyze.` }, 
-                            { sender: "user", text: `Analyze blueprint: ${img.name}` },
-                            { sender: "ai", text: "Who will be using this CRM workspace? Let's build your team registry and assign seat counts." }
-                          ]);
-                          setAbStep('chat');
+                          setAbStep('preflight');
                         }}
                         className="px-4 py-3 text-left rounded-sm border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all group"
                       >
@@ -1432,7 +1864,7 @@ export default function ClientCockpitDashboard() {
                         return activeItems.map((item: any, i: number) => (
                           <div key={i} className="border-b border-zinc-200/60 dark:border-zinc-800/60 py-3 last:border-b-0 px-4">
                             <span className="font-bold text-zinc-900 dark:text-zinc-100 text-xs tracking-tight">
-                              {item.automationNumber}: {item.stageName}
+                              {deriveAutomationCoordinate(item.stageName, i, activeItems, targetImage)}: {item.stageName}
                             </span>
                             <p className="text-xs text-zinc-500 font-sans mt-0.5">
                               {item.operationalGoal}
@@ -1507,7 +1939,7 @@ export default function ClientCockpitDashboard() {
             </div>
           </div>
         </div>
-      )}
+      )})()}
 
       {/* 6. CLIPBOARD FEEDBACK */}
       {copyFeedback && (

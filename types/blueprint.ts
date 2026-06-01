@@ -1,11 +1,21 @@
 // types/blueprint.ts
 
+export interface StageOperationalContext {
+  humanObjective?: string;
+  desiredOutcome?: string;
+  stuckThreshold?: string;
+  routingDropdownKey?: string;
+  isRecurringLoop?: boolean;
+  recurrenceDays?: number;
+}
+
 export interface PipelineStageSpec {
   name: string;
   order_nr: number;
   deal_probability: number;
   rotten_flag: boolean;
   rotten_days: number | null;
+  operational_telemetry?: StageOperationalContext;
 }
 
 export interface PipelineSpec {
