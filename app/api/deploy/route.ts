@@ -34,6 +34,9 @@ export async function POST(request: NextRequest) {
       return `${PIPEDRIVE_API_BASE}/v1/${endpoint}${separator}api_token=${token}`;
     };
 
+    // Robust Normalization Helper to prevent false recreation attempts caused by whitespace or encoding differences
+    const normalizeName = (name: string) => (name || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+
     // =========================================================================
     // PASS 1: CUSTOM DATA FIELD PROVISIONING & HASH RECONCILIATION
     // =========================================================================
@@ -50,7 +53,7 @@ export async function POST(request: NextRequest) {
 
           for (const field of targetFields) {
             try {
-              const matchedField = existingFields.find((existingField: any) => existingField.name === field.name);
+              const matchedField = existingFields.find((existingField: any) => normalizeName(existingField.name) === normalizeName(field.name));
 
               if (matchedField) {
                 const assignedHash = matchedField.key || '';
@@ -173,7 +176,7 @@ export async function POST(request: NextRequest) {
               continue;
             }
 
-            const matchedActivity = existingActivities.find((existingActivity: any) => existingActivity.name?.toLowerCase() === activityType.name.toLowerCase());
+            const matchedActivity = existingActivities.find((existingActivity: any) => normalizeName(existingActivity.name) === normalizeName(activityType.name));
 
             if (matchedActivity) {
               deploymentLogs.push(`• Reusing Activity: Engagement track layout variable "${activityType.name}" matches active parameters.`);
@@ -211,14 +214,15 @@ export async function POST(request: NextRequest) {
     
     const pipelinesResponse = await fetch(buildUrl('pipelines'));
     const pipelinesData = await pipelinesResponse.json();
-    //  FIXED: pointed safely to pipelinesData.data instead of fieldsData.data
     let existingPipelines = pipelinesData.success ? (pipelinesData.data || []) : [];
 
     for (const pipelineSpec of template.pipelines) {
       try {
         let pipelineId: number;
         let isNewPipeline = false;
-        const matchedPipeline = existingPipelines.find((pipeline: any) => pipeline.name === pipelineSpec.name);
+        
+        // Fixed lookup check using normalized formatting
+        const matchedPipeline = existingPipelines.find((pipeline: any) => normalizeName(pipeline.name) === normalizeName(pipelineSpec.name));
 
         if (matchedPipeline) {
           pipelineId = matchedPipeline.id;
@@ -255,7 +259,7 @@ export async function POST(request: NextRequest) {
         for (let i = 0; i < pipelineSpec.stages.length; i++) {
           const stageSpec = pipelineSpec.stages[i];
           try {
-            let matchedStage = currentPipelineStages.find((stage: any) => stage.name === stageSpec.name);
+            let matchedStage = currentPipelineStages.find((stage: any) => normalizeName(stage.name) === normalizeName(stageSpec.name));
             
             const stageBody = {
               name: stageSpec.name,
@@ -371,7 +375,7 @@ export async function POST(request: NextRequest) {
             if (!reasonText || reasonText.trim() === '') continue;
 
             const matchedReason = existingReasons.find((existingReason: any) => 
-              existingReason.reason?.toLowerCase() === reasonText.toLowerCase()
+              normalizeName(existingReason.reason) === normalizeName(reasonText)
             );
 
             if (matchedReason) {
