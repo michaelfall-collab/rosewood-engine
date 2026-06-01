@@ -211,6 +211,7 @@ export async function POST(request: NextRequest) {
     
     const pipelinesResponse = await fetch(buildUrl('pipelines'));
     const pipelinesData = await pipelinesResponse.json();
+    //  FIXED: pointed safely to pipelinesData.data instead of fieldsData.data
     let existingPipelines = pipelinesData.success ? (pipelinesData.data || []) : [];
 
     for (const pipelineSpec of template.pipelines) {
