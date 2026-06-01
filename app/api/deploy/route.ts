@@ -2,12 +2,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CRMArchitectureBlueprint } from '@/types/blueprint';
 
+export const dynamic = 'force-dynamic';
+
 const PIPEDRIVE_API_BASE = 'https://api.pipedrive.com';
 
 interface DeployRequestBody {
   token: string;
   template: CRMArchitectureBlueprint;
 }
+
+// Rate Limiter Buffer: Artificial delay utility to stay under Pipedrive's rolling 2-second burst cap
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function POST(request: NextRequest) {
   const deploymentLogs: string[] = [];
@@ -28,19 +33,17 @@ export async function POST(request: NextRequest) {
     const fieldKeyTranslationMap: Record<string, string> = {};
     const deployedPipelines: any[] = [];
 
-    // URL Token Separator Fix: Dynamically choose query parameter combiner to prevent double question-marks
     const buildUrl = (endpoint: string) => {
       const separator = endpoint.includes('?') ? '&' : '?';
       return `${PIPEDRIVE_API_BASE}/v1/${endpoint}${separator}api_token=${token}`;
     };
 
-    // Robust Normalization Helper to decode HTML ampersand entities before processing alphanumeric masks
     const normalizeName = (name: string) => {
       if (!name) return "";
       return name
         .toLowerCase()
-        .replace(/&amp;/g, '&') // Explicitly decode HTML entity strings to literal symbols
-        .replace(/[^a-z0-9]/g, ''); // Safely strip out leftover non-alphanumeric masks
+        .replace(/&amp;/g, '&')
+        .replace(/[^a-z0-9]/g, '');
     };
 
     // =========================================================================
@@ -52,12 +55,13 @@ export async function POST(request: NextRequest) {
       
       for (const scope of scopes) {
         try {
-          const fieldsResponse = await fetch(buildUrl(`${scope}Fields`));
+          const fieldsResponse = await fetch(buildUrl(`${scope}Fields`), { cache: 'no-store' });
           const fieldsData = await fieldsResponse.json();
           const existingFields = fieldsData.success ? (fieldsData.data || []) : [];
           const targetFields = template.customFields.filter(f => f.field_type === scope);
 
           for (const field of targetFields) {
+            await sleep(100); // Throttling block pacing
             try {
               const matchedField = existingFields.find((existingField: any) => {
                 const n1 = normalizeName(existingField.name);
@@ -78,7 +82,6 @@ export async function POST(request: NextRequest) {
                   const missingLabels = newOptionLabels.filter(label => !existingLabels.includes(label));
 
                   if (missingLabels.length > 0) {
-                    // Normalize option objects to align with Pipedrive custom field update structures
                     const mergedOptions = [
                       ...remoteOptions.map((opt: any) => ({ id: opt.id, label: opt.label })),
                       ...missingLabels.map(label => ({ label }))
@@ -139,8 +142,9 @@ export async function POST(request: NextRequest) {
     if (template.systemFieldMutations && template.systemFieldMutations.length > 0) {
       deploymentLogs.push("Initializing Pass 2: Evaluating native system dropdown enumerators...");
       for (const mutation of template.systemFieldMutations) {
+        await sleep(120); // Throttle delay between field updates
         try {
-          const fieldsResponse = await fetch(buildUrl(`${mutation.field_type}Fields`));
+          const fieldsResponse = await fetch(buildUrl(`${mutation.field_type}Fields`), { cache: 'no-store' });
           const fieldsData = await fieldsResponse.json();
           const existingFields = fieldsData.success ? (fieldsData.data || []) : [];
           
@@ -176,11 +180,12 @@ export async function POST(request: NextRequest) {
     if (template.activityTypes && template.activityTypes.length > 0) {
       deploymentLogs.push("Initializing Pass 3: Aligning business engagement actions dictionary...");
       try {
-        const activityTypesResponse = await fetch(buildUrl('activityTypes'));
+        const activityTypesResponse = await fetch(buildUrl('activityTypes'), { cache: 'no-store' });
         const activityTypesData = await activityTypesResponse.json();
         const existingActivities = activityTypesData.success ? (activityTypesData.data || []) : [];
 
         for (const activityType of template.activityTypes) {
+          await sleep(100); // Decelerate task dictionaries loops
           try {
             if (!activityType.is_custom) {
               deploymentLogs.push(`• System Safe: Native action shortcut "${activityType.name}" protection active.`);
@@ -228,16 +233,16 @@ export async function POST(request: NextRequest) {
     // =========================================================================
     deploymentLogs.push("Initializing Pass 4: Deploying multi-channel pipelines and rotting constraints...");
     
-    const pipelinesResponse = await fetch(buildUrl('pipelines'));
+    const pipelinesResponse = await fetch(buildUrl('pipelines'), { cache: 'no-store' });
     const pipelinesData = await pipelinesResponse.json();
     let existingPipelines = pipelinesData.success ? (pipelinesData.data || []) : [];
 
     for (const pipelineSpec of template.pipelines) {
+      await sleep(150); // Safe cool-down period between heavy channel executions
       try {
         let pipelineId: number;
         let isNewPipeline = false;
         
-        // Multi-Layer Fallback: Standardize clean name matching with decoded fallback checks
         const matchedPipeline = existingPipelines.find((pipeline: any) => {
           const n1 = normalizeName(pipeline.name);
           const n2 = normalizeName(pipelineSpec.name);
@@ -271,7 +276,7 @@ export async function POST(request: NextRequest) {
           deploymentLogs.push(`• Created Track: Provisioned fresh operational track manual "${pipelineSpec.name}" (ID: ${pipelineId})`);
         }
 
-        const freshStagesResponse = await fetch(buildUrl('stages'));
+        const freshStagesResponse = await fetch(buildUrl('stages'), { cache: 'no-store' });
         const freshStagesData = await freshStagesResponse.json();
         const activeStagesPool = freshStagesData.success ? (freshStagesData.data || []) : [];
         const currentPipelineStages = activeStagesPool
@@ -281,6 +286,7 @@ export async function POST(request: NextRequest) {
         const deployedStages: any[] = [];
 
         for (let i = 0; i < pipelineSpec.stages.length; i++) {
+          await sleep(120); // Spacing layout writes to protect against 2-second rate spikes
           const stageSpec = pipelineSpec.stages[i];
           try {
             let matchedStage = currentPipelineStages.find((stage: any) => {
@@ -392,11 +398,12 @@ export async function POST(request: NextRequest) {
     if (template.lostReasons && template.lostReasons.length > 0) {
       deploymentLogs.push("Initializing Pass 5: Reconciling standard attrition reason options...");
       try {
-        const lostReasonsResponse = await fetch(buildUrl('lostReasons'));
+        const lostReasonsResponse = await fetch(buildUrl('lostReasons'), { cache: 'no-store' });
         const lostReasonsData = await lostReasonsResponse.json();
         const existingReasons = lostReasonsData.success ? (lostReasonsData.data || []) : [];
 
         for (const lostReason of template.lostReasons) {
+          await sleep(100);
           try {
             const reasonText = typeof lostReason === 'string' 
               ? lostReason 
