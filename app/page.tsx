@@ -16,6 +16,7 @@ type LiveImage = CRMArchitectureBlueprint & {
   deals: number; 
   runbookManifest?: string;
   compiledRunbook?: any[];
+  abCompiledObjects?: any[];
   selectedIntegrations?: string[];
 };
 
@@ -256,24 +257,65 @@ export default function ClientCockpitDashboard() {
 
   // Automation Builder States
   const [abOpen, setAbOpen] = useState(false);
-  const [abStep, setAbStep] = useState<'select' | 'preflight' | 'chat' | 'planning' | 'review' | 'stapling' | 'preview'>('select');
+  const [wizardStep, setWizardStep] = useState<'PROJECT_SELECT' | 'GOAL_CALIBRATION' | 'CONTEXT_TUNING' | 'LOGIC_PLANNING' | 'LOGIC_REVIEW' | 'LOGIC_STAPLING' | 'PREVIEW'>('PROJECT_SELECT');
   const [abRoadmap, setAbRoadmap] = useState<any[]>([]);
   const [abReviewFeedback, setAbReviewFeedback] = useState("");
   const [staplingState, setStaplingState] = useState({ index: 0, total: 0, currentStage: "" });
   const [abSelectedImageId, setAbSelectedImageId] = useState<string | null>(null);
   const [abSelectedIntegrations, setAbSelectedIntegrations] = useState<string[]>([]);
-  const [abChatHistory, setAbChatHistory] = useState<{ sender: "user" | "ai"; text: string; dataWidget?: any }[]>([]);
+  const [abChatHistory, setAbChatHistory] = useState<{ id: string; sender: "user" | "ai"; text: string; dataWidget?: any }[]>([]);
+  const [visibleChatHistory, setVisibleChatHistory] = useState<{ id: string; sender: "user" | "ai"; text: string; dataWidget?: any; isTyping?: boolean }[]>([]);
+  const [abChatInput, setAbChatInput] = useState("");
+  const [isAiTyping, setIsAiTyping] = useState(false);
   const [abRoles, setAbRoles] = useState<{ roleName: string; count: number }[]>([]);
   const [abCompiledObjects, setAbCompiledObjects] = useState<any[]>([]);
   const [tempRoleLabel, setTempRoleLabel] = useState("");
   const [tempRoleSeats, setTempRoleSeats] = useState(1);
   const [isAttached, setIsAttached] = useState(false);
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
   const [abTelemetryGuesses, setAbTelemetryGuesses] = useState<Record<string, StageOperationalContext>>({});
+
+  const handleAiAutoFill = async () => {
+    const targetImage = images.find(img => img.id === abSelectedImageId);
+    if (!targetImage) return;
+
+    setIsAutoFilling(true);
+    try {
+      const response = await fetch('/api/compile-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'text-only',
+          systemPrompt: "You are a senior CRM strategist. Based on the provided pipeline stage objectives, write a cohesive 'Instruction Prompt' (150-200 words) for an automation builder. Describe standard Pipedrive automation behaviors including Slack notifications, deal movement triggers, and stalled-deal reminders that align with these objectives. Write in the first person as if the user is giving instructions. Do not use markdown formatting.",
+          userPrompt: `Generate instructions for this project: ${targetImage.name}. Objectives: ${JSON.stringify(targetImage.pipelines.flatMap(p => p.stages.map(s => ({ name: s.name, objective: (s.operational_telemetry as any)?.targetDirective }))))}`
+        })
+      });
+      const data = await response.json();
+      if (data.success && data.text) {
+        setAbChatInput(data.text);
+      }
+    } catch (e) {
+      console.warn("AI Auto-fill failed", e);
+    } finally {
+      setIsAutoFilling(false);
+    }
+  };
   const [isFetchingGuesses, setIsFetchingGuesses] = useState(false);
 
-  // Fire a real Gemini background call for AI telemetry guesses the moment a card enters preflight
+  // Auto-scroll chat to latest message
   useEffect(() => {
-    if (abStep !== 'preflight' || !abSelectedImageId) return;
+    if (visibleChatHistory.length > 0) {
+      const latestMessage = visibleChatHistory[visibleChatHistory.length - 1];
+      const el = document.getElementById(`msg-${latestMessage.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [visibleChatHistory, isAiTyping]);
+
+  // Fire a real Gemini background call for AI telemetry guesses the moment a card enters goal calibration
+  useEffect(() => {
+    if (wizardStep !== 'GOAL_CALIBRATION' || !abSelectedImageId) return;
     const targetImage = images.find(img => img.id === abSelectedImageId);
     if (!targetImage) return;
 
@@ -295,7 +337,7 @@ export default function ClientCockpitDashboard() {
       setAbTelemetryGuesses(result);
       setIsFetchingGuesses(false);
     }).catch(() => setIsFetchingGuesses(false));
-  }, [abStep, abSelectedImageId]);
+  }, [wizardStep, abSelectedImageId]);
 
   const updateRunbookObjectField = (itemIndex: number, fieldKey: string, newValue: any) => {
     setImages(prev => prev.map(img => img.id === detailId ? {
@@ -398,14 +440,16 @@ export default function ClientCockpitDashboard() {
     reader.onload = (event) => {
       const text = event.target?.result as string;
       try {
-        const { blueprint, abCompiledObjects: importedAbObjects } = deserializeFromRwe(text);
+        const { blueprint, compiledRunbook, abCompiledObjects: importedAbObjects } = deserializeFromRwe(text);
+        const runbookPayload = importedAbObjects || compiledRunbook || [];
         const enrichedBlueprint = ensureStageTelemetry(blueprint);
         const rehydratedCard: LiveImage = { 
             ...enrichedBlueprint, 
             id: generateRweId(), 
             owner: 'Imported', 
             deals: 0, 
-            compiledRunbook: importedAbObjects,
+            compiledRunbook: runbookPayload,
+            abCompiledObjects: runbookPayload,
             selectedIntegrations: []
         };
         const newImages = [rehydratedCard, ...images];
@@ -432,13 +476,15 @@ export default function ClientCockpitDashboard() {
     try {
       const importedObj = JSON.parse(pastedConfig);
       if (importedObj.type === "ROSEWOOD_ENGINE_PROPRIETARY_EXPORT") {
+        const runbookPayload = importedObj.abCompiledObjects || importedObj.compiledRunbook || [];
         const enrichedBlueprint = ensureStageTelemetry(importedObj.blueprint);
         const hydratedObj: LiveImage = {
           ...enrichedBlueprint,
           id: generateRweId(),
           owner: 'Imported (Paste)',
           deals: 0,
-          compiledRunbook: importedObj.abCompiledObjects || []
+          compiledRunbook: runbookPayload,
+          abCompiledObjects: runbookPayload
         };
         setImages(prev => [hydratedObj, ...prev]);
         setIsPasteModalOpen(false);
@@ -456,6 +502,36 @@ export default function ClientCockpitDashboard() {
         onCancel: () => setUiModal(null)
       });
     }
+  };
+
+  const typewriterAddMessage = async (msg: { sender: "ai"; text: string; dataWidget?: any }) => {
+    // 1. Enter "Thinking" phase (Typing Indicator)
+    setIsAiTyping(true);
+    const thinkingDelay = Math.random() * 800 + 700;
+    await new Promise(r => setTimeout(r, thinkingDelay));
+    setIsAiTyping(false);
+
+    // 2. Start streaming text char-by-char
+    const messageId = Date.now().toString() + Math.random().toString();
+    const newMsg = { ...msg, id: messageId, text: "", isTyping: true };
+    
+    // Add initial empty message
+    setVisibleChatHistory(prev => [...prev, newMsg]);
+
+    const chars = msg.text.split("");
+    let currentText = "";
+    for (let i = 0; i < chars.length; i++) {
+      currentText += chars[i];
+      const speed = msg.text.length > 100 ? 5 : 15; 
+      await new Promise(r => setTimeout(r, speed));
+      
+      setVisibleChatHistory(prev => {
+        return prev.map(m => m.id === messageId ? { ...m, text: currentText, isTyping: i < chars.length - 1 } : m);
+      });
+    }
+
+    // 3. Finalize and update primary history
+    setAbChatHistory(prev => [...prev, { ...msg, id: messageId }]);
   };
 
   const compileRawModelPromptManifest = (compiledObjects?: any[]) => {
@@ -480,9 +556,17 @@ export default function ClientCockpitDashboard() {
     if (!targetImage) return;
 
     // STAGE 1: Roadmap Generation (planning -> review)
-    if (abStep === 'select' || abStep === 'preflight' || abStep === 'chat' || (abStep === 'review' && feedback)) {
-      setAbStep('planning');
+    if (wizardStep === 'PROJECT_SELECT' || wizardStep === 'GOAL_CALIBRATION' || wizardStep === 'CONTEXT_TUNING' || (wizardStep === 'LOGIC_REVIEW' && feedback)) {
+      setWizardStep('LOGIC_PLANNING');
       setIsAttached(false);
+
+      // Conversational cue
+      typewriterAddMessage({
+        sender: "ai",
+        text: feedback 
+          ? `Adjusting the roadmap based on your feedback: "${feedback}". Re-calculating sequence...` 
+          : "Analyzing your instructions and project architecture. I'm building a proposed roadmap of automations now...",
+      });
 
       const roadmapSchema = {
         type: "OBJECT",
@@ -535,23 +619,36 @@ export default function ClientCockpitDashboard() {
 
         const data = await response.json();
         if (data.success && data.jsonObject?.roadmap) {
-          setAbRoadmap(data.jsonObject.roadmap);
-          setAbStep('review');
+          const roadmap = data.jsonObject.roadmap;
+          setAbRoadmap(roadmap);
+          setWizardStep('LOGIC_REVIEW');
+          
+          typewriterAddMessage({
+            sender: "ai",
+            text: `I've architected a sequence of ${roadmap.length} automations. Please review the proposed roadmap below. You can delete items or provide feedback for adjustments.`,
+            dataWidget: "ROADMAP_REVIEW"
+          });
         } else {
-          console.error("Roadmap generation failed:", data.error);
-          setAbStep('chat'); // Fallback
+          typewriterAddMessage({ sender: "ai", text: "I encountered an error while generating the roadmap. Could you please try rephrasing your instructions?" });
+          setWizardStep('CONTEXT_TUNING');
         }
       } catch (error) {
-        console.error("Roadmap compilation error:", error);
-        setAbStep('chat');
+        typewriterAddMessage({ sender: "ai", text: "System connection error. Please try again." });
+        setWizardStep('CONTEXT_TUNING');
       }
       return;
     }
 
     // STAGE 2: Detailed Stapling (review -> stapling -> preview)
-    if (abStep === 'review' && !feedback) {
-      setAbStep('stapling');
+    if (wizardStep === 'LOGIC_REVIEW' && !feedback) {
+      setWizardStep('LOGIC_STAPLING');
       setStaplingState({ index: 0, total: abRoadmap.length, currentStage: "" });
+
+      typewriterAddMessage({
+        sender: "ai",
+        text: "Roadmap confirmed. I am now writing the detailed step-by-step setup logic for each automation block.",
+        dataWidget: "STAPLING_PROGRESS"
+      });
 
       const newCompiledObjects = [];
 
@@ -631,16 +728,33 @@ export default function ClientCockpitDashboard() {
         payload: { promptManifestAuditTrail: assembledPromptText }
       }, ...prev]);
 
-      setAbStep('preview');
+      setWizardStep('PREVIEW');
+      typewriterAddMessage({
+        sender: "ai",
+        text: "Architecture complete. Your unified process guide is ready for review and export.",
+        dataWidget: "FINAL_PREVIEW"
+      });
     }
   };
 
   const openAB = () => {
     setAbOpen(true);
-    setAbStep('select');
+    setWizardStep('PROJECT_SELECT');
     setAbSelectedImageId(null);
     setAbSelectedIntegrations([]);
     setAbChatHistory([]);
+    setVisibleChatHistory([]);
+    
+    // Trigger typewriter for welcome
+    setTimeout(() => {
+      typewriterAddMessage({
+        sender: "ai",
+        text: "Welcome to the Auto-Builder. To begin, please select a project track from your library.",
+        dataWidget: "SELECT_PROJECT"
+      });
+    }, 400);
+
+    setAbChatInput("");
     setAbRoles([]);
     setStaplingState({ index: 0, total: 0, currentStage: "" });
     setIsAttached(false);
@@ -1159,7 +1273,12 @@ export default function ClientCockpitDashboard() {
                       <div className="absolute right-0 bottom-10 w-40 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm z-[50] overflow-hidden shadow-xl">
                         <button onClick={() => { setRenamingId(img.id); setRenameValue(img.name); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center gap-3"><i className="ti ti-pencil" /> Rename</button>
                         <button onClick={() => { 
-                            const blob = new Blob([serializeToRwe(img, img.compiledRunbook || [])], { type: 'application/json' });
+                            const exportData = {
+                              ...img,
+                              abCompiledObjects: img.compiledRunbook || img.abCompiledObjects || [],
+                              compiledRunbook: img.compiledRunbook || img.abCompiledObjects || []
+                            };
+                            const blob = new Blob([serializeToRwe(exportData, exportData.compiledRunbook || [])], { type: 'application/json' });
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
@@ -1579,549 +1698,443 @@ export default function ClientCockpitDashboard() {
         </div>
       )}
 
-      {/* AUTO-BUILDER MODAL */}
+      {/* UNIFIED AUTO-BUILDER CHAT CONSOLE */}
       {abOpen && (() => {
         const targetImage = images.find(img => img.id === abSelectedImageId);
         
-        // Helper to update stage operational context
-        const updateStageTelemetry = (
-          pipelineIdx: number,
-          stageIdx: number,
-          field: string,
-          value: any
-        ) => {
+        const updateStageTelemetry = (pIdx: number, sIdx: number, field: string, value: any) => {
           setImages(prev => prev.map(img => {
             if (img.id !== abSelectedImageId) return img;
             const pipelinesCopy = [...img.pipelines];
-            const stagesCopy = [...pipelinesCopy[pipelineIdx].stages];
-            const stageCopy = { ...stagesCopy[stageIdx] };
+            const stagesCopy = [...pipelinesCopy[pIdx].stages];
+            const stageCopy = { ...stagesCopy[sIdx] };
             const telemetryCopy = { ...((stageCopy as any).operational_telemetry || {}) };
             telemetryCopy[field] = value;
             (stageCopy as any).operational_telemetry = telemetryCopy;
-            stagesCopy[stageIdx] = stageCopy;
-            pipelinesCopy[pipelineIdx] = { ...pipelinesCopy[pipelineIdx], stages: stagesCopy };
+            stagesCopy[sIdx] = stageCopy;
+            pipelinesCopy[pIdx] = { ...pipelinesCopy[pIdx], stages: stagesCopy };
             return { ...img, pipelines: pipelinesCopy };
           }));
         };
 
-        // Helper to accept all AI-guessed context
         const acceptAllAIGuesses = () => {
           if (!abSelectedImageId) return;
           setImages(prev => prev.map(img => {
             if (img.id !== abSelectedImageId) return img;
-            const pipelinesCopy = img.pipelines.map((pipeline) => {
-              const stagesCopy = pipeline.stages.map((stage) => {
-                const telemetryCopy = { ...(stage.operational_telemetry || {}) } as any;
-                // Use live AI guesses from background fetch; fall back to local heuristic
-                const guesses: StageOperationalContext = abTelemetryGuesses[stage.name] || getLocalFallbackGuess(stage.name);
-
-                if (!telemetryCopy.targetDirective) telemetryCopy.targetDirective = guesses.targetDirective;
-                if (!telemetryCopy.stuckThreshold) telemetryCopy.stuckThreshold = guesses.stuckThreshold;
-                if (telemetryCopy.isRecurringLoop === undefined) telemetryCopy.isRecurringLoop = guesses.isRecurringLoop ?? false;
-                if (telemetryCopy.recurrenceDays === undefined) telemetryCopy.recurrenceDays = guesses.recurrenceDays ?? 7;
-
-                return {
-                  ...stage,
-                  operational_telemetry: telemetryCopy
-                };
-              });
-              return { ...pipeline, stages: stagesCopy };
-            });
-            return { ...img, pipelines: pipelinesCopy };
+            return {
+              ...img,
+              pipelines: img.pipelines.map(p => ({
+                ...p,
+                stages: p.stages.map(s => {
+                  const guesses = abTelemetryGuesses[s.name] || getLocalFallbackGuess(s.name);
+                  const tel = { ...(s.operational_telemetry || {}) } as any;
+                  if (!tel.targetDirective) tel.targetDirective = guesses.targetDirective;
+                  if (!tel.stuckThreshold) tel.stuckThreshold = guesses.stuckThreshold;
+                  if (tel.isRecurringLoop === undefined) tel.isRecurringLoop = guesses.isRecurringLoop ?? false;
+                  if (tel.recurrenceDays === undefined) tel.recurrenceDays = guesses.recurrenceDays ?? 7;
+                  return { ...s, operational_telemetry: tel };
+                })
+              }))
+            };
           }));
         };
 
         return (
           <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-8 animate-in fade-in duration-300">
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden shadow-2xl relative">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden shadow-2xl relative shadow-black/50">
               
               {/* Modal Header */}
-              <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
+              <div className="px-8 py-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
                 <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-sm bg-[#004850] flex items-center justify-center text-white shadow-lg shadow-[#004850]/20">
-                    <i className={`ti ${abStep === 'select' ? 'ti-apps' : abStep === 'preflight' ? 'ti-adjustments' : abStep === 'chat' ? 'ti-messages' : abStep === 'planning' ? 'ti-loader animate-spin' : abStep === 'review' ? 'ti-clipboard-check' : abStep === 'stapling' ? 'ti-package animate-pulse' : 'ti-eye'} text-xl`} />
+                  <div className="h-10 w-10 rounded-xl bg-[#004850] flex items-center justify-center text-white shadow-lg shadow-[#004850]/20">
+                    <i className="ti ti-wand text-xl" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase font-mono">
-                      {abStep === 'select' && "1. Select Project Track"}
-                      {abStep === 'preflight' && "2. Configure Goal Matrix"}
-                      {abStep === 'chat' && "3. Build Logic via Chat"}
-                      {abStep === 'planning' && "4. Generating Roadmap..."}
-                      {abStep === 'review' && "5. Review Proposed Sequence"}
-                      {abStep === 'stapling' && `6. Writing Automation Logic (${staplingState.index}/${staplingState.total})`}
-                      {abStep === 'preview' && "7. Final Process Review"}
-                    </h2>
-                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.15em] mt-1">
-                      {abStep === 'select' && "Choose a process track to begin building automations"}
-                      {abStep === 'preflight' && "Ghost text shows AI-suggested goals for your steps"}
-                      {abStep === 'chat' && "Explain your process goals in plain English"}
-                      {abStep === 'planning' && "System is architecting the automation sequence"}
-                      {abStep === 'review' && "Verify the automation steps before writing logic"}
-                      {abStep === 'stapling' && `Current Step: ${staplingState.currentStage}`}
-                      {abStep === 'preview' && "Review and download your new process guide"}
-                    </p>
+                    <h2 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase font-mono">Auto-Builder Console</h2>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.15em] mt-0.5">Conversational Process Architect // v1.2</p>
                   </div>
                 </div>
-                <button onClick={() => setAbOpen(false)} className="h-10 w-10 rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 active:scale-90">
-                  <i className="ti ti-x text-xl" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <div className="flex-1 overflow-y-auto bg-white dark:bg-zinc-950">
-                <div className="max-w-5xl mx-auto px-8">
-                  {abStep === 'select' && (
-                    <div className="py-12">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {images.map((img) => (
-                          <button
-                            key={img.id}
-                            onClick={() => { setAbSelectedImageId(img.id); setAbStep('preflight'); }}
-                            className="p-6 border border-zinc-200 dark:border-zinc-800 rounded-sm bg-zinc-50/50 dark:bg-zinc-900/50 hover:border-[#004850] dark:hover:border-emerald-500 transition-all text-left group active:scale-[0.98]"
-                          >
-                            <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-[#004850] dark:group-hover:text-emerald-400 transition-colors uppercase">{img.name}</h3>
-                            <p className="text-[10px] text-zinc-400 mt-2 font-mono uppercase tracking-widest">
-                                {img.pipelines?.length || 0} PIPELINES // {img.pipelines?.reduce((acc, p) => acc + (p.stages?.length || 0), 0) || 0} STAGES
-                            </p>
-                          </button>
-                        ))}
-                      </div>
+                <div className="flex items-center gap-3">
+                  {abSelectedImageId && (
+                    <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-zinc-200 dark:border-zinc-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[9px] font-black uppercase text-zinc-500">{targetImage?.name}</span>
                     </div>
                   )}
+                  <button onClick={() => setAbOpen(false)} className="h-10 w-10 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 active:scale-90">
+                    <i className="ti ti-x text-xl" />
+                  </button>
+                </div>
+              </div>
 
-                  {abStep === 'preflight' && (
-                    (() => {
-                      if (!targetImage) return null;
+              {/* CONTEXT RIBBON (Always visible once project selected) */}
+              {abSelectedImageId && (
+                <div className="shrink-0 px-8 py-2.5 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-4 animate-in slide-in-from-top-1 duration-500">
+                  <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-1 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 whitespace-nowrap">Tools:</span>
+                      <div className="flex gap-1">
+                        {abSelectedIntegrations.length > 0 ? abSelectedIntegrations.map(slug => (
+                          <span key={slug} onClick={() => setWizardStep('CONTEXT_TUNING')} className="px-2 py-0.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 rounded-full text-[9px] font-bold uppercase cursor-pointer hover:border-[#004850] transition-colors">{slug}</span>
+                        )) : <span className="text-[9px] italic text-zinc-400">None</span>}
+                      </div>
+                    </div>
+                    <span className="w-px h-3 bg-zinc-200 dark:bg-zinc-700" />
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 whitespace-nowrap">Team:</span>
+                      <div className="flex gap-1">
+                        {abRoles.length > 0 ? abRoles.map((role, idx) => (
+                          <span key={idx} className="px-2 py-0.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 rounded-full text-[9px] font-bold uppercase">{role.roleName} ({role.count})</span>
+                        )) : <span className="text-[9px] italic text-zinc-400">Empty</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={() => setWizardStep('CONTEXT_TUNING')} className="shrink-0 text-[9px] font-bold text-[#004850] dark:text-emerald-500 uppercase hover:underline flex items-center gap-1.5"><i className="ti ti-settings" /> Edit Logic Context</button>
+                </div>
+              )}
 
-                      return (
-                        <div className="py-6 space-y-6 animate-in fade-in duration-300 font-sans">
-                          {/* Header section with description and Accept All Guesses */}
-                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-4">
-                            <div>
-                              <h2 className="text-lg font-bold text-zinc-950 dark:text-zinc-50 font-mono tracking-tight uppercase">
-                                Process Context Matrix
-                              </h2>
-                              <p className="text-xs text-zinc-500 mt-1 font-sans">
-                                Define goals for each step. Light text shows AI-suggested goals; press <kbd className="px-1.5 py-0.5 border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-850 rounded font-mono text-[9px] text-zinc-800 dark:text-zinc-200">Tab</kbd> inside an empty box to accept it.
-                              </p>
-                            </div>
-                            <button 
-                              onClick={acceptAllAIGuesses}
-                              className="shrink-0 h-9 px-4 flex items-center justify-center gap-2 border border-[#004850]/20 hover:border-[#004850] bg-[#004850]/5 hover:bg-[#004850]/15 text-[#004850] dark:text-[#008080] rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95"
-                            >
-                              [Accept All AI Suggestions]
-                            </button>
+              {/* MAIN WIZARD BODY */}
+              <div id="wizard-container" className="flex-1 overflow-y-auto p-8 bg-white dark:bg-zinc-950 scroll-smooth">
+                {visibleChatHistory.map((msg, i) => (
+                  <div key={msg.id} id={`msg-${msg.id}`} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-500`}>
+                    <div className={`flex gap-5 w-full ${msg.sender === 'user' ? 'max-w-[70%] flex-row-reverse' : 'max-w-[95%]'}`}>
+                      <div className={`h-9 w-9 rounded-2xl shrink-0 flex items-center justify-center text-[10px] font-black uppercase shadow-sm ${msg.sender === 'user' ? 'bg-zinc-900 text-white' : 'bg-[#004850] text-white shadow-[#004850]/20'}`}>
+                        {msg.sender === 'user' ? '//' : 'AI'}
+                      </div>
+                      <div className="space-y-4 flex-1">
+                        <div className={`px-6 py-4 rounded-3xl text-sm leading-relaxed shadow-sm ${msg.sender === 'user' ? 'bg-[#004850] text-white rounded-tr-none' : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 rounded-tl-none border border-zinc-100 dark:border-zinc-800'}`}>
+                          {msg.text}
+                          {msg.isTyping && <span className="inline-block w-1 h-4 bg-[#004850] dark:bg-emerald-500 ml-1 animate-pulse align-middle" />}
+                        </div>
+                        
+                        {/* WIDGETS */}
+                        {msg.dataWidget === "SELECT_PROJECT" && (
+                          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 ${i < visibleChatHistory.length - 1 ? 'opacity-40 pointer-events-none' : ''}`}>
+                            {images.map(img => (
+                              <button key={img.id} disabled={i < visibleChatHistory.length - 1} onClick={() => {
+                                setAbSelectedImageId(img.id);
+                                const userMsg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: `I've selected the '${img.name}' project.` };
+                                setAbChatHistory(prev => [...prev, userMsg]);
+                                setVisibleChatHistory(prev => [...prev, userMsg]);
+                                typewriterAddMessage({ sender: 'ai', text: "Excellent choice. Let's calibrate your process track objectives. Tune the goals and thresholds in the matrix below.", dataWidget: "GOAL_MATRIX" });
+                                setWizardStep('GOAL_CALIBRATION');
+                              }} className="p-5 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900 hover:border-[#004850] dark:hover:border-emerald-500 transition-all text-left group active:scale-[0.98] shadow-sm">
+                                <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-[#004850] dark:group-hover:text-emerald-400 transition-colors uppercase">{img.name}</h3>
+                                <p className="text-[9px] text-zinc-400 mt-2 font-mono uppercase tracking-widest">{img.pipelines?.length || 0} TRACKS // {img.pipelines?.reduce((acc, p) => acc + (p.stages?.length || 0), 0) || 0} STEPS</p>
+                              </button>
+                            ))}
                           </div>
+                        )}
 
-                          {/* Grid container */}
-                          <div className="space-y-8">
-                            {targetImage.pipelines.map((pipeline, pIdx) => (
-                              <div key={pIdx} className="space-y-4">
-                                <div className="flex items-center gap-2 font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                                  <span>Track {pIdx + 1}: {pipeline.name}</span>
-                                  <span className="flex-1 h-[1px] bg-zinc-200 dark:bg-zinc-800" />
-                                </div>
-
-                                <div className="border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden bg-white dark:bg-zinc-900">
-                                  <table className="w-full text-left border-collapse table-fixed">
-                                    <thead>
-                                      <tr className="bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-400">
-                                        <th className="py-3 px-4 w-44">Step</th>
-                                        <th className="py-3 px-4">Work Goal {isFetchingGuesses && <span className="text-indigo-400 animate-pulse">⟳ AI</span>}</th>
-                                        <th className="py-3 px-4 w-32">Alert Time</th>
-                                        <th className="py-3 px-4 w-48">Router Config</th>
-                                        <th className="py-3 px-4 w-48">Loop Activity</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                                      {pipeline.stages.map((stage, sIdx) => {
-                                        const telemetry: StageOperationalContext = (stage.operational_telemetry as StageOperationalContext) || {
-                                          targetDirective: "",
-                                          stuckThreshold: "",
-                                          routingDropdownKey: "",
-                                          isRecurringLoop: false,
-                                          recurrenceDays: 7
-                                        };
-                                        const guesses: StageOperationalContext = abTelemetryGuesses[stage.name] || getLocalFallbackGuess(stage.name);
-
-                                        return (
-                                          <tr key={sIdx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 text-xs transition-colors">
-                                            {/* Stage Name Column */}
-                                            <td className="py-4 px-4 align-top">
-                                              <span className="font-mono text-[10px] font-bold text-zinc-400 block">STEP {pIdx + 1}.{sIdx + 1}</span>
-                                              <span className="font-bold text-zinc-900 dark:text-zinc-100 block tracking-tight truncate" title={stage.name}>
-                                                {stage.name}
-                                              </span>
-                                            </td>
-
-                                            {/* Target Directive Column — merged objective + outcome */}
-                                            <td className="py-3 px-3 align-top">
-                                              <textarea 
-                                                value={telemetry.targetDirective || ""}
-                                                onChange={(e) => updateStageTelemetry(pIdx, sIdx, "targetDirective", e.target.value)}
-                                                onKeyDown={(e) => {
-                                                  if (e.key === 'Tab' && !telemetry.targetDirective) {
-                                                    e.preventDefault();
-                                                    updateStageTelemetry(pIdx, sIdx, "targetDirective", guesses.targetDirective || "");
-                                                  }
-                                                }}
-                                                placeholder={guesses.targetDirective || "Describe the work and success criteria..."}
-                                                rows={3}
-                                                className="w-full bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none p-1 text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 resize-none leading-normal transition-all"
-                                              />
-                                              {!telemetry.targetDirective && guesses.targetDirective && (
-                                                <button 
-                                                  onClick={() => updateStageTelemetry(pIdx, sIdx, "targetDirective", guesses.targetDirective || "")}
-                                                  className="text-[9px] font-mono text-indigo-400 hover:text-indigo-600 transition-colors mt-0.5"
-                                                >
-                                                  Tab to accept
-                                                </button>
-                                              )}
-                                            </td>
-
-                                            {/* Stuck Threshold Column */}
-                                            <td className="py-3 px-3 align-top">
-                                              <input 
-                                                value={telemetry.stuckThreshold || ""}
-                                                onChange={(e) => updateStageTelemetry(pIdx, sIdx, "stuckThreshold", e.target.value)}
-                                                onKeyDown={(e) => {
-                                                  if (e.key === 'Tab' && !telemetry.stuckThreshold) {
-                                                    updateStageTelemetry(pIdx, sIdx, "stuckThreshold", guesses.stuckThreshold);
-                                                  }
-                                                }}
-                                                placeholder={guesses.stuckThreshold}
-                                                className="w-full bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none p-1 text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 font-mono tracking-tight transition-all"
-                                              />
-                                            </td>
-
-                                            {/* Router Config Column */}
-                                            <td className="py-3 px-3 align-top space-y-1">
-                                              <div className="flex items-center gap-1.5">
-                                                <i className="ti ti-git-fork text-zinc-400 text-xs shrink-0" />
-                                                <select 
-                                                  value={telemetry.routingDropdownKey || ""}
-                                                  onChange={(e) => updateStageTelemetry(pIdx, sIdx, "routingDropdownKey", e.target.value || undefined)}
-                                                  className="flex-1 bg-transparent border-b border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-600 outline-none text-[10px] text-zinc-600 dark:text-zinc-400 transition-all py-1 appearance-none cursor-pointer"
-                                                >
-                                                  <option value="">No Automatic Routing</option>
+                        {msg.dataWidget === "GOAL_MATRIX" && targetImage && (
+                          <div className="space-y-6 pt-2 animate-in zoom-in-95 duration-500">
+                            <div className="flex items-center justify-between gap-4 bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                              <p className="text-[10px] text-zinc-500 font-medium">Verify step goals. Use <kbd className="px-1 py-0.5 border rounded bg-white dark:bg-black font-mono">Tab</kbd> to accept AI suggestions.</p>
+                              <button onClick={acceptAllAIGuesses} className="h-8 px-4 border border-[#004850]/20 hover:border-[#004850] bg-white dark:bg-zinc-900 text-[#004850] dark:text-[#008080] rounded-full text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm">[ Accept All Suggestions ]</button>
+                            </div>
+                            <div className="space-y-8">
+                              {targetImage.pipelines.map((pipeline, pIdx) => (
+                                <div key={pIdx} className="space-y-3">
+                                  <div className="flex items-center gap-2 font-mono text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                                    <span>Track {pIdx + 1}: {pipeline.name}</span>
+                                    <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                                  </div>
+                                  <div className="border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 shadow-xl shadow-black/5">
+                                    <table className="w-full text-left border-collapse table-fixed">
+                                      <thead>
+                                        <tr className="bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-100 dark:border-zinc-800 text-[8px] font-mono font-black uppercase tracking-widest text-zinc-400">
+                                          <th className="py-3 px-4 w-40">Step</th>
+                                          <th className="py-3 px-4">Work Goal {isFetchingGuesses && <span className="text-emerald-500 animate-pulse">⟳ AI</span>}</th>
+                                          <th className="py-3 px-4 w-28">Alert</th>
+                                          <th className="py-3 px-4 w-32">Router</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                                        {pipeline.stages.map((stage, sIdx) => {
+                                          const tel: StageOperationalContext = (stage.operational_telemetry as StageOperationalContext) || {};
+                                          const guesses = abTelemetryGuesses[stage.name] || getLocalFallbackGuess(stage.name);
+                                          return (
+                                            <tr key={sIdx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 text-[11px] transition-colors">
+                                              <td className="py-3 px-4 align-top">
+                                                <span className="font-mono text-[8px] font-bold text-zinc-300 block mb-0.5">{pIdx + 1}.{sIdx + 1}</span>
+                                                <span className="font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate block" title={stage.name}>{stage.name}</span>
+                                              </td>
+                                              <td className="py-2.5 px-3 align-top">
+                                                <textarea value={tel.targetDirective || ""} onChange={e => updateStageTelemetry(pIdx, sIdx, "targetDirective", e.target.value)} onKeyDown={e => e.key === 'Tab' && !tel.targetDirective && (e.preventDefault(), updateStageTelemetry(pIdx, sIdx, "targetDirective", guesses.targetDirective))} placeholder={guesses.targetDirective} rows={2} className="w-full bg-transparent border-none outline-none p-1 text-[11px] text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 resize-none leading-relaxed transition-all" />
+                                              </td>
+                                              <td className="py-2.5 px-3 align-top">
+                                                <input value={tel.stuckThreshold || ""} onChange={e => updateStageTelemetry(pIdx, sIdx, "stuckThreshold", e.target.value)} placeholder={guesses.stuckThreshold} className="w-full bg-transparent border-none outline-none p-1 text-[11px] font-mono tracking-tighter" />
+                                              </td>
+                                              <td className="py-2.5 px-3 align-top">
+                                                <select value={tel.routingDropdownKey || ""} onChange={e => updateStageTelemetry(pIdx, sIdx, "routingDropdownKey", e.target.value || undefined)} className="w-full bg-transparent outline-none text-[9px] text-zinc-500 font-bold uppercase truncate appearance-none cursor-pointer">
+                                                  <option value="">Off</option>
                                                   {targetImage.customFields?.filter(f => f.type === 'enum' || f.type === 'set').map(f => (
                                                     <option key={f.key} value={f.key}>{f.name}</option>
                                                   ))}
                                                 </select>
-                                              </div>
-                                            </td>
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex justify-end">
+                              <button disabled={i < visibleChatHistory.length - 1} onClick={() => {
+                                const userMsg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: "Goals calibrated. Ready to define system context." };
+                                setAbChatHistory(prev => [...prev, userMsg]);
+                                setVisibleChatHistory(prev => [...prev, userMsg]);
+                                typewriterAddMessage({ sender: 'ai', text: "Understood. Now, let's specify the connected tools and team roles involved in this project. You can update these parameters in the console below.", dataWidget: "CONTEXT_TUNING" });
+                              }} className="h-11 px-8 bg-[#004850] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95">Confirm Matrix & Proceed <i className="ti ti-arrow-right" /></button>
+                            </div>
+                          </div>
+                        )}
 
-                                            {/* Loop Activity Column */}
-                                            <td className="py-3 px-3 align-top">
-                                              <div className="flex flex-col gap-2">
-                                                <label className="flex items-center gap-2 cursor-pointer group">
-                                                  <input 
-                                                    type="checkbox"
-                                                    checked={telemetry.isRecurringLoop || false}
-                                                    onChange={(e) => updateStageTelemetry(pIdx, sIdx, "isRecurringLoop", e.target.checked)}
-                                                    className="accent-[#004850]"
-                                                  />
-                                                  <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 transition-colors">Enabled</span>
-                                                </label>
-                                                {telemetry.isRecurringLoop && (
-                                                  <div className="flex items-center gap-1 border-b border-zinc-100 dark:border-zinc-800 pb-1">
-                                                    <span className="text-[9px] font-mono text-zinc-400 uppercase">Every</span>
-                                                    <input 
-                                                      type="number"
-                                                      value={telemetry.recurrenceDays || 7}
-                                                      onChange={(e) => updateStageTelemetry(pIdx, sIdx, "recurrenceDays", parseInt(e.target.value) || 0)}
-                                                      className="w-8 bg-transparent outline-none text-[10px] font-mono font-bold text-center"
-                                                    />
-                                                    <span className="text-[9px] font-mono text-zinc-400 uppercase">Days</span>
-                                                  </div>
-                                                )}
-                                              </div>
-                                            </td>
-                                          </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
+                        {msg.dataWidget === "CONTEXT_TUNING" && (
+                          <div className={`space-y-10 pt-2 animate-in fade-in duration-500 ${i < visibleChatHistory.length - 1 ? 'opacity-40 pointer-events-none' : ''}`}>
+                            {/* Integration Selector */}
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-3">
+                                <span className="font-mono text-[9px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Available Integrations</span>
+                                <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                {Object.keys(PIPEDRIVE_CAPABILITIES_REGISTRY.supportedIntegrations).map((slug) => (
+                                  <button
+                                    key={slug}
+                                    disabled={i < visibleChatHistory.length - 1}
+                                    onClick={() => setAbSelectedIntegrations(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug])}
+                                    className={`p-3 border rounded-2xl transition-all flex flex-col items-center gap-2 text-center active:scale-95 shadow-sm ${abSelectedIntegrations.includes(slug) ? 'border-[#004850] bg-[#004850]/5 text-[#004850] dark:border-emerald-500 dark:text-emerald-400 shadow-md' : 'border-zinc-200 dark:border-zinc-800 text-zinc-400 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 bg-white dark:bg-zinc-900'}`}
+                                  >
+                                    <i className={`ti ti-brand-${slug === 'msteams' ? 'messenger' : slug === 'projects' ? 'clipboard' : slug === 'campaigns' ? 'mail' : slug} text-xl`} />
+                                    <span className="text-[8px] font-black uppercase tracking-widest truncate w-full">{slug}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Team Registry */}
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-3">
+                                <span className="font-mono text-[9px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Team Registry</span>
+                                <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                              </div>
+                              <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm overflow-hidden h-10 w-fit">
+                                  <input disabled={i < visibleChatHistory.length - 1} placeholder="Add Role..." value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-24 pl-4" />
+                                  <div className="flex items-center gap-1 border-x border-zinc-100 dark:border-zinc-800 px-3 h-full">
+                                      <span className="text-[8px] font-mono text-zinc-400">#</span>
+                                      <input disabled={i < visibleChatHistory.length - 1} type="number" value={tempRoleSeats} onChange={e => setTempRoleSeats(parseInt(e.target.value) || 1)} className="bg-transparent border-none outline-none text-[10px] font-mono font-bold w-6 text-center" />
+                                  </div>
+                                  <button disabled={i < visibleChatHistory.length - 1} onClick={() => { if (tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="h-full w-12 text-[#004850] dark:text-emerald-500 hover:bg-[#004850] hover:text-white transition-all flex items-center justify-center"><i className="ti ti-plus" /></button>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                  {abRoles.map((role, idx) => (
+                                    <div key={idx} className="flex items-center gap-3 pl-4 pr-1 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm animate-in zoom-in-95 w-fit">
+                                      <span className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 uppercase">{role.roleName}</span>
+                                      <span className="h-6 px-2 bg-[#004850] rounded-full text-[9px] font-mono flex items-center justify-center text-white">{role.count}</span>
+                                      <button disabled={i < visibleChatHistory.length - 1} onClick={() => setAbRoles(prev => prev.filter((_, i) => i !== idx))} className="h-6 w-6 hover:text-rose-500 transition-colors flex items-center justify-center"><i className="ti ti-x text-xs" /></button>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                          <div className="flex justify-end pt-4">
-                            <button 
-                              onClick={() => setAbStep('chat')}
-                              className="h-12 px-10 bg-[#004850] text-white rounded-sm text-xs font-bold uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95"
-                            >
-                              Confirm Matrix & Continue <i className="ti ti-arrow-right" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })()
-                  )}
-
-                  {abStep === 'chat' && (
-                    <div className="py-12 space-y-12">
-                      {/* Integration Selector */}
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Connected Tools</span>
-                          <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {Object.keys(PIPEDRIVE_CAPABILITIES_REGISTRY.supportedIntegrations).map((slug) => (
-                            <button
-                              key={slug}
-                              onClick={() => setAbSelectedIntegrations(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug])}
-                              className={`p-4 border rounded-xl transition-all flex flex-col items-center gap-3 text-center active:scale-95 ${abSelectedIntegrations.includes(slug) ? 'border-[#004850] bg-[#004850]/5 text-[#004850] dark:border-emerald-500 dark:text-emerald-400 shadow-md shadow-[#004850]/5' : 'border-zinc-200 dark:border-zinc-800 text-zinc-400 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
-                            >
-                              <i className={`ti ti-brand-${slug === 'msteams' ? 'messenger' : slug === 'projects' ? 'clipboard' : slug === 'campaigns' ? 'mail' : slug} text-2xl`} />
-                              <span className="text-[10px] font-black uppercase tracking-widest">{slug}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Team Registry */}
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Team Registry</span>
-                          <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
-                        </div>
-                        <div className="flex flex-wrap gap-3">
-                          {abRoles.map((role, idx) => (
-                            <div key={idx} className="flex items-center gap-3 pl-4 pr-1 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm">
-                              <span className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 uppercase">{role.roleName}</span>
-                              <span className="h-6 px-2 bg-[#004850] rounded-full text-[9px] font-mono flex items-center justify-center text-white">{role.count}</span>
-                              <button onClick={() => setAbRoles(prev => prev.filter((_, i) => i !== idx))} className="h-6 w-6 hover:text-rose-500 transition-colors flex items-center justify-center">
-                                <i className="ti ti-x text-xs" />
-                              </button>
                             </div>
-                          ))}
-                          <div className="flex items-center gap-2 pl-4 bg-white dark:bg-zinc-950 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-full shadow-sm overflow-hidden">
-                            <input 
-                              placeholder="Add Role..." 
-                              value={tempRoleLabel}
-                              onChange={(e) => setTempRoleLabel(e.target.value)}
-                              className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-24 py-2"
-                            />
-                            <div className="flex items-center gap-1 border-x border-zinc-200 dark:border-zinc-800 px-2 h-full py-2">
-                                <span className="text-[9px] font-mono text-zinc-400">#</span>
-                                <input 
-                                    type="number" 
-                                    value={tempRoleSeats}
-                                    onChange={(e) => setTempRoleSeats(parseInt(e.target.value) || 1)}
-                                    className="bg-transparent border-none outline-none text-[10px] font-mono font-bold w-6 text-center"
-                                />
+
+                            <div className="flex justify-end pt-4">
+                              <button disabled={i < visibleChatHistory.length - 1} onClick={() => {
+                                const userMsg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: "Context finalized. Ready to build logic." };
+                                setAbChatHistory(prev => [...prev, userMsg]);
+                                setVisibleChatHistory(prev => [...prev, userMsg]);
+                                typewriterAddMessage({ sender: 'ai', text: "Perfect. Now, describe the automation behaviors you'd like to build for this project. Mention triggers, Slack notifications, or conditional fallback rules. I'll translate your instructions into a structured roadmap." });
+                                setWizardStep('CONTEXT_TUNING');
+                              }} className="h-11 px-10 bg-[#004850] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95">Finalize Context & Start Building <i className="ti ti-wand" /></button>
                             </div>
-                            <button 
-                              onClick={() => { if (tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }}
-                              className="h-9 w-10 text-[#004850] dark:text-emerald-500 hover:bg-[#004850] hover:text-white transition-all flex items-center justify-center"
-                            >
-                              <i className="ti ti-plus" />
-                            </button>
                           </div>
-                        </div>
-                      </div>
+                        )}
 
-                      {/* Chat / Intent Input */}
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Build Instructions</span>
-                          <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
-                        </div>
-                        <div className="relative group">
-                          <textarea
-                            autoFocus
-                            placeholder="Example: 'When a new lead arrives, notify the Sales Lead on Slack. If a proposal stays in the same step for 10 days, create a follow-up task for the Account Executive...'"
-                            className="w-full h-44 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-7 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-inner"
-                          />
-                          <button 
-                            onClick={() => compilePromptManifest()}
-                            className="absolute bottom-6 right-6 h-12 px-8 bg-[#004850] text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95"
-                          >
-                            Build Sequence <i className="ti ti-wand" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {abStep === 'review' && (
-                    <div className="py-12 space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Proposed Roadmap</span>
-                          <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
-                        </div>
-                        <div className="space-y-3">
-                          {abRoadmap.map((item, idx) => (
-                            <div key={idx} className="p-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex items-center justify-between group hover:border-zinc-300 dark:hover:border-zinc-700 transition-all shadow-sm">
-                              <div className="flex items-center gap-6">
-                                <span className="font-mono text-xs font-black px-3 py-1.5 bg-zinc-900 text-white rounded-xl shadow-sm">{item.automationNumber}</span>
-                                <div>
-                                  <span className="block text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1">{item.stageName}</span>
-                                  <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{item.operationalGoal}</span>
+                        {msg.dataWidget === "ROADMAP_REVIEW" && (
+                          <div className="space-y-6 pt-2 animate-in slide-in-from-bottom-4 duration-500">
+                            <div className="space-y-3">
+                              {abRoadmap.map((item, idx) => (
+                                <div key={idx} className="p-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl flex items-center justify-between group shadow-sm">
+                                  <div className="flex items-center gap-6">
+                                    <span className="font-mono text-xs font-black px-3 py-1.5 bg-zinc-900 text-white rounded-xl">{item.automationNumber}</span>
+                                    <div>
+                                      <span className="block text-[9px] font-mono font-black text-zinc-400 uppercase tracking-widest mb-1">{item.stageName}</span>
+                                      <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{item.operationalGoal}</span>
+                                    </div>
+                                  </div>
+                                  <button onClick={() => setAbRoadmap(prev => prev.filter((_, i) => i !== idx))} className="h-10 w-10 text-zinc-300 hover:text-rose-500 transition-colors flex items-center justify-center bg-white dark:bg-black rounded-full border border-zinc-100 dark:border-zinc-800 shadow-sm"><i className="ti ti-trash" /></button>
                                 </div>
-                              </div>
-                              <button onClick={() => setAbRoadmap(prev => prev.filter((_, i) => i !== idx))} className="h-10 w-10 text-zinc-300 hover:text-rose-500 transition-colors flex items-center justify-center active:scale-90 bg-white dark:bg-black rounded-full border border-zinc-100 dark:border-zinc-800 shadow-sm">
-                                <i className="ti ti-trash text-lg" />
-                              </button>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                            <div className="flex items-center gap-4 bg-zinc-50 dark:bg-zinc-900/50 p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-inner">
+                              <input placeholder="Add adjustment instructions..." value={abReviewFeedback} onChange={e => setAbReviewFeedback(e.target.value)} className="flex-1 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl py-3.5 px-5 text-sm outline-none focus:border-[#004850] transition-all shadow-sm" />
+                              <button onClick={() => {
+                                const userMsg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: `Adjust roadmap: ${abReviewFeedback}` };
+                                setAbChatHistory(prev => [...prev, userMsg]);
+                                setVisibleChatHistory(prev => [...prev, userMsg]);
+                                compilePromptManifest(abReviewFeedback);
+                                setAbReviewFeedback("");
+                              }} className="h-12 px-7 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 shadow-sm">Update</button>
+                            </div>
+                            <div className="flex justify-end gap-3">
+                              <button onClick={() => compilePromptManifest()} className="h-12 px-10 bg-[#004850] text-white rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95">Generate Logic <i className="ti ti-wand" /></button>
+                            </div>
+                          </div>
+                        )}
 
-                      <div className="flex items-center gap-4 bg-zinc-50 dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-inner">
-                        <input 
-                            placeholder="Add adjustment instructions... (e.g. 'Add a Slack step to 1.1.1')"
-                            value={abReviewFeedback}
-                            onChange={(e) => setAbReviewFeedback(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && abReviewFeedback && compilePromptManifest(abReviewFeedback)}
-                            className="flex-1 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl py-3.5 px-5 text-sm font-sans focus:outline-none focus:border-[#004850] transition-all shadow-sm"
-                        />
-                        <button 
-                            disabled={!abReviewFeedback}
-                            onClick={() => compilePromptManifest(abReviewFeedback)}
-                            className="h-12 px-7 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:opacity-80 transition-all disabled:opacity-30 active:scale-95 shadow-sm"
-                        >
-                            Update
-                        </button>
-                      </div>
+                        {msg.dataWidget === "STAPLING_PROGRESS" && (
+                          <div className="py-12 flex flex-col items-center justify-center space-y-8 animate-in fade-in zoom-in-95 duration-700">
+                            <div className="relative">
+                              <div className="h-24 w-24 rounded-full border-[3px] border-zinc-100 dark:border-zinc-800 border-t-[#004850] animate-spin shadow-2xl" />
+                              <div className="absolute inset-0 flex items-center justify-center"><i className="ti ti-wand text-3xl text-[#004850] animate-pulse" /></div>
+                            </div>
+                            <div className="text-center space-y-3 max-w-sm">
+                              <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tighter">Crafting Logic...</h3>
+                              <p className="text-[11px] text-zinc-500 font-sans leading-relaxed">System is building setup guides for <span className="font-mono text-[#004850] dark:text-emerald-500 font-bold">{staplingState.currentStage}</span>.</p>
+                              <div className="w-full bg-zinc-100 dark:bg-zinc-900 h-2 rounded-full overflow-hidden mt-6 shadow-inner">
+                                <div className="bg-[#004850] h-full transition-all duration-700 ease-out shadow-[0_0_15px_#004850]" style={{ width: `${(staplingState.index / staplingState.total) * 100}%` }} />
+                              </div>
+                              <div className="flex justify-between font-mono text-[8px] text-zinc-400 uppercase tracking-widest font-black pt-2 px-1"><span>{staplingState.index} / {staplingState.total}</span><span>{Math.round((staplingState.index / staplingState.total) * 100)}%</span></div>
+                            </div>
+                          </div>
+                        )}
 
-                      <div className="flex justify-end gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-8">
-                        <button onClick={() => setAbStep('chat')} className="h-12 px-8 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all active:scale-95">Go Back</button>
-                        <button onClick={() => compilePromptManifest()} className="h-12 px-10 bg-[#004850] text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg shadow-[#004850]/20 active:scale-95">Generate Final Logic <i className="ti ti-wand" /></button>
-                      </div>
-                    </div>
-                  )}
-
-                  {abStep === 'stapling' && (
-                    <div className="py-24 flex flex-col items-center justify-center space-y-10 animate-in fade-in zoom-in-95 duration-700">
-                      <div className="relative">
-                        <div className="h-32 w-32 rounded-full border-4 border-zinc-100 dark:border-zinc-900 border-t-[#004850] animate-spin shadow-2xl" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <i className="ti ti-wand text-4xl text-[#004850] animate-pulse" />
-                        </div>
-                      </div>
-                      <div className="text-center space-y-4 max-w-md">
-                        <h3 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tighter">Crafting Logic</h3>
-                        <p className="text-sm text-zinc-500 font-sans leading-relaxed px-8">System is building step-by-step setup guides for <span className="font-mono text-[#004850] dark:text-emerald-500 font-bold">{staplingState.currentStage}</span> based on your architecture.</p>
-                        <div className="w-full bg-zinc-100 dark:bg-zinc-900 h-2 rounded-full overflow-hidden mt-8 shadow-inner">
-                          <div 
-                            className="bg-[#004850] h-full transition-all duration-700 ease-out shadow-[0_0_15px_#004850]" 
-                            style={{ width: `${(staplingState.index / staplingState.total) * 100}%` }} 
-                          />
-                        </div>
-                        <div className="flex justify-between font-mono text-[9px] text-zinc-400 uppercase tracking-[0.2em] font-black pt-2 px-1">
-                            <span>Initializing</span>
-                            <span>{staplingState.index} / {staplingState.total} Blocks</span>
-                            <span>Finalizing</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {abStep === 'preview' && (
-                    <div className="py-8 space-y-8 animate-in fade-in duration-500">
-                      <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Final Process Guide</span>
-                          <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 rounded-full font-mono text-[9px] font-bold uppercase shadow-sm">Ready for export</span>
-                        </div>
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={handleDocxDownload}
-                                className="h-10 px-5 bg-blue-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-blue-600/10"
-                            >
-                                <i className="ti ti-file-text" /> Download .Docx
-                            </button>
-                            <button 
-                                onClick={() => copyToClipboard(compileRawModelPromptManifest())}
-                                className="h-10 px-5 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all flex items-center gap-2 active:scale-95 shadow-sm"
-                            >
-                                <i className="ti ti-copy" /> Copy Raw Text
-                            </button>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Render individual automation preview cards */}
-                        <div className="space-y-6">
-                            {abCompiledObjects.map((item, idx) => (
-                                <div key={idx} className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden bg-zinc-50/50 dark:bg-zinc-900/50 shadow-sm hover:border-zinc-400 transition-all">
+                        {msg.dataWidget === "FINAL_PREVIEW" && (
+                          <div className="space-y-8 pt-2 animate-in fade-in duration-1000">
+                            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
+                              <div className="flex gap-2">
+                                <button onClick={handleDocxDownload} className="h-10 px-5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-blue-600/20"><i className="ti ti-file-text" /> Export .Docx</button>
+                                <button onClick={() => copyToClipboard(compileRawModelPromptManifest())} className="h-10 px-5 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all flex items-center gap-2 active:scale-95 shadow-sm"><i className="ti ti-copy" /> Copy Raw Text</button>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                              <div className="space-y-6">
+                                {abCompiledObjects.map((item, idx) => (
+                                  <div key={idx} className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden bg-zinc-50/50 dark:bg-zinc-900/50 shadow-sm">
                                     <div className="px-5 py-4 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
-                                        <span className="font-mono text-[10px] font-black px-3 py-1 bg-zinc-900 text-white rounded-xl tracking-widest shadow-sm">{item.automationNumber}</span>
-                                        <span className="text-[10px] font-bold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 truncate">{item.stageName}</span>
+                                      <span className="font-mono text-[10px] font-black px-3 py-1 bg-zinc-900 text-white rounded-xl tracking-widest shadow-sm">{item.automationNumber}</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 truncate">{item.stageName}</span>
                                     </div>
                                     <div className="p-6 space-y-5">
-                                        <div>
-                                            <span className="block text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1">Operational Goal</span>
-                                            <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200 leading-relaxed">{item.operationalGoal}</p>
-                                        </div>
-                                        <div>
-                                            <span className="block text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1">Impacted Personnel</span>
-                                            <div className="flex flex-wrap gap-2 mt-2">
-                                                {item.impactedRoles.map((role: string, rIdx: number) => (
-                                                    <span key={rIdx} className="px-3 py-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full text-[9px] font-bold uppercase tracking-tight shadow-sm border border-zinc-300/20 dark:border-zinc-700/20">{role}</span>
-                                                ))}
-                                            </div>
-                                        </div>
+                                      <div><span className="block text-[8px] font-mono font-black text-zinc-400 uppercase tracking-widest mb-1">Goal</span><p className="text-xs font-bold text-zinc-800 dark:text-zinc-200 leading-relaxed">{item.operationalGoal}</p></div>
+                                      <div><span className="block text-[8px] font-mono font-black text-zinc-400 uppercase tracking-widest mb-1">Personnel</span><div className="flex flex-wrap gap-2 mt-2">{item.impactedRoles.map((role: string, rIdx: number) => (<span key={rIdx} className="px-3 py-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full text-[8px] font-black uppercase shadow-sm border border-zinc-300/20 dark:border-zinc-700/20">{role}</span>))}</div></div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Right column: prompt manifest final text */}
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2 mb-2 pl-2">
-                                <i className="ti ti-terminal text-[#004850] dark:text-emerald-500" />
-                                <span className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">Process Logic Structure</span>
-                            </div>
-                            <div className="bg-zinc-900 dark:bg-black rounded-2xl border border-zinc-800 p-7 h-[600px] overflow-y-auto font-mono text-[11px] leading-relaxed text-zinc-400 custom-scrollbar shadow-2xl shadow-black/40">
-                                {compileRawModelPromptManifest().split('\n').map((line, lIdx) => (
-                                    <p key={lIdx} className={`${line.startsWith('===') ? 'text-emerald-500 font-bold mt-6 mb-2' : line.startsWith('###') ? 'text-[#004850] dark:text-emerald-300 font-bold mt-8 mb-3 text-sm' : line.startsWith('**') ? 'text-zinc-200 dark:text-zinc-300 font-bold mt-2' : 'text-zinc-500 dark:text-zinc-500'} py-0.5`}>
-                                        {line}
-                                    </p>
+                                  </div>
                                 ))}
+                              </div>
+                              <div className="space-y-4">
+                                <div className="flex items-center gap-2 mb-2 pl-2"><i className="ti ti-terminal text-[#004850] dark:text-emerald-500" /><span className="font-mono text-[9px] font-black uppercase tracking-widest text-zinc-400">Process Logic Structure</span></div>
+                                <div className="bg-zinc-900 dark:bg-black rounded-2xl border border-zinc-800 p-7 h-[600px] overflow-y-auto font-mono text-[10px] leading-relaxed text-zinc-400 custom-scrollbar shadow-2xl shadow-black/40">
+                                  {compileRawModelPromptManifest().split('\n').map((line, lIdx) => (<p key={lIdx} className={`${line.startsWith('===') ? 'text-emerald-500 font-bold mt-6 mb-2' : line.startsWith('###') ? 'text-[#004850] dark:text-emerald-300 font-bold mt-8 mb-3 text-sm' : line.startsWith('**') ? 'text-zinc-200 dark:text-zinc-300 font-bold mt-2' : 'text-zinc-500 dark:text-zinc-500'} py-0.5`}>{line}</p>))}
+                                </div>
+                              </div>
                             </div>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-center border-t border-zinc-100 dark:border-zinc-800 pt-10">
-                        <button 
-                          onClick={() => {
-                            setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, compiledRunbook: abCompiledObjects, selectedIntegrations: abSelectedIntegrations } : img));
-                            setIsAttached(true);
-                            setCopyFeedback("◆ Process guide attached to card");
-                            setTimeout(() => setCopyFeedback(null), 3000);
-                          }}
-                          disabled={isAttached}
-                          className={`h-14 px-14 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-4 shadow-2xl active:scale-95 ${isAttached ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 cursor-default' : 'bg-[#004850] text-white hover:bg-[#003840] shadow-[#004850]/20'}`}
-                        >
-                          <i className={`ti ${isAttached ? 'ti-check' : 'ti-bookmark'}`} />
-                          {isAttached ? "Process Attached to Card" : "Finalize & Attach to Card"}
-                        </button>
+                            <div className="flex justify-center border-t border-zinc-100 dark:border-zinc-800 pt-10 pb-4">
+                              <button onClick={() => {
+                                setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, compiledRunbook: abCompiledObjects, selectedIntegrations: abSelectedIntegrations } : img));
+                                setIsAttached(true);
+                                setCopyFeedback("◆ Process Guide Attached");
+                                setTimeout(() => setCopyFeedback(null), 3000);
+                              }} disabled={isAttached} className={`h-14 px-14 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-4 shadow-2xl active:scale-95 ${isAttached ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 cursor-default' : 'bg-[#004850] text-white hover:bg-[#003840] shadow-[#004850]/20'}`}>
+                                <i className={`ti ${isAttached ? 'ti-check' : 'ti-bookmark'}`} />
+                                {isAttached ? "Process Attached to Card" : "Finalize & Attach to Card"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ))}
+
+                {isAiTyping && (
+                  <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex gap-5 w-full max-w-[95%]">
+                      <div className="h-9 w-9 rounded-2xl bg-[#004850] text-white shrink-0 flex items-center justify-center text-[10px] font-black uppercase shadow-lg shadow-[#004850]/20">AI</div>
+                      <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 px-6 py-4 rounded-3xl rounded-tl-none flex items-center gap-1 shadow-sm">
+                        <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                        <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                        <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <div id="chat-end" className="h-4 w-full shrink-0" />
               </div>
 
-              {/* Progress Stepper Footer */}
-              <div className="px-8 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center">
-                <div className="flex items-center gap-3">
-                  {['select', 'preflight', 'chat', 'planning', 'review', 'stapling', 'preview'].map((step, idx) => {
-                    const stepOrder = ['select', 'preflight', 'chat', 'planning', 'review', 'stapling', 'preview'];
-                    const currentIdx = stepOrder.indexOf(abStep);
-                    const thisIdx = stepOrder.indexOf(step);
-                    
-                    return (
-                      <div key={step} className="flex items-center gap-3">
-                        <div className={`h-2.5 w-2.5 rounded-full transition-all duration-500 ${thisIdx <= currentIdx ? 'bg-[#004850] dark:bg-emerald-500 scale-125' : 'bg-zinc-200 dark:bg-zinc-800'}`} />
-                        {idx < 6 && <div className={`h-0.5 w-8 rounded-full transition-all duration-700 ${thisIdx < currentIdx ? 'bg-[#004850]/40 dark:bg-emerald-500/40' : 'bg-zinc-200 dark:bg-zinc-800'}`} />}
+              {/* UNIFIED CHAT INPUT BAR */}
+              <div className="shrink-0 p-8 bg-zinc-50/50 dark:bg-zinc-900/50 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-800">
+                <div className="max-w-4xl mx-auto relative group">
+                  <div className="absolute -top-10 left-0 right-0 flex justify-center pointer-events-none">
+                    {isFetchingGuesses && (
+                      <div className="px-4 py-1.5 bg-emerald-500 text-white rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-lg animate-bounce pointer-events-auto">
+                        AI Brain Active...
                       </div>
-                    );
-                  })}
+                    )}
+                  </div>
+                  <textarea
+                    value={abChatInput}
+                    onChange={e => setAbChatInput(e.target.value)}
+                    onInput={(e) => {
+                      e.currentTarget.style.height = 'auto';
+                      e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 200) + 'px';
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (abChatInput.trim() && wizardStep === 'CONTEXT_TUNING') {
+                          const msg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: abChatInput };
+                          setAbChatHistory(prev => [...prev, msg]);
+                          setVisibleChatHistory(prev => [...prev, msg]);
+                          setAbChatInput("");
+                          e.currentTarget.style.height = '60px'; // Reset to min-height
+                        }
+                      }
+                    }}
+                    disabled={wizardStep === 'PROJECT_SELECT' || wizardStep === 'GOAL_CALIBRATION' || wizardStep === 'LOGIC_PLANNING' || wizardStep === 'LOGIC_STAPLING'}
+                    placeholder={
+                      wizardStep === 'PROJECT_SELECT' ? "Please select a project track above first..." :
+                      wizardStep === 'GOAL_CALIBRATION' ? "Tune your objectives in the matrix above..." :
+                      "Type your automation instructions here... (Enter to Send)"
+                    }
+                    className="w-full min-h-[60px] max-h-[200px] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 pr-32 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-2xl shadow-black/5 disabled:opacity-50 scrollbar-hide"
+                  />
+                  <div className="absolute bottom-5 right-5 flex gap-3">
+                    <button 
+                      onClick={handleAiAutoFill}
+                      disabled={isAutoFilling || wizardStep !== 'CONTEXT_TUNING'}
+                      className={`h-11 w-11 bg-zinc-100 dark:bg-zinc-800 text-[#004850] dark:text-emerald-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-2xl flex items-center justify-center transition-all active:scale-90 disabled:opacity-30 shadow-sm ${isAutoFilling ? 'animate-pulse' : ''}`}
+                      title="Magic AI Auto-fill"
+                    >
+                      <i className={`ti ${isAutoFilling ? 'ti-loader animate-spin' : 'ti-sparkles'} text-xl`} />
+                    </button>
+                    <button 
+                      onClick={() => { if (abChatInput.trim()) { 
+                        const msg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: abChatInput };
+                        setAbChatHistory(prev => [...prev, msg]);
+                        setVisibleChatHistory(prev => [...prev, msg]);
+                        setAbChatInput(""); 
+                      } }}
+                      disabled={!abChatInput.trim() || wizardStep !== 'CONTEXT_TUNING'}
+                      className="h-11 w-11 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-2xl flex items-center justify-center transition-all active:scale-90 disabled:opacity-30 shadow-sm"
+                      title="Add instruction to log"
+                    >
+                      <i className="ti ti-arrow-up text-xl" />
+                    </button>
+                    <button 
+                      onClick={() => compilePromptManifest()}
+                      disabled={wizardStep !== 'CONTEXT_TUNING'}
+                      className="h-11 px-6 bg-[#004850] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-2 shadow-lg shadow-[#004850]/20 active:scale-95 disabled:opacity-30"
+                    >
+                      Build Logic <i className="ti ti-wand" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
