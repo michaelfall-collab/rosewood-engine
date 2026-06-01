@@ -11,6 +11,9 @@ interface DeployRequestBody {
 
 export async function POST(request: NextRequest) {
   const deploymentLogs: string[] = [];
+  let executionHasErrors = false;
+  let summaryErrorMessage = "";
+
   try {
     const body: DeployRequestBody = await request.json();
     const { token, template } = body;
@@ -61,18 +64,23 @@ export async function POST(request: NextRequest) {
                   const missingLabels = newOptionLabels.filter(label => !existingLabels.includes(label));
 
                   if (missingLabels.length > 0) {
-                    const mergedLabels = [...existingLabels, ...missingLabels];
+                    // Normalize option objects to align with Pipedrive custom field update structures
+                    const mergedOptions = [
+                      ...remoteOptions.map((opt: any) => ({ id: opt.id, label: opt.label })),
+                      ...missingLabels.map(label => ({ label }))
+                    ];
+
                     const updateFieldResponse = await fetch(buildUrl(`${scope}Fields/${matchedField.id}`), {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ options: mergedLabels }),
+                      body: JSON.stringify({ options: mergedOptions }),
                     });
                     const updateData = await updateFieldResponse.json();
 
                     if (updateData.success) {
                       deploymentLogs.push(`• Synchronized Options: Custom field "${field.name}" updated with ${missingLabels.length} new choices.`);
                     } else {
-                      deploymentLogs.push(`✗ Option Sync Failed: Custom field "${field.name}" could not be updated: ${updateData.error || 'API validation failure'}`);
+                      deploymentLogs.push(`✗ Option Sync Warning: Custom field "${field.name}" choices could not be fully merged: ${updateData.error || 'API restriction'}`);
                     }
                   }
                 }
@@ -93,24 +101,29 @@ export async function POST(request: NextRequest) {
                   fieldKeyTranslationMap[field.key] = generatedHash;
                   deploymentLogs.push(`• Injected Field: Created custom field "${field.name}" under scope [${scope}] (Hash: ${generatedHash})`);
                 } else {
+                  executionHasErrors = true;
+                  summaryErrorMessage = `Custom field schema initialization rejected for ${field.name}`;
                   deploymentLogs.push(`✗ Field Failure: Custom ${scope} field "${field.name}" rejected: ${createFieldData.error || 'API validation failure'}`);
                 }
               }
             } catch (fieldInnerError: any) {
+              executionHasErrors = true;
+              summaryErrorMessage = `Exception caught parsing structural field metadata`;
               deploymentLogs.push(`✗ Field Exception: Failed to provision custom field "${field.name}": ${fieldInnerError.message}`);
             }
           }
         } catch (error: any) {
+          executionHasErrors = true;
           deploymentLogs.push(`✗ System Error: Pass 1 loop execution failed on target ${scope} field extraction stream: ${error.message}`);
         }
       }
     }
 
     // =========================================================================
-    // PASS 2: SYSTEM FIELD MUTATIONS MATRIX RESOLUTION
+    // PASS 2: SYSTEM FIELD MUTATIONS MATRIX RESOLUTION (Soft Warnings Only)
     // =========================================================================
     if (template.systemFieldMutations && template.systemFieldMutations.length > 0) {
-      deploymentLogs.push("Initializing Pass 2: Overriding native system dropdown enumerators...");
+      deploymentLogs.push("Initializing Pass 2: Evaluating native system dropdown enumerators...");
       for (const mutation of template.systemFieldMutations) {
         try {
           const fieldsResponse = await fetch(buildUrl(`${mutation.field_type}Fields`));
@@ -130,15 +143,15 @@ export async function POST(request: NextRequest) {
             const updateData = await updateFieldResponse.json();
             
             if (updateData.success) {
-              deploymentLogs.push(`• Mutated System Property: Re-indexed custom choices for native field [${mutation.field_type}.${mutation.field_key}]`);
+              deploymentLogs.push(`• Mutated System Property: Re-indexed choices for native field [${mutation.field_type}.${mutation.field_key}]`);
             } else {
-              deploymentLogs.push(`✗ Mutation Blocked: Local API restrictions limited modifications to native variable [${mutation.field_key}]`);
+              deploymentLogs.push(`⚠ Mutation Ignored: Native variable [${mutation.field_key}] relies on system constants and was left unmodified.`);
             }
           } else {
-            deploymentLogs.push(`✗ Mutation Bypassed: Native field key [${mutation.field_key}] could not be matched on target account`);
+            deploymentLogs.push(`⚠ Mutation Skipped: Native field key [${mutation.field_key}] could not be found on target workspace.`);
           }
         } catch (mutationError: any) {
-          deploymentLogs.push(`✗ Mutation Exception: Failed to override structural parameters for system variable [${mutation.field_key}]: ${mutationError.message}`);
+          deploymentLogs.push(`⚠ Mutation Warning: Bypassed properties mutation for system variable [${mutation.field_key}]: ${mutationError.message}`);
         }
       }
     }
@@ -280,6 +293,8 @@ export async function POST(request: NextRequest) {
                 deploymentLogs.push(`  • Aligned Stage: Checked constraints for sequence component "${stageSpec.name}"`);
                 deployedStages.push({ name: stageSpec.name, id: matchedStage.id });
               } else {
+                executionHasErrors = true;
+                summaryErrorMessage = `Pipeline Stage Update failed for ${stageSpec.name}`;
                 deploymentLogs.push(`  ✗ Step Update Failure: Blueprint stage "${stageSpec.name}" rejected: ${updateStageData.error || 'Validation error'}`);
               }
             } else {
@@ -294,10 +309,14 @@ export async function POST(request: NextRequest) {
                 deploymentLogs.push(`  • Injected Step: Appended structural stage blueprint block "${stageSpec.name}"`);
                 deployedStages.push({ name: stageSpec.name, id: createStageData.data.id });
               } else {
+                executionHasErrors = true;
+                summaryErrorMessage = `Pipeline Stage Creation failed for ${stageSpec.name}`;
                 deploymentLogs.push(`  ✗ Step Insertion Failure: Blueprint stage "${stageSpec.name}" rejected: ${createStageData.error || 'Insertion error'}`);
               }
             }
           } catch (stageError: any) {
+            executionHasErrors = true;
+            summaryErrorMessage = `Fatal loop boundary interrupt on stage processing matrix`;
             deploymentLogs.push(`  ✗ Step Interrupted: Isolated boundary caught exception for step item "${stageSpec.name}": ${stageError.message}`);
           }
         }
@@ -324,6 +343,8 @@ export async function POST(request: NextRequest) {
         });
 
       } catch (pipelineError: any) {
+        executionHasErrors = true;
+        summaryErrorMessage = `Pipeline container sync aborted due to critical error: ${pipelineSpec.name}`;
         deploymentLogs.push(`✗ Track Exception: Isolated boundary caught loop drop for pipeline target "${pipelineSpec.name}": ${pipelineError.message}`);
       }
     }
@@ -340,7 +361,6 @@ export async function POST(request: NextRequest) {
 
         for (const lostReason of template.lostReasons) {
           try {
-            // Polymorphic Schema Normalizer: Grabs text cleanly from strings or structured entries
             const reasonText = typeof lostReason === 'string' 
               ? lostReason 
               : (lostReason && typeof lostReason === 'object' && 'reason' in lostReason) 
@@ -376,6 +396,16 @@ export async function POST(request: NextRequest) {
       } catch (error: any) {
         deploymentLogs.push(`• Attrition Layer Fallback: Processed standard data schema boundaries successfully: ${error.message}`);
       }
+    }
+
+    if (executionHasErrors) {
+      return NextResponse.json({
+        success: false,
+        error: summaryErrorMessage || "Structural validation failures encountered during schema deployment.",
+        logs: deploymentLogs,
+        fieldKeyTranslationMap,
+        data: deployedPipelines
+      }, { status: 422 });
     }
 
     deploymentLogs.push("✓ Operational Flash Complete: Active template arrangement fully written out to client instance.");
