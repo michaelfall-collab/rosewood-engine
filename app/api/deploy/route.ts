@@ -341,28 +341,29 @@ export async function POST(request: NextRequest) {
         const lostReasonsData = await lostReasonsResponse.json();
         const existingReasons = lostReasonsData.success ? (lostReasonsData.data || []) : [];
 
-        for (const lostReason of template.lostReasons) {
+        for (const rawLostReason of template.lostReasons) {
           try {
-            const matchedReason = existingReasons.find((existingReason: any) => existingReason.reason?.toLowerCase() === lostReason.reason.toLowerCase());
+            const reasonString = typeof rawLostReason === 'string' ? rawLostReason : rawLostReason.reason;
+            const matchedReason = existingReasons.find((existingReason: any) => existingReason.reason?.toLowerCase() === reasonString.toLowerCase());
 
             if (matchedReason) {
-              deploymentLogs.push(`• Reusing Attrition Logic: Parameter tracking verified for choice label "${lostReason.reason}"`);
+              deploymentLogs.push(`• Reusing Attrition Logic: Parameter tracking verified for choice label "${reasonString}"`);
             } else {
               const createReasonResponse = await fetch(buildUrl('lostReasons'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reason: lostReason.reason }),
+                body: JSON.stringify({ reason: reasonString }),
               });
               const createReasonData = await createReasonResponse.json();
 
               if (createReasonData.success) {
-                deploymentLogs.push(`• Injected Attrition Logic: Appended drop value option item "${lostReason.reason}"`);
+                deploymentLogs.push(`• Injected Attrition Logic: Appended drop value option item "${reasonString}"`);
               } else {
-                deploymentLogs.push(`✗ Reason Skipped: Dropdown entry "${lostReason.reason}" rejected: ${createReasonData.error || 'API constraint'}`);
+                deploymentLogs.push(`✗ Reason Skipped: Dropdown entry "${reasonString}" rejected: ${createReasonData.error || 'API constraint'}`);
               }
             }
           } catch (lostReasonInnerError: any) {
-            deploymentLogs.push(`✗ Reason Exception: Failed to evaluate drop entry "${lostReason.reason}": ${lostReasonInnerError.message}`);
+            deploymentLogs.push(`✗ Reason Exception: Failed to evaluate drop entry "${typeof rawLostReason === 'string' ? rawLostReason : rawLostReason.reason}": ${lostReasonInnerError.message}`);
           }
         }
       } catch (error: any) {

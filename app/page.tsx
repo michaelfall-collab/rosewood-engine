@@ -911,6 +911,13 @@ export default function ClientCockpitDashboard() {
 
   return (
     <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-black text-zinc-800 dark:text-zinc-200 font-sans selection:bg-[#004850]/20">
+      <input 
+        id="rwe-import-input"
+        type="file" 
+        accept=".rwe"
+        onChange={handleImport}
+        className="hidden"
+      />
       
       {/* 1. UTILITY HEADER BAR */}
       <header className="h-14 max-h-14 w-full flex items-center justify-between px-6 bg-white dark:bg-zinc-900/40 border-b border-zinc-200/60 dark:border-zinc-800/60 sticky top-0 z-[40]">
@@ -1027,7 +1034,7 @@ export default function ClientCockpitDashboard() {
                             </button>
                           </div>
                           {expandedLogs.includes(i) && (
-                            <pre className="max-h-96 overflow-auto whitespace-pre font-mono text-[11px] bg-zinc-50 dark:bg-black p-3 text-zinc-600 dark:text-emerald-400/80 border-t border-zinc-200 dark:border-zinc-800">
+                            <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap break-words font-mono text-[11px] bg-zinc-50 dark:bg-black p-3 text-zinc-600 dark:text-emerald-400/80 border-t border-zinc-200 dark:border-zinc-800">
                               {JSON.stringify(log.payload, null, 1)}
                             </pre>
                           )}
@@ -1674,7 +1681,7 @@ export default function ClientCockpitDashboard() {
                           >
                             <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-[#004850] dark:group-hover:text-emerald-400 transition-colors uppercase">{img.name}</h3>
                             <p className="text-[10px] text-zinc-400 mt-2 font-mono uppercase tracking-widest">
-                                {img.pipelines?.length || 0} TRACKS // {img.pipelines?.reduce((acc, p) => acc + (p.stages?.length || 0), 0) || 0} STEPS
+                                {img.pipelines?.length || 0} PIPELINES // {img.pipelines?.reduce((acc, p) => acc + (p.stages?.length || 0), 0) || 0} STAGES
                             </p>
                           </button>
                         ))}
@@ -2129,15 +2136,6 @@ export default function ClientCockpitDashboard() {
           {copyFeedback}
         </div>
       )}
-
-      {/* HIDDEN IMPORT INPUT */}
-      <input 
-        id="rwe-import-input"
-        type="file" 
-        accept=".rwe"
-        onChange={handleImport}
-        className="hidden"
-      />
 
     </div>
   );
