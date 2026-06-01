@@ -61,48 +61,30 @@ export async function fetchAITelemetryGuesses(
   stages: { name: string; pipelineId: number }[]
 ): Promise<Record<string, StageOperationalContext>> {
   try {
-    const schema = {
-      type: "OBJECT",
-      properties: {
-        stages: {
-          type: "ARRAY",
-          items: {
-            type: "OBJECT",
-            properties: {
-              stageName: { type: "STRING" },
-              targetDirective: { type: "STRING" },
-              stuckThreshold: { type: "STRING" }
-            },
-            required: ["stageName", "targetDirective", "stuckThreshold"]
-          }
-        }
-      },
-      required: ["stages"]
-    };
     const response = await fetch('/api/compile-agent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemPrompt: `You are a senior CRM operations strategist. For each pipeline stage name provided, write a single concise 'targetDirective' sentence (max 20 words) that describes what the team is physically doing AND what constitutes success in this stage. Also provide a realistic 'stuckThreshold' (e.g. "7 Days") after which a deal should be flagged as stalled. Be precise and operational, not generic.`,
-        userPrompt: `Generate telemetry for these CRM pipeline stages: ${JSON.stringify(stages.map(s => s.name))}`,
-        schema
+      body: JSON.stringify({ 
+        mode: 'telemetry-batch', 
+        stages: stages.map((s, i) => ({ name: s.name, order_nr: i + 1 })) 
       })
     });
     const data = await response.json();
     if (data.success && data.jsonObject?.stages) {
       const result: Record<string, StageOperationalContext> = {};
-      for (const entry of data.jsonObject.stages) {
-        result[entry.stageName] = {
+      data.jsonObject.stages.forEach((entry: any, index: number) => {
+        const stageName = stages[index].name;
+        result[stageName] = {
           targetDirective: entry.targetDirective,
           stuckThreshold: entry.stuckThreshold,
           isRecurringLoop: false,
           recurrenceDays: 7
         };
-      }
+      });
       return result;
     }
   } catch (e) {
-    console.warn("AI telemetry guess failed, using local fallback", e);
+    console.warn("AI telemetry batch guess failed, using local fallback", e);
   }
   // Fallback: build from local heuristics
   const fallback: Record<string, StageOperationalContext> = {};

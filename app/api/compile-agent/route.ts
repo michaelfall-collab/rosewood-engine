@@ -27,7 +27,43 @@ const automationBlockSchema = {
 
 export async function POST(request: Request) {
   try {
-    const { systemPrompt, userPrompt, schema } = await request.json();
+    const body = await request.json();
+    const { systemPrompt, userPrompt, schema, mode, stages } = body;
+
+    // Handle high-efficiency batch telemetry ingestion mode
+    if (mode === 'telemetry-batch' && Array.isArray(stages)) {
+      const batchResponse = await ai.models.generateContent({
+        model: TARGET_MODEL,
+        contents: `Analyze this chronological sequence of CRM pipeline stages: ${JSON.stringify(stages)}.
+Generate realistic operational telemetry parameters for each stage based on its position in the pipeline flow.
+Return a single valid JSON array containing exactly ${stages.length} objects matching this interface model:
+[{ "targetDirective": "Brief sentence detailing real human intent and success criteria", "stuckThreshold": "X Days" }]
+Do not wrap the output in markdown code blocks or return conversational prose.`,
+        config: {
+          systemInstruction: "You are a senior CRM operations strategist. Provide precise, actionable business logic coordinates for pipeline stages.",
+          temperature: 0.1,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                targetDirective: { type: "STRING" },
+                stuckThreshold: { type: "STRING" }
+              },
+              required: ["targetDirective", "stuckThreshold"]
+            }
+          } as any
+        }
+      });
+
+      const batchText = batchResponse.text || "[]";
+      return NextResponse.json({
+        success: true,
+        jsonObject: { stages: JSON.parse(batchText) },
+        compiledBy: TARGET_MODEL
+      });
+    }
 
     if (!systemPrompt || !userPrompt) {
       return NextResponse.json({ success: false, error: "Missing prompt payloads" }, { status: 400 });
