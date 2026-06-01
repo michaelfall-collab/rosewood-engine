@@ -263,7 +263,9 @@ export default function ClientCockpitDashboard() {
   const [abSelectedImageId, setAbSelectedImageId] = useState<string | null>(null);
   const [abSelectedIntegrations, setAbSelectedIntegrations] = useState<string[]>([]);
   const [abChatHistory, setAbChatHistory] = useState<{ sender: "user" | "ai"; text: string; dataWidget?: any }[]>([]);
+  const [visibleChatHistory, setVisibleChatHistory] = useState<{ sender: "user" | "ai"; text: string; dataWidget?: any; isTyping?: boolean }[]>([]);
   const [abChatInput, setAbChatInput] = useState("");
+  const [isAiTyping, setIsAiTyping] = useState(false);
   const [abRoles, setAbRoles] = useState<{ roleName: string; count: number }[]>([]);
   const [abCompiledObjects, setAbCompiledObjects] = useState<any[]>([]);
   const [tempRoleLabel, setTempRoleLabel] = useState("");
@@ -274,13 +276,11 @@ export default function ClientCockpitDashboard() {
 
   // Auto-scroll chat to bottom
   useEffect(() => {
-    if (abStep === 'chat') {
-      const chatContainer = document.getElementById('chat-history-container');
-      if (chatContainer) {
-        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
-      }
+    const chatContainer = document.getElementById('chat-history-container');
+    if (chatContainer) {
+      chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
     }
-  }, [abChatHistory, abStep]);
+  }, [visibleChatHistory, isAiTyping]);
 
   // Fire a real Gemini background call for AI telemetry guesses the moment a card enters preflight
   useEffect(() => {
@@ -469,6 +469,37 @@ export default function ClientCockpitDashboard() {
     }
   };
 
+  const typewriterAddMessage = async (msg: { sender: "ai"; text: string; dataWidget?: any }) => {
+    // 1. Enter "Thinking" phase (Typing Indicator)
+    setIsAiTyping(true);
+    const thinkingDelay = Math.random() * 800 + 700; // 700ms - 1500ms
+    await new Promise(r => setTimeout(r, thinkingDelay));
+    setIsAiTyping(false);
+
+    // 2. Start streaming text char-by-char
+    let currentText = "";
+    
+    // Add initial empty message
+    setVisibleChatHistory(prev => [...prev, { ...msg, text: "", isTyping: true }]);
+
+    const chars = msg.text.split("");
+    for (let i = 0; i < chars.length; i++) {
+      currentText += chars[i];
+      // Faster typing for longer messages, slower for short quips
+      const speed = msg.text.length > 100 ? 5 : 15; 
+      await new Promise(r => setTimeout(r, speed));
+      
+      setVisibleChatHistory(prev => {
+        const last = [...prev];
+        last[last.length - 1] = { ...msg, text: currentText, isTyping: i < chars.length - 1 };
+        return last;
+      });
+    }
+
+    // 3. Finalize and update primary history
+    setAbChatHistory(prev => [...prev, msg]);
+  };
+
   const compileRawModelPromptManifest = (compiledObjects?: any[]) => {
     const targetImage = images.find(i => i.id === abSelectedImageId);
     if (!targetImage) return "";
@@ -496,12 +527,12 @@ export default function ClientCockpitDashboard() {
       setIsAttached(false);
 
       // Conversational cue
-      setAbChatHistory(prev => [...prev, {
+      typewriterAddMessage({
         sender: "ai",
         text: feedback 
           ? `Adjusting the roadmap based on your feedback: "${feedback}". Re-calculating sequence...` 
           : "Analyzing your instructions and project architecture. I'm building a proposed roadmap of automations now...",
-      }]);
+      });
 
       const roadmapSchema = {
         type: "OBJECT",
@@ -558,17 +589,17 @@ export default function ClientCockpitDashboard() {
           setAbRoadmap(roadmap);
           setAbStep('review');
           
-          setAbChatHistory(prev => [...prev, {
+          typewriterAddMessage({
             sender: "ai",
             text: `I've architected a sequence of ${roadmap.length} automations. Please review the proposed roadmap below. You can delete items or provide feedback for adjustments.`,
             dataWidget: "ROADMAP_REVIEW"
-          }]);
+          });
         } else {
-          setAbChatHistory(prev => [...prev, { sender: "ai", text: "I encountered an error while generating the roadmap. Could you please try rephrasing your instructions?" }]);
+          typewriterAddMessage({ sender: "ai", text: "I encountered an error while generating the roadmap. Could you please try rephrasing your instructions?" });
           setAbStep('chat');
         }
       } catch (error) {
-        setAbChatHistory(prev => [...prev, { sender: "ai", text: "System connection error. Please try again." }]);
+        typewriterAddMessage({ sender: "ai", text: "System connection error. Please try again." });
         setAbStep('chat');
       }
       return;
@@ -579,11 +610,11 @@ export default function ClientCockpitDashboard() {
       setAbStep('stapling');
       setStaplingState({ index: 0, total: abRoadmap.length, currentStage: "" });
 
-      setAbChatHistory(prev => [...prev, {
+      typewriterAddMessage({
         sender: "ai",
         text: "Roadmap confirmed. I am now writing the detailed step-by-step setup logic for each automation block.",
         dataWidget: "STAPLING_PROGRESS"
-      }]);
+      });
 
       const newCompiledObjects = [];
 
@@ -664,11 +695,11 @@ export default function ClientCockpitDashboard() {
       }, ...prev]);
 
       setAbStep('preview');
-      setAbChatHistory(prev => [...prev, {
+      typewriterAddMessage({
         sender: "ai",
         text: "Architecture complete. Your unified process guide is ready for review and export.",
         dataWidget: "FINAL_PREVIEW"
-      }]);
+      });
     }
   };
 
@@ -677,11 +708,18 @@ export default function ClientCockpitDashboard() {
     setAbStep('select');
     setAbSelectedImageId(null);
     setAbSelectedIntegrations([]);
-    setAbChatHistory([{
-      sender: "ai",
-      text: "Welcome to the Auto-Builder. To begin, please select a project track from your library.",
-      dataWidget: "SELECT_PROJECT"
-    }]);
+    setAbChatHistory([]);
+    setVisibleChatHistory([]);
+    
+    // Trigger typewriter for welcome
+    setTimeout(() => {
+      typewriterAddMessage({
+        sender: "ai",
+        text: "Welcome to the Auto-Builder. To begin, please select a project track from your library.",
+        dataWidget: "SELECT_PROJECT"
+      });
+    }, 400);
+
     setAbChatInput("");
     setAbRoles([]);
     setStaplingState({ index: 0, total: 0, currentStage: "" });
@@ -1711,7 +1749,7 @@ export default function ClientCockpitDashboard() {
 
               {/* MAIN CONVERSATIONAL BODY */}
               <div id="chat-history-container" className="flex-1 overflow-y-auto p-8 space-y-10 bg-white dark:bg-zinc-950 scroll-smooth">
-                {abChatHistory.map((msg, i) => (
+                {visibleChatHistory.map((msg, i) => (
                   <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-500`}>
                     <div className={`flex gap-5 w-full ${msg.sender === 'user' ? 'max-w-[70%] flex-row-reverse' : 'max-w-[95%]'}`}>
                       <div className={`h-9 w-9 rounded-2xl shrink-0 flex items-center justify-center text-[10px] font-black uppercase shadow-sm ${msg.sender === 'user' ? 'bg-zinc-900 text-white' : 'bg-[#004850] text-white shadow-[#004850]/20'}`}>
@@ -1720,6 +1758,7 @@ export default function ClientCockpitDashboard() {
                       <div className="space-y-4 flex-1">
                         <div className={`px-6 py-4 rounded-3xl text-sm leading-relaxed shadow-sm ${msg.sender === 'user' ? 'bg-[#004850] text-white rounded-tr-none' : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 rounded-tl-none border border-zinc-100 dark:border-zinc-800'}`}>
                           {msg.text}
+                          {msg.isTyping && <span className="inline-block w-1 h-4 bg-[#004850] dark:bg-emerald-500 ml-1 animate-pulse align-middle" />}
                         </div>
                         
                         {/* WIDGETS */}
@@ -1728,7 +1767,9 @@ export default function ClientCockpitDashboard() {
                             {images.map(img => (
                               <button key={img.id} onClick={() => {
                                 setAbSelectedImageId(img.id);
-                                setAbChatHistory(prev => [...prev, { sender: 'user', text: `I've selected the '${img.name}' project.` }, { sender: 'ai', text: "Excellent choice. Let's calibrate your process track objectives. Tune the goals and thresholds in the matrix below.", dataWidget: "GOAL_MATRIX" }]);
+                                setAbChatHistory(prev => [...prev, { sender: 'user', text: `I've selected the '${img.name}' project.` }]);
+                                setVisibleChatHistory(prev => [...prev, { sender: 'user', text: `I've selected the '${img.name}' project.` }]);
+                                typewriterAddMessage({ sender: 'ai', text: "Excellent choice. Let's calibrate your process track objectives. Tune the goals and thresholds in the matrix below.", dataWidget: "GOAL_MATRIX" });
                                 setAbStep('preflight');
                               }} className="p-5 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900 hover:border-[#004850] dark:hover:border-emerald-500 transition-all text-left group active:scale-[0.98] shadow-sm">
                                 <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-[#004850] dark:group-hover:text-emerald-400 transition-colors uppercase">{img.name}</h3>
@@ -1796,7 +1837,9 @@ export default function ClientCockpitDashboard() {
                             </div>
                             <div className="flex justify-end">
                               <button onClick={() => {
-                                setAbChatHistory(prev => [...prev, { sender: 'user', text: "Goals calibrated. Ready to define system context." }, { sender: 'ai', text: "Understood. Now, let's specify the connected tools and team roles involved in this project. You can update these parameters in the console below.", dataWidget: "CONTEXT_TUNING" }]);
+                                setAbChatHistory(prev => [...prev, { sender: 'user', text: "Goals calibrated. Ready to define system context." }]);
+                                setVisibleChatHistory(prev => [...prev, { sender: 'user', text: "Goals calibrated. Ready to define system context." }]);
+                                typewriterAddMessage({ sender: 'ai', text: "Understood. Now, let's specify the connected tools and team roles involved in this project. You can update these parameters in the console below.", dataWidget: "CONTEXT_TUNING" });
                               }} className="h-11 px-8 bg-[#004850] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95">Confirm Matrix & Proceed <i className="ti ti-arrow-right" /></button>
                             </div>
                           </div>
@@ -1851,7 +1894,9 @@ export default function ClientCockpitDashboard() {
 
                             <div className="flex justify-end pt-4">
                               <button onClick={() => {
-                                setAbChatHistory(prev => [...prev, { sender: 'user', text: "Context finalized. Ready to build logic." }, { sender: 'ai', text: "Perfect. Now, describe the automation behaviors you'd like to build for this project. Mention triggers, Slack notifications, or conditional fallback rules. I'll translate your instructions into a structured roadmap." }]);
+                                setAbChatHistory(prev => [...prev, { sender: 'user', text: "Context finalized. Ready to build logic." }]);
+                                setVisibleChatHistory(prev => [...prev, { sender: 'user', text: "Context finalized. Ready to build logic." }]);
+                                typewriterAddMessage({ sender: 'ai', text: "Perfect. Now, describe the automation behaviors you'd like to build for this project. Mention triggers, Slack notifications, or conditional fallback rules. I'll translate your instructions into a structured roadmap." });
                                 setAbStep('chat');
                               }} className="h-11 px-10 bg-[#004850] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95">Finalize Context & Start Building <i className="ti ti-wand" /></button>
                             </div>
@@ -1952,6 +1997,20 @@ export default function ClientCockpitDashboard() {
                     </div>
                   </div>
                 ))}
+
+                {isAiTyping && (
+                  <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex gap-5 w-full max-w-[95%]">
+                      <div className="h-9 w-9 rounded-2xl bg-[#004850] text-white shrink-0 flex items-center justify-center text-[10px] font-black uppercase shadow-lg shadow-[#004850]/20">AI</div>
+                      <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 px-6 py-4 rounded-3xl rounded-tl-none flex items-center gap-1 shadow-sm">
+                        <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                        <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                        <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div id="chat-end" className="h-4 w-full shrink-0" />
               </div>
 
@@ -1972,7 +2031,9 @@ export default function ClientCockpitDashboard() {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         if (abChatInput.trim() && abStep === 'chat') {
-                          setAbChatHistory(prev => [...prev, { sender: 'user', text: abChatInput }]);
+                          const msg = { sender: 'user' as const, text: abChatInput };
+                          setAbChatHistory(prev => [...prev, msg]);
+                          setVisibleChatHistory(prev => [...prev, msg]);
                           setAbChatInput("");
                         }
                       }
@@ -1987,7 +2048,12 @@ export default function ClientCockpitDashboard() {
                   />
                   <div className="absolute bottom-5 right-5 flex gap-3">
                     <button 
-                      onClick={() => { if (abChatInput.trim()) { setAbChatHistory(prev => [...prev, { sender: 'user', text: abChatInput }]); setAbChatInput(""); } }}
+                      onClick={() => { if (abChatInput.trim()) { 
+                        const msg = { sender: 'user' as const, text: abChatInput };
+                        setAbChatHistory(prev => [...prev, msg]);
+                        setVisibleChatHistory(prev => [...prev, msg]);
+                        setAbChatInput(""); 
+                      } }}
                       disabled={!abChatInput.trim() || abStep !== 'chat'}
                       className="h-11 w-11 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-2xl flex items-center justify-center transition-all active:scale-90 disabled:opacity-30 shadow-sm"
                       title="Add instruction to log"
