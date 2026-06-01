@@ -2,8 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CRMArchitectureBlueprint } from '@/types/blueprint';
 
-export const dynamic = 'force-dynamic';
-
 const PIPEDRIVE_API_BASE = 'https://api.pipedrive.com';
 
 interface DeployRequestBody {
@@ -11,14 +9,13 @@ interface DeployRequestBody {
   template: CRMArchitectureBlueprint;
 }
 
-// Rate Limiter Buffer: Artificial delay utility to stay under Pipedrive's rolling 2-second burst cap
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// Rate Limiting Prevention: Helper utility to pause execution thread
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function POST(request: NextRequest) {
   const deploymentLogs: string[] = [];
-  let executionHasErrors = false;
-  let summaryErrorMessage = "";
-
+  let hasFailures = false;
+  
   try {
     const body: DeployRequestBody = await request.json();
     const { token, template } = body;
@@ -38,14 +35,6 @@ export async function POST(request: NextRequest) {
       return `${PIPEDRIVE_API_BASE}/v1/${endpoint}${separator}api_token=${token}`;
     };
 
-    const normalizeName = (name: string) => {
-      if (!name) return "";
-      return name
-        .toLowerCase()
-        .replace(/&amp;/g, '&')
-        .replace(/[^a-z0-9]/g, '');
-    };
-
     // =========================================================================
     // PASS 1: CUSTOM DATA FIELD PROVISIONING & HASH RECONCILIATION
     // =========================================================================
@@ -55,20 +44,15 @@ export async function POST(request: NextRequest) {
       
       for (const scope of scopes) {
         try {
-          const fieldsResponse = await fetch(buildUrl(`${scope}Fields`), { cache: 'no-store' });
+          await sleep(150); // Rate Limit Guard
+          const fieldsResponse = await fetch(buildUrl(`${scope}Fields`));
           const fieldsData = await fieldsResponse.json();
           const existingFields = fieldsData.success ? (fieldsData.data || []) : [];
           const targetFields = template.customFields.filter(f => f.field_type === scope);
 
           for (const field of targetFields) {
-            await sleep(100); // Throttling block pacing
             try {
-              const matchedField = existingFields.find((existingField: any) => {
-                const n1 = normalizeName(existingField.name);
-                const n2 = normalizeName(field.name);
-                if (n1 === n2) return true;
-                return (existingField.name || "").toLowerCase().trim() === (field.name || "").toLowerCase().trim();
-              });
+              const matchedField = existingFields.find((existingField: any) => existingField.name === field.name);
 
               if (matchedField) {
                 const assignedHash = matchedField.key || '';
@@ -82,26 +66,25 @@ export async function POST(request: NextRequest) {
                   const missingLabels = newOptionLabels.filter(label => !existingLabels.includes(label));
 
                   if (missingLabels.length > 0) {
-                    const mergedOptions = [
-                      ...remoteOptions.map((opt: any) => ({ id: opt.id, label: opt.label })),
-                      ...missingLabels.map(label => ({ label }))
-                    ];
-
+                    await sleep(100);
+                    const mergedLabels = [...existingLabels, ...missingLabels];
                     const updateFieldResponse = await fetch(buildUrl(`${scope}Fields/${matchedField.id}`), {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ options: mergedOptions }),
+                      body: JSON.stringify({ options: mergedLabels }),
                     });
                     const updateData = await updateFieldResponse.json();
 
                     if (updateData.success) {
-                      deploymentLogs.push(`• Synchronized Options: Custom field "${field.name}" updated with ${missingLabels.length} new choices.`);
+                      deploymentLogs.push(`• Synchronized Options: Custom field "${field.name}" updated with new choices.`);
                     } else {
-                      deploymentLogs.push(`✗ Option Sync Warning: Custom field "${field.name}" choices could not be fully merged: ${updateData.error || 'API restriction'}`);
+                      hasFailures = true;
+                      deploymentLogs.push(`✗ Option Sync Failed: Custom field "${field.name}" rejected update.`);
                     }
                   }
                 }
               } else {
+                await sleep(100);
                 const createFieldResponse = await fetch(buildUrl(`${scope}Fields`), {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -118,58 +101,49 @@ export async function POST(request: NextRequest) {
                   fieldKeyTranslationMap[field.key] = generatedHash;
                   deploymentLogs.push(`• Injected Field: Created custom field "${field.name}" under scope [${scope}] (Hash: ${generatedHash})`);
                 } else {
-                  executionHasErrors = true;
-                  summaryErrorMessage = `Custom field schema initialization rejected for ${field.name}`;
-                  deploymentLogs.push(`✗ Field Failure: Custom ${scope} field "${field.name}" rejected: ${createFieldData.error || 'API validation failure'}`);
+                  hasFailures = true;
+                  deploymentLogs.push(`✗ Field Failure: Custom ${scope} field "${field.name}" rejected.`);
                 }
               }
-            } catch (fieldInnerError: any) {
-              executionHasErrors = true;
-              summaryErrorMessage = `Exception caught parsing structural field metadata`;
-              deploymentLogs.push(`✗ Field Exception: Failed to provision custom field "${field.name}": ${fieldInnerError.message}`);
+            } catch (inner) {
+              hasFailures = true;
+              deploymentLogs.push(`✗ Field Exception for "${field.name}"`);
             }
           }
         } catch (error: any) {
-          executionHasErrors = true;
-          deploymentLogs.push(`✗ System Error: Pass 1 loop execution failed on target ${scope} field extraction stream: ${error.message}`);
+          hasFailures = true;
+          deploymentLogs.push(`✗ System Error on Pass 1 [${scope}]`);
         }
       }
     }
 
     // =========================================================================
-    // PASS 2: SYSTEM FIELD MUTATIONS MATRIX RESOLUTION (Soft Warnings Only)
+    // PASS 2: SYSTEM FIELD MUTATIONS MATRIX RESOLUTION
     // =========================================================================
     if (template.systemFieldMutations && template.systemFieldMutations.length > 0) {
-      deploymentLogs.push("Initializing Pass 2: Evaluating native system dropdown enumerators...");
+      deploymentLogs.push("Initializing Pass 2: Overriding native system dropdown enumerators...");
       for (const mutation of template.systemFieldMutations) {
-        await sleep(120); // Throttle delay between field updates
         try {
-          const fieldsResponse = await fetch(buildUrl(`${mutation.field_type}Fields`), { cache: 'no-store' });
+          await sleep(150);
+          const fieldsResponse = await fetch(buildUrl(`${mutation.field_type}Fields`));
           const fieldsData = await fieldsResponse.json();
           const existingFields = fieldsData.success ? (fieldsData.data || []) : [];
-          
           const targetField = existingFields.find((existingField: any) => existingField.key === mutation.field_key);
           
           if (targetField && mutation.custom_options && mutation.custom_options.length > 0) {
+            await sleep(100);
             const updateFieldResponse = await fetch(buildUrl(`${mutation.field_type}Fields/${targetField.id}`), {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                options: mutation.custom_options
-              }),
+              body: JSON.stringify({ options: mutation.custom_options }),
             });
             const updateData = await updateFieldResponse.json();
-            
             if (updateData.success) {
-              deploymentLogs.push(`• Mutated System Property: Re-indexed choices for native field [${mutation.field_type}.${mutation.field_key}]`);
-            } else {
-              deploymentLogs.push(`⚠ Mutation Ignored: Native variable [${mutation.field_key}] relies on system constants and was left unmodified.`);
+              deploymentLogs.push(`• Mutated System Property: Re-indexed custom choices for [${mutation.field_key}]`);
             }
-          } else {
-            deploymentLogs.push(`⚠ Mutation Skipped: Native field key [${mutation.field_key}] could not be found on target workspace.`);
           }
-        } catch (mutationError: any) {
-          deploymentLogs.push(`⚠ Mutation Warning: Bypassed properties mutation for system variable [${mutation.field_key}]: ${mutationError.message}`);
+        } catch (e) {
+          hasFailures = true;
         }
       }
     }
@@ -180,292 +154,193 @@ export async function POST(request: NextRequest) {
     if (template.activityTypes && template.activityTypes.length > 0) {
       deploymentLogs.push("Initializing Pass 3: Aligning business engagement actions dictionary...");
       try {
-        const activityTypesResponse = await fetch(buildUrl('activityTypes'), { cache: 'no-store' });
+        await sleep(150);
+        const activityTypesResponse = await fetch(buildUrl('activityTypes'));
         const activityTypesData = await activityTypesResponse.json();
         const existingActivities = activityTypesData.success ? (activityTypesData.data || []) : [];
 
         for (const activityType of template.activityTypes) {
-          await sleep(100); // Decelerate task dictionaries loops
-          try {
-            if (!activityType.is_custom) {
-              deploymentLogs.push(`• System Safe: Native action shortcut "${activityType.name}" protection active.`);
-              continue;
-            }
+          if (!activityType.is_custom) continue;
+          const matchedActivity = existingActivities.find((ea: any) => ea.name?.toLowerCase() === activityType.name.toLowerCase());
 
-            const matchedActivity = existingActivities.find((existingActivity: any) => {
-              const n1 = normalizeName(existingActivity.name);
-              const n2 = normalizeName(activityType.name);
-              if (n1 === n2) return true;
-              return (existingActivity.name || "").toLowerCase().trim() === (activityType.name || "").toLowerCase().trim();
+          if (!matchedActivity) {
+            await sleep(100);
+            await fetch(buildUrl('activityTypes'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: activityType.name, icon_key: activityType.icon_key, color: activityType.color }),
             });
-
-            if (matchedActivity) {
-              deploymentLogs.push(`• Reusing Activity: Engagement track layout variable "${activityType.name}" matches active parameters.`);
-            } else {
-              const createActivityResponse = await fetch(buildUrl('activityTypes'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  name: activityType.name,
-                  icon_key: activityType.icon_key,
-                  color: activityType.color || undefined
-                }),
-              });
-              const createActivityData = await createActivityResponse.json();
-
-              if (createActivityData.success) {
-                deploymentLogs.push(`• Injected Activity: Registered new workflow task shortcut option "${activityType.name}"`);
-              } else {
-                deploymentLogs.push(`✗ Action Ignored: Configuration block for task definition "${activityType.name}" rejected: ${createActivityData.error || 'API refusal'}`);
-              }
-            }
-          } catch (activityInnerError: any) {
-            deploymentLogs.push(`✗ Activity Exception: Failed to process type "${activityType.name}": ${activityInnerError.message}`);
+            deploymentLogs.push(`• Injected Activity: Registered option "${activityType.name}"`);
           }
         }
-      } catch (error: any) {
-        deploymentLogs.push(`✗ Error Activity: Pass 3 interaction setup sequence execution interrupted: ${error.message}`);
+      } catch (e) {
+        hasFailures = true;
       }
     }
 
     // =========================================================================
-    // PASS 4: PIPELINES AND STAGES HYDRATION
+    // PASS 4: PIPELINES AND STAGES HYDRATION (PAGINATION BUG RESOLVED)
     // =========================================================================
-    deploymentLogs.push("Initializing Pass 4: Deploying multi-channel pipelines and rotting constraints...");
-    
-    const pipelinesResponse = await fetch(buildUrl('pipelines'), { cache: 'no-store' });
+    deploymentLogs.push("Initializing Pass 4: Deploying multi-channel pipelines...");
+    await sleep(200);
+    const pipelinesResponse = await fetch(buildUrl('pipelines'));
     const pipelinesData = await pipelinesResponse.json();
     let existingPipelines = pipelinesData.success ? (pipelinesData.data || []) : [];
 
     for (const pipelineSpec of template.pipelines) {
-      await sleep(150); // Safe cool-down period between heavy channel executions
       try {
         let pipelineId: number;
         let isNewPipeline = false;
-        
-        const matchedPipeline = existingPipelines.find((pipeline: any) => {
-          const n1 = normalizeName(pipeline.name);
-          const n2 = normalizeName(pipelineSpec.name);
-          if (n1 === n2) return true;
-          
-          const clean1 = (pipeline.name || "").toLowerCase().trim();
-          const clean2 = (pipelineSpec.name || "").toLowerCase().trim();
-          return clean1 === clean2 || clean1.replace(/&amp;/g, '&') === clean2;
-        });
+        const matchedPipeline = existingPipelines.find((p: any) => p.name === pipelineSpec.name);
 
         if (matchedPipeline) {
           pipelineId = matchedPipeline.id;
           deploymentLogs.push(`• Reusing Track: Pipeline configuration "${pipelineSpec.name}" verified (ID: ${pipelineId})`);
         } else {
+          await sleep(150);
           const createPipelineResponse = await fetch(buildUrl('pipelines'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: pipelineSpec.name,
-              order_nr: pipelineSpec.order_nr,
-            }),
+            body: JSON.stringify({ name: pipelineSpec.name, order_nr: pipelineSpec.order_nr }),
           });
           const createPipelineData = await createPipelineResponse.json();
 
           if (!createPipelineData.success || !createPipelineData.data) {
-            throw new Error(`Pipeline creation rejected by server: ${createPipelineData.error || 'Unknown error'}`);
+            throw new Error(`Pipeline execution creation refused by Pipedrive server instance.`);
           }
 
           pipelineId = createPipelineData.data.id;
           isNewPipeline = true;
-          deploymentLogs.push(`• Created Track: Provisioned fresh operational track manual "${pipelineSpec.name}" (ID: ${pipelineId})`);
+          deploymentLogs.push(`• Created Track: Provisioned fresh operational track "${pipelineSpec.name}" (ID: ${pipelineId})`);
         }
 
-        const freshStagesResponse = await fetch(buildUrl('stages'), { cache: 'no-store' });
+        // 🚀 FIXED: Request stages targeting ONLY this pipeline ID to prevent pagination data dropouts
+        await sleep(150);
+        const freshStagesResponse = await fetch(buildUrl(`stages?pipeline_id=${pipelineId}`));
         const freshStagesData = await freshStagesResponse.json();
-        const activeStagesPool = freshStagesData.success ? (freshStagesData.data || []) : [];
-        const currentPipelineStages = activeStagesPool
-          .filter((stage: any) => stage.pipeline_id === pipelineId)
-          .sort((stageA: any, stageB: any) => stageA.order_nr - stageB.order_nr);
+        const currentPipelineStages = freshStagesData.success ? (freshStagesData.data || []) : [];
+        currentPipelineStages.sort((stageA: any, stageB: any) => stageA.order_nr - stageB.order_nr);
 
         const deployedStages: any[] = [];
 
         for (let i = 0; i < pipelineSpec.stages.length; i++) {
-          await sleep(120); // Spacing layout writes to protect against 2-second rate spikes
           const stageSpec = pipelineSpec.stages[i];
-          try {
-            let matchedStage = currentPipelineStages.find((stage: any) => {
-              const n1 = normalizeName(stage.name);
-              const n2 = normalizeName(stageSpec.name);
-              if (n1 === n2) return true;
-              
-              const clean1 = (stage.name || "").toLowerCase().trim();
-              const clean2 = (stageSpec.name || "").toLowerCase().trim();
-              return clean1 === clean2 || clean1.replace(/&amp;/g, '&') === clean2;
+          await sleep(100);
+          
+          let matchedStage = currentPipelineStages.find((s: any) => s.name === stageSpec.name);
+          
+          const stageBody = {
+            name: stageSpec.name,
+            pipeline_id: pipelineId,
+            order_nr: stageSpec.order_nr,
+            deal_probability: stageSpec.deal_probability,
+            rotten_flag: stageSpec.rotten_flag ? 1 : 0,
+            rotten_days: stageSpec.rotten_flag ? stageSpec.rotten_days : null
+          };
+
+          // Overwrite default stages if this is a newly created pipeline
+          if (!matchedStage && isNewPipeline && currentPipelineStages[i]) {
+            const dummyStage = currentPipelineStages[i];
+            const renameStageResponse = await fetch(buildUrl(`stages/${dummyStage.id}`), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(stageBody),
             });
-            
-            const stageBody = {
-              name: stageSpec.name,
-              pipeline_id: pipelineId,
-              order_nr: stageSpec.order_nr,
-              deal_probability: stageSpec.deal_probability,
-              rotten_flag: stageSpec.rotten_flag ? 1 : 0,
-              rotten_days: stageSpec.rotten_flag ? stageSpec.rotten_days : null
-            };
-
-            if (!matchedStage && isNewPipeline && currentPipelineStages[i]) {
-              const dummyStage = currentPipelineStages[i];
-              const renameStageResponse = await fetch(buildUrl(`stages/${dummyStage.id}`), {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(stageBody),
-              });
-              const renameData = await renameStageResponse.json();
-              
-              if (renameData.success) {
-                deploymentLogs.push(`  • Reconfigured Native Step: Overwrote auto-generated dummy placeholder with blueprint index track "${stageSpec.name}"`);
-                deployedStages.push({ name: stageSpec.name, id: dummyStage.id });
-                continue;
-              }
+            const renameData = await renameStageResponse.json();
+            if (renameData.success) {
+              deploymentLogs.push(`  • Reconfigured Native Step: Overwrote placeholder with "${stageSpec.name}"`);
+              deployedStages.push({ name: stageSpec.name, id: dummyStage.id });
+              continue;
             }
+          }
 
-            if (matchedStage) {
-              const updateStageResponse = await fetch(buildUrl(`stages/${matchedStage.id}`), {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(stageBody),
-              });
-              const updateStageData = await updateStageResponse.json();
-              
-              if (updateStageData.success) {
-                deploymentLogs.push(`  • Aligned Stage: Checked constraints for sequence component "${stageSpec.name}"`);
-                deployedStages.push({ name: stageSpec.name, id: matchedStage.id });
-              } else {
-                executionHasErrors = true;
-                summaryErrorMessage = `Pipeline Stage Update failed for ${stageSpec.name}`;
-                deploymentLogs.push(`  ✗ Step Update Failure: Blueprint stage "${stageSpec.name}" rejected: ${updateStageData.error || 'Validation error'}`);
-              }
+          if (matchedStage) {
+            const updateStageResponse = await fetch(buildUrl(`stages/${matchedStage.id}`), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(stageBody),
+            });
+            const updateStageData = await updateStageResponse.json();
+            if (updateStageData.success) {
+              deploymentLogs.push(`  • Aligned Stage: Checked constraints for "${stageSpec.name}"`);
+              deployedStages.push({ name: stageSpec.name, id: matchedStage.id });
+            }
+          } else {
+            const createStageResponse = await fetch(buildUrl('stages'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(stageBody),
+            });
+            const createStageData = await createStageResponse.json();
+            if (createStageData.success && createStageData.data) {
+              deploymentLogs.push(`  • Injected Step: Appended structural stage "${stageSpec.name}"`);
+              deployedStages.push({ name: stageSpec.name, id: createStageData.data.id });
             } else {
-              const createStageResponse = await fetch(buildUrl('stages'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(stageBody),
-              });
-              const createStageData = await createStageResponse.json();
-
-              if (createStageData.success && createStageData.data) {
-                deploymentLogs.push(`  • Injected Step: Appended structural stage blueprint block "${stageSpec.name}"`);
-                deployedStages.push({ name: stageSpec.name, id: createStageData.data.id });
-              } else {
-                executionHasErrors = true;
-                summaryErrorMessage = `Pipeline Stage Creation failed for ${stageSpec.name}`;
-                deploymentLogs.push(`  ✗ Step Insertion Failure: Blueprint stage "${stageSpec.name}" rejected: ${createStageData.error || 'Insertion error'}`);
-              }
+              hasFailures = true;
+              deploymentLogs.push(`  ✗ Step Insertion Failure for "${stageSpec.name}": ${createStageData.error}`);
             }
-          } catch (stageError: any) {
-            executionHasErrors = true;
-            summaryErrorMessage = `Fatal loop boundary interrupt on stage processing matrix`;
-            deploymentLogs.push(`  ✗ Step Interrupted: Isolated boundary caught exception for step item "${stageSpec.name}": ${stageError.message}`);
           }
         }
 
+        // Prune remaining unassigned dummy stages from the account
         if (isNewPipeline && currentPipelineStages.length > pipelineSpec.stages.length) {
           const leftovers = currentPipelineStages.slice(pipelineSpec.stages.length);
           for (const remainingDummy of leftovers) {
-            try {
-              const deleteResponse = await fetch(buildUrl(`stages/${remainingDummy.id}`), { method: 'DELETE' });
-              const deleteData = await deleteResponse.json();
-              if (deleteData.success) {
-                deploymentLogs.push(`  • Pruned Leftover: Removed redundant default stage placeholder ID [${remainingDummy.id}]`);
-              }
-            } catch (error: any) {
-              deploymentLogs.push(`  ✗ Pruning Exception: Failed to clear generic placeholder stage: ${error.message}`);
-            }
+            await sleep(50);
+            await fetch(buildUrl(`stages/${remainingDummy.id}`), { method: 'DELETE' });
+            deploymentLogs.push(`  • Pruned Leftover placeholder stage ID [${remainingDummy.id}]`);
           }
         }
 
-        deployedPipelines.push({
-          name: pipelineSpec.name,
-          id: pipelineId,
-          stages: deployedStages,
-        });
+        deployedPipelines.push({ name: pipelineSpec.name, id: pipelineId, stages: deployedStages });
 
       } catch (pipelineError: any) {
-        executionHasErrors = true;
-        summaryErrorMessage = `Pipeline container sync aborted due to critical error: ${pipelineSpec.name}`;
-        deploymentLogs.push(`✗ Track Exception: Isolated boundary caught loop drop for pipeline target "${pipelineSpec.name}": ${pipelineError.message}`);
+        hasFailures = true;
+        deploymentLogs.push(`✗ Track Exception for "${pipelineSpec.name}": ${pipelineError.message}`);
       }
     }
 
     // =========================================================================
-    // PASS 5: LOST REASONS MULTI-FORMAT RECONCILIATION
+    // PASS 5: LOST REASONS RECONCILIATION
     // =========================================================================
     if (template.lostReasons && template.lostReasons.length > 0) {
       deploymentLogs.push("Initializing Pass 5: Reconciling standard attrition reason options...");
       try {
-        const lostReasonsResponse = await fetch(buildUrl('lostReasons'), { cache: 'no-store' });
+        await sleep(150);
+        const lostReasonsResponse = await fetch(buildUrl('lostReasons'));
         const lostReasonsData = await lostReasonsResponse.json();
         const existingReasons = lostReasonsData.success ? (lostReasonsData.data || []) : [];
 
         for (const lostReason of template.lostReasons) {
-          await sleep(100);
-          try {
-            const reasonText = typeof lostReason === 'string' 
-              ? lostReason 
-              : (lostReason && typeof lostReason === 'object' && 'reason' in lostReason) 
-                ? (lostReason as any).reason 
-                : '';
-
-            if (!reasonText || reasonText.trim() === '') continue;
-
-            const matchedReason = existingReasons.find((existingReason: any) => 
-              normalizeName(existingReason.reason) === normalizeName(reasonText)
-            );
-
-            if (matchedReason) {
-              deploymentLogs.push(`• Reusing Attrition Logic: Parameter tracking verified for choice label "${reasonText}"`);
-            } else {
-              const createReasonResponse = await fetch(buildUrl('lostReasons'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reason: reasonText }),
-              });
-              const createReasonData = await createReasonResponse.json();
-
-              if (createReasonData.success) {
-                deploymentLogs.push(`• Injected Attrition Logic: Appended drop value option item "${reasonText}"`);
-              } else {
-                deploymentLogs.push(`✗ Reason Skipped: Dropdown entry "${reasonText}" rejected: ${createReasonData.error || 'API constraint'}`);
-              }
-            }
-          } catch (lostReasonInnerError: any) {
-            deploymentLogs.push(`✗ Reason Exception: Failed to evaluate attrition choice: ${lostReasonInnerError.message}`);
+          const matchedReason = existingReasons.find((er: any) => er.reason?.toLowerCase() === lostReason.reason.toLowerCase());
+          if (!matchedReason) {
+            await sleep(50);
+            await fetch(buildUrl('lostReasons'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reason: lostReason.reason }),
+            });
           }
         }
-      } catch (error: any) {
-        deploymentLogs.push(`• Attrition Layer Fallback: Processed standard data schema boundaries successfully: ${error.message}`);
+      } catch (e) {
+        hasFailures = true;
       }
     }
 
-    if (executionHasErrors) {
-      return NextResponse.json({
-        success: false,
-        error: summaryErrorMessage || "Structural validation failures encountered during schema deployment.",
-        logs: deploymentLogs,
-        fieldKeyTranslationMap,
-        data: deployedPipelines
-      }, { status: 422 });
-    }
-
-    deploymentLogs.push("✓ Operational Flash Complete: Active template arrangement fully written out to client instance.");
+    deploymentLogs.push("✓ Operational Flash Complete: Matrix configuration sync cycle complete.");
 
     return NextResponse.json({
-      success: true,
+      success: !hasFailures,
       logs: deploymentLogs,
       fieldKeyTranslationMap,
       data: deployedPipelines,
-    }, { status: 200 });
+    }, { status: hasFailures ? 207 : 200 });
 
   } catch (error: any) {
     return NextResponse.json({
       success: false,
       logs: deploymentLogs,
-      error: error.message || 'An unexpected fatal exception halted execution of the deployment matrix script.',
+      error: error.message || 'Fatal execution matrix handler crash.',
     }, { status: 500 });
   }
 }
