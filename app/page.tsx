@@ -284,14 +284,15 @@ export default function ClientCockpitDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          mode: 'text-only',
           systemPrompt: "You are a senior CRM strategist. Based on the provided pipeline stage objectives, write a cohesive 'Instruction Prompt' (150-200 words) for an automation builder. Describe standard Pipedrive automation behaviors including Slack notifications, deal movement triggers, and stalled-deal reminders that align with these objectives. Write in the first person as if the user is giving instructions. Do not use markdown formatting.",
           userPrompt: `Generate instructions for this project: ${targetImage.name}. Objectives: ${JSON.stringify(targetImage.pipelines.flatMap(p => p.stages.map(s => ({ name: s.name, objective: (s.operational_telemetry as any)?.targetDirective }))))}`
         })
       });
       const data = await response.json();
-      // The API might return text directly if no schema provided
-      const autoText = data.jsonObject?.text || data.text || "";
-      if (autoText) setAbChatInput(autoText);
+      if (data.success && data.text) {
+        setAbChatInput(data.text);
+      }
     } catch (e) {
       console.warn("AI Auto-fill failed", e);
     } finally {
