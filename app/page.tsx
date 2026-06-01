@@ -1787,7 +1787,7 @@ export default function ClientCockpitDashboard() {
                   <div key={i} id={`msg-${i}`} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-500`}>
                     <div className={`flex gap-5 w-full ${msg.sender === 'user' ? 'max-w-[70%] flex-row-reverse' : 'max-w-[95%]'}`}>
                       <div className={`h-9 w-9 rounded-2xl shrink-0 flex items-center justify-center text-[10px] font-black uppercase shadow-sm ${msg.sender === 'user' ? 'bg-zinc-900 text-white' : 'bg-[#004850] text-white shadow-[#004850]/20'}`}>
-                        {msg.sender === 'user' ? 'U' : 'AI'}
+                        {msg.sender === 'user' ? '//' : 'AI'}
                       </div>
                       <div className="space-y-4 flex-1">
                         <div className={`px-6 py-4 rounded-3xl text-sm leading-relaxed shadow-sm ${msg.sender === 'user' ? 'bg-[#004850] text-white rounded-tr-none' : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 rounded-tl-none border border-zinc-100 dark:border-zinc-800'}`}>
