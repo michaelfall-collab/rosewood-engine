@@ -344,9 +344,9 @@ export async function POST(request: NextRequest) {
         for (const rawLostReason of template.lostReasons) {
           try {
             // Defensive Type Check: Safely normalize both raw strings and object parameters
-            const normalizedReasonText = typeof lostReason === 'string' 
-              ? lostReason 
-              : (lostReason.reason || '');
+            const normalizedReasonText = typeof rawLostReason === 'string' 
+              ? rawLostReason 
+              : (rawLostReason.reason || '');
 
             if (!normalizedReasonText) continue;
 
