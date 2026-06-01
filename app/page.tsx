@@ -262,8 +262,8 @@ export default function ClientCockpitDashboard() {
   const [staplingState, setStaplingState] = useState({ index: 0, total: 0, currentStage: "" });
   const [abSelectedImageId, setAbSelectedImageId] = useState<string | null>(null);
   const [abSelectedIntegrations, setAbSelectedIntegrations] = useState<string[]>([]);
-  const [abChatHistory, setAbChatHistory] = useState<{ sender: "user" | "ai"; text: string; dataWidget?: any }[]>([]);
-  const [visibleChatHistory, setVisibleChatHistory] = useState<{ sender: "user" | "ai"; text: string; dataWidget?: any; isTyping?: boolean }[]>([]);
+  const [abChatHistory, setAbChatHistory] = useState<{ id: string; sender: "user" | "ai"; text: string; dataWidget?: any }[]>([]);
+  const [visibleChatHistory, setVisibleChatHistory] = useState<{ id: string; sender: "user" | "ai"; text: string; dataWidget?: any; isTyping?: boolean }[]>([]);
   const [abChatInput, setAbChatInput] = useState("");
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [abRoles, setAbRoles] = useState<{ roleName: string; count: number }[]>([]);
@@ -504,35 +504,26 @@ export default function ClientCockpitDashboard() {
     setIsAiTyping(false);
 
     // 2. Start streaming text char-by-char
-    let currentText = "";
+    const messageId = Date.now().toString() + Math.random().toString();
+    const newMsg = { ...msg, id: messageId, text: "", isTyping: true };
     
     // Add initial empty message
-    const msgIndex = visibleChatHistory.length;
-    setVisibleChatHistory(prev => [...prev, { ...msg, text: "", isTyping: true }]);
-
-    // Scroll to the top of this new message bubble
-    requestAnimationFrame(() => {
-        const el = document.getElementById(`msg-${msgIndex}`);
-        if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    });
+    setVisibleChatHistory(prev => [...prev, newMsg]);
 
     const chars = msg.text.split("");
+    let currentText = "";
     for (let i = 0; i < chars.length; i++) {
       currentText += chars[i];
       const speed = msg.text.length > 100 ? 5 : 15; 
       await new Promise(r => setTimeout(r, speed));
       
       setVisibleChatHistory(prev => {
-        const last = [...prev];
-        last[msgIndex] = { ...msg, text: currentText, isTyping: i < chars.length - 1 };
-        return last;
+        return prev.map(m => m.id === messageId ? { ...m, text: currentText, isTyping: i < chars.length - 1 } : m);
       });
     }
 
     // 3. Finalize and update primary history
-    setAbChatHistory(prev => [...prev, msg]);
+    setAbChatHistory(prev => [...prev, { ...msg, id: messageId }]);
   };
 
   const compileRawModelPromptManifest = (compiledObjects?: any[]) => {
@@ -1802,7 +1793,7 @@ export default function ClientCockpitDashboard() {
                             {images.map(img => (
                               <button key={img.id} disabled={i < visibleChatHistory.length - 1} onClick={() => {
                                 setAbSelectedImageId(img.id);
-                                const userMsg = { sender: 'user' as const, text: `I've selected the '${img.name}' project.` };
+                                const userMsg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: `I've selected the '${img.name}' project.` };
                                 setAbChatHistory(prev => [...prev, userMsg]);
                                 setVisibleChatHistory(prev => [...prev, userMsg]);
                                 typewriterAddMessage({ sender: 'ai', text: "Excellent choice. Let's calibrate your process track objectives. Tune the goals and thresholds in the matrix below.", dataWidget: "GOAL_MATRIX" });
@@ -1873,8 +1864,9 @@ export default function ClientCockpitDashboard() {
                             </div>
                             <div className="flex justify-end">
                               <button disabled={i < visibleChatHistory.length - 1} onClick={() => {
-                                setAbChatHistory(prev => [...prev, { sender: 'user', text: "Goals calibrated. Ready to define system context." }]);
-                                setVisibleChatHistory(prev => [...prev, { sender: 'user', text: "Goals calibrated. Ready to define system context." }]);
+                                const userMsg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: "Goals calibrated. Ready to define system context." };
+                                setAbChatHistory(prev => [...prev, userMsg]);
+                                setVisibleChatHistory(prev => [...prev, userMsg]);
                                 typewriterAddMessage({ sender: 'ai', text: "Understood. Now, let's specify the connected tools and team roles involved in this project. You can update these parameters in the console below.", dataWidget: "CONTEXT_TUNING" });
                               }} className="h-11 px-8 bg-[#004850] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95">Confirm Matrix & Proceed <i className="ti ti-arrow-right" /></button>
                             </div>
@@ -1933,8 +1925,9 @@ export default function ClientCockpitDashboard() {
 
                             <div className="flex justify-end pt-4">
                               <button disabled={i < visibleChatHistory.length - 1} onClick={() => {
-                                setAbChatHistory(prev => [...prev, { sender: 'user', text: "Context finalized. Ready to build logic." }]);
-                                setVisibleChatHistory(prev => [...prev, { sender: 'user', text: "Context finalized. Ready to build logic." }]);
+                                const userMsg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: "Context finalized. Ready to build logic." };
+                                setAbChatHistory(prev => [...prev, userMsg]);
+                                setVisibleChatHistory(prev => [...prev, userMsg]);
                                 typewriterAddMessage({ sender: 'ai', text: "Perfect. Now, describe the automation behaviors you'd like to build for this project. Mention triggers, Slack notifications, or conditional fallback rules. I'll translate your instructions into a structured roadmap." });
                                 setAbStep('chat');
                               }} className="h-11 px-10 bg-[#004850] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95">Finalize Context & Start Building <i className="ti ti-wand" /></button>
@@ -1961,7 +1954,9 @@ export default function ClientCockpitDashboard() {
                             <div className="flex items-center gap-4 bg-zinc-50 dark:bg-zinc-900/50 p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-inner">
                               <input placeholder="Add adjustment instructions..." value={abReviewFeedback} onChange={e => setAbReviewFeedback(e.target.value)} className="flex-1 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl py-3.5 px-5 text-sm outline-none focus:border-[#004850] transition-all shadow-sm" />
                               <button onClick={() => {
-                                setAbChatHistory(prev => [...prev, { sender: 'user', text: `Adjust roadmap: ${abReviewFeedback}` }]);
+                                const userMsg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: `Adjust roadmap: ${abReviewFeedback}` };
+                                setAbChatHistory(prev => [...prev, userMsg]);
+                                setVisibleChatHistory(prev => [...prev, userMsg]);
                                 compilePromptManifest(abReviewFeedback);
                                 setAbReviewFeedback("");
                               }} className="h-12 px-7 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 shadow-sm">Update</button>
@@ -2074,7 +2069,7 @@ export default function ClientCockpitDashboard() {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         if (abChatInput.trim() && abStep === 'chat') {
-                          const msg = { sender: 'user' as const, text: abChatInput };
+                          const msg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: abChatInput };
                           setAbChatHistory(prev => [...prev, msg]);
                           setVisibleChatHistory(prev => [...prev, msg]);
                           setAbChatInput("");
@@ -2101,7 +2096,7 @@ export default function ClientCockpitDashboard() {
                     </button>
                     <button 
                       onClick={() => { if (abChatInput.trim()) { 
-                        const msg = { sender: 'user' as const, text: abChatInput };
+                        const msg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: abChatInput };
                         setAbChatHistory(prev => [...prev, msg]);
                         setVisibleChatHistory(prev => [...prev, msg]);
                         setAbChatInput(""); 
