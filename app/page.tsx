@@ -689,7 +689,7 @@ export default function ClientCockpitDashboard() {
       if (json && json.success) {
         setIsVerified(true);
         setAccountName(json.data?.company_name || json.data?.name || "Unknown");
-        setCopyFeedback("Handshake Finished");
+        setCopyFeedback("Connection Verified");
         setTimeout(() => setCopyFeedback(null), 3000);
       } else {
         setIsVerified(false);
@@ -944,7 +944,7 @@ export default function ClientCockpitDashboard() {
             <i className="ti ti-lock text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 text-[10px]" />
             <input 
               type="password"
-              placeholder="System Password..."
+              placeholder="API Token..."
               value={apiKey}
               onChange={(e) => { setApiKey(e.target.value); setIsVerified(false); setTemporaryRollbackBackup(null); }}
               disabled={isProcessing}
@@ -968,7 +968,7 @@ export default function ClientCockpitDashboard() {
           >
             <span className={`h-1.5 w-1.5 rounded-full ${isVerified ? 'bg-emerald-500 animate-pulse' : 'bg-white/40'}`} />
             <span className="text-[10px] font-bold uppercase tracking-widest">
-              {isVerified ? `CONNECTED // ${accountName}` : "Sign In"}
+              {isVerified ? `LIVE // ${accountName}` : "Connect"}
             </span>
           </button>
         </div>
@@ -1078,13 +1078,13 @@ export default function ClientCockpitDashboard() {
           <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-sm border border-zinc-200 dark:border-zinc-800">
             <button 
               onClick={() => setViewLayout("grid")}
-              className={`px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${viewLayout === 'grid' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : 'text-zinc-50'}`}
+              className={`px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${viewLayout === 'grid' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : 'text-zinc-500'}`}
             >
               <i className="ti ti-layout-grid" /> GRID
             </button>
             <button 
               onClick={() => setViewLayout("list")}
-              className={`px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${viewLayout === 'list' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : 'text-zinc-50'}`}
+              className={`px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${viewLayout === 'list' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : 'text-zinc-500'}`}
             >
               <i className="ti ti-list" /> LIST
             </button>
@@ -1127,7 +1127,7 @@ export default function ClientCockpitDashboard() {
                     const aCount = (img as any).abCompiledObjects?.length || (img as any).compiledRunbook?.length || 0;
                     return (
                         <p className="font-mono text-[10px] tracking-widest uppercase text-zinc-400 mt-1">
-                            {pCount} TRACKS // {sCount} STEPS // {fCount} FIELDS // {aCount} TASKS
+                            {pCount} PPL // {sCount} STG // {fCount} FLD // {aCount} AUTO
                         </p>
                     );
                   })()}
@@ -1138,7 +1138,7 @@ export default function ClientCockpitDashboard() {
                     (img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 border border-transparent'
                   }`}>
                     <span className={`h-1 w-1 rounded-full ${(img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
-                    {(img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? "Automated" : "Basic"}
+                    {(img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? "Automated" : "Static"}
                   </div>
                   
                   <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -1865,7 +1865,7 @@ export default function ClientCockpitDashboard() {
                             <button
                               key={slug}
                               onClick={() => setAbSelectedIntegrations(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug])}
-                              className={`p-4 border rounded-sm transition-all flex flex-col items-center gap-3 text-center active:scale-95 ${abSelectedIntegrations.includes(slug) ? 'border-[#004850] bg-[#004850]/5 text-[#004850] dark:border-emerald-500 dark:text-emerald-400 shadow-md shadow-[#004850]/5' : 'border-zinc-200 dark:border-zinc-800 text-zinc-400 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
+                              className={`p-4 border rounded-xl transition-all flex flex-col items-center gap-3 text-center active:scale-95 ${abSelectedIntegrations.includes(slug) ? 'border-[#004850] bg-[#004850]/5 text-[#004850] dark:border-emerald-500 dark:text-emerald-400 shadow-md shadow-[#004850]/5' : 'border-zinc-200 dark:border-zinc-800 text-zinc-400 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
                             >
                               <i className={`ti ti-brand-${slug === 'msteams' ? 'messenger' : slug === 'projects' ? 'clipboard' : slug === 'campaigns' ? 'mail' : slug} text-2xl`} />
                               <span className="text-[10px] font-black uppercase tracking-widest">{slug}</span>
@@ -1882,22 +1882,22 @@ export default function ClientCockpitDashboard() {
                         </div>
                         <div className="flex flex-wrap gap-3">
                           {abRoles.map((role, idx) => (
-                            <div key={idx} className="flex items-center gap-3 pl-4 pr-1 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm">
+                            <div key={idx} className="flex items-center gap-3 pl-4 pr-1 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm">
                               <span className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 uppercase">{role.roleName}</span>
-                              <span className="h-6 px-2 bg-[#004850] rounded-sm text-[9px] font-mono flex items-center justify-center text-white">{role.count}</span>
+                              <span className="h-6 px-2 bg-[#004850] rounded-full text-[9px] font-mono flex items-center justify-center text-white">{role.count}</span>
                               <button onClick={() => setAbRoles(prev => prev.filter((_, i) => i !== idx))} className="h-6 w-6 hover:text-rose-500 transition-colors flex items-center justify-center">
                                 <i className="ti ti-x text-xs" />
                               </button>
                             </div>
                           ))}
-                          <div className="flex items-center gap-2 pl-3 bg-white dark:bg-zinc-950 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-sm">
+                          <div className="flex items-center gap-2 pl-4 bg-white dark:bg-zinc-950 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-full shadow-sm overflow-hidden">
                             <input 
                               placeholder="Add Role..." 
                               value={tempRoleLabel}
                               onChange={(e) => setTempRoleLabel(e.target.value)}
-                              className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-24"
+                              className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-24 py-2"
                             />
-                            <div className="flex items-center gap-1 border-x border-zinc-200 dark:border-zinc-800 px-2 h-full py-1.5">
+                            <div className="flex items-center gap-1 border-x border-zinc-200 dark:border-zinc-800 px-2 h-full py-2">
                                 <span className="text-[9px] font-mono text-zinc-400">#</span>
                                 <input 
                                     type="number" 
@@ -1908,7 +1908,7 @@ export default function ClientCockpitDashboard() {
                             </div>
                             <button 
                               onClick={() => { if (tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }}
-                              className="h-8 w-8 text-[#004850] dark:text-emerald-500 hover:bg-[#004850] hover:text-white transition-all flex items-center justify-center rounded-r-sm"
+                              className="h-9 w-10 text-[#004850] dark:text-emerald-500 hover:bg-[#004850] hover:text-white transition-all flex items-center justify-center"
                             >
                               <i className="ti ti-plus" />
                             </button>
@@ -1926,11 +1926,11 @@ export default function ClientCockpitDashboard() {
                           <textarea
                             autoFocus
                             placeholder="Example: 'When a new lead arrives, notify the Sales Lead on Slack. If a proposal stays in the same step for 10 days, create a follow-up task for the Account Executive...'"
-                            className="w-full h-44 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm p-6 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-inner"
+                            className="w-full h-44 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-7 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-inner"
                           />
                           <button 
                             onClick={() => compilePromptManifest()}
-                            className="absolute bottom-6 right-6 h-12 px-8 bg-[#004850] text-white rounded-sm text-xs font-bold uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95"
+                            className="absolute bottom-6 right-6 h-12 px-8 bg-[#004850] text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95"
                           >
                             Build Sequence <i className="ti ti-wand" />
                           </button>
@@ -1948,15 +1948,15 @@ export default function ClientCockpitDashboard() {
                         </div>
                         <div className="space-y-3">
                           {abRoadmap.map((item, idx) => (
-                            <div key={idx} className="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm flex items-center justify-between group hover:border-zinc-300 dark:hover:border-zinc-700 transition-all">
+                            <div key={idx} className="p-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex items-center justify-between group hover:border-zinc-300 dark:hover:border-zinc-700 transition-all shadow-sm">
                               <div className="flex items-center gap-6">
-                                <span className="font-mono text-xs font-black px-2.5 py-1 bg-zinc-900 text-white rounded-sm shadow-sm">{item.automationNumber}</span>
+                                <span className="font-mono text-xs font-black px-3 py-1.5 bg-zinc-900 text-white rounded-xl shadow-sm">{item.automationNumber}</span>
                                 <div>
                                   <span className="block text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1">{item.stageName}</span>
                                   <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{item.operationalGoal}</span>
                                 </div>
                               </div>
-                              <button onClick={() => setAbRoadmap(prev => prev.filter((_, i) => i !== idx))} className="h-8 w-8 text-zinc-300 hover:text-rose-500 transition-colors flex items-center justify-center active:scale-90">
+                              <button onClick={() => setAbRoadmap(prev => prev.filter((_, i) => i !== idx))} className="h-10 w-10 text-zinc-300 hover:text-rose-500 transition-colors flex items-center justify-center active:scale-90 bg-white dark:bg-black rounded-full border border-zinc-100 dark:border-zinc-800 shadow-sm">
                                 <i className="ti ti-trash text-lg" />
                               </button>
                             </div>
@@ -1964,26 +1964,26 @@ export default function ClientCockpitDashboard() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 bg-zinc-50 dark:bg-zinc-900 p-4 rounded-sm border border-zinc-200 dark:border-zinc-800">
+                      <div className="flex items-center gap-4 bg-zinc-50 dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-inner">
                         <input 
                             placeholder="Add adjustment instructions... (e.g. 'Add a Slack step to 1.1.1')"
                             value={abReviewFeedback}
                             onChange={(e) => setAbReviewFeedback(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && abReviewFeedback && compilePromptManifest(abReviewFeedback)}
-                            className="flex-1 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-sm py-3 px-4 text-sm font-sans focus:outline-none focus:border-[#004850] transition-all shadow-sm"
+                            className="flex-1 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl py-3.5 px-5 text-sm font-sans focus:outline-none focus:border-[#004850] transition-all shadow-sm"
                         />
                         <button 
                             disabled={!abReviewFeedback}
                             onClick={() => compilePromptManifest(abReviewFeedback)}
-                            className="h-11 px-6 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-sm text-[10px] font-black uppercase tracking-[0.2em] hover:opacity-80 transition-all disabled:opacity-30 active:scale-95"
+                            className="h-12 px-7 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:opacity-80 transition-all disabled:opacity-30 active:scale-95 shadow-sm"
                         >
                             Update
                         </button>
                       </div>
 
                       <div className="flex justify-end gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-8">
-                        <button onClick={() => setAbStep('chat')} className="h-12 px-8 border border-zinc-200 dark:border-zinc-800 rounded-sm text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all active:scale-95">Go Back</button>
-                        <button onClick={() => compilePromptManifest()} className="h-12 px-10 bg-[#004850] text-white rounded-sm text-xs font-bold uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg shadow-[#004850]/20 active:scale-95">Generate Final Logic <i className="ti ti-wand" /></button>
+                        <button onClick={() => setAbStep('chat')} className="h-12 px-8 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all active:scale-95">Go Back</button>
+                        <button onClick={() => compilePromptManifest()} className="h-12 px-10 bg-[#004850] text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg shadow-[#004850]/20 active:scale-95">Generate Final Logic <i className="ti ti-wand" /></button>
                       </div>
                     </div>
                   )}
@@ -1999,9 +1999,9 @@ export default function ClientCockpitDashboard() {
                       <div className="text-center space-y-4 max-w-md">
                         <h3 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tighter">Crafting Logic</h3>
                         <p className="text-sm text-zinc-500 font-sans leading-relaxed px-8">System is building step-by-step setup guides for <span className="font-mono text-[#004850] dark:text-emerald-500 font-bold">{staplingState.currentStage}</span> based on your architecture.</p>
-                        <div className="w-full bg-zinc-100 dark:bg-zinc-900 h-1.5 rounded-full overflow-hidden mt-8 shadow-inner">
+                        <div className="w-full bg-zinc-100 dark:bg-zinc-900 h-2 rounded-full overflow-hidden mt-8 shadow-inner">
                           <div 
-                            className="bg-[#004850] h-full transition-all duration-700 ease-out shadow-[0_0_10px_#004850]" 
+                            className="bg-[#004850] h-full transition-all duration-700 ease-out shadow-[0_0_15px_#004850]" 
                             style={{ width: `${(staplingState.index / staplingState.total) * 100}%` }} 
                           />
                         </div>
@@ -2019,18 +2019,18 @@ export default function ClientCockpitDashboard() {
                       <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
                         <div className="flex items-center gap-3">
                           <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Final Process Guide</span>
-                          <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-sm font-mono text-[9px] font-bold uppercase">Ready for export</span>
+                          <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 rounded-full font-mono text-[9px] font-bold uppercase shadow-sm">Ready for export</span>
                         </div>
                         <div className="flex gap-2">
                             <button 
                                 onClick={handleDocxDownload}
-                                className="h-9 px-4 bg-blue-600 text-white rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 active:scale-95 shadow-md"
+                                className="h-10 px-5 bg-blue-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-blue-600/10"
                             >
                                 <i className="ti ti-file-text" /> Download .Docx
                             </button>
                             <button 
                                 onClick={() => copyToClipboard(compileRawModelPromptManifest())}
-                                className="h-9 px-4 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all flex items-center gap-2 active:scale-95"
+                                className="h-10 px-5 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all flex items-center gap-2 active:scale-95 shadow-sm"
                             >
                                 <i className="ti ti-copy" /> Copy Raw Text
                             </button>
@@ -2041,21 +2041,21 @@ export default function ClientCockpitDashboard() {
                         {/* Render individual automation preview cards */}
                         <div className="space-y-6">
                             {abCompiledObjects.map((item, idx) => (
-                                <div key={idx} className="border border-zinc-200 dark:border-zinc-800 rounded-sm overflow-hidden bg-zinc-50/50 dark:bg-zinc-900/50 shadow-sm hover:border-zinc-400 transition-all">
-                                    <div className="px-4 py-3 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
-                                        <span className="font-mono text-[10px] font-black px-2 py-0.5 bg-zinc-900 text-white rounded-sm tracking-widest">{item.automationNumber}</span>
+                                <div key={idx} className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden bg-zinc-50/50 dark:bg-zinc-900/50 shadow-sm hover:border-zinc-400 transition-all">
+                                    <div className="px-5 py-4 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
+                                        <span className="font-mono text-[10px] font-black px-3 py-1 bg-zinc-900 text-white rounded-xl tracking-widest shadow-sm">{item.automationNumber}</span>
                                         <span className="text-[10px] font-bold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 truncate">{item.stageName}</span>
                                     </div>
-                                    <div className="p-5 space-y-4">
+                                    <div className="p-6 space-y-5">
                                         <div>
                                             <span className="block text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1">Operational Goal</span>
                                             <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200 leading-relaxed">{item.operationalGoal}</p>
                                         </div>
                                         <div>
                                             <span className="block text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1">Impacted Personnel</span>
-                                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                            <div className="flex flex-wrap gap-2 mt-2">
                                                 {item.impactedRoles.map((role: string, rIdx: number) => (
-                                                    <span key={rIdx} className="px-2 py-0.5 bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-sm text-[9px] font-bold uppercase tracking-tight">{role}</span>
+                                                    <span key={rIdx} className="px-3 py-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full text-[9px] font-bold uppercase tracking-tight shadow-sm border border-zinc-300/20 dark:border-zinc-700/20">{role}</span>
                                                 ))}
                                             </div>
                                         </div>
@@ -2066,11 +2066,11 @@ export default function ClientCockpitDashboard() {
 
                         {/* Right column: prompt manifest final text */}
                         <div className="space-y-4">
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center gap-2 mb-2 pl-2">
                                 <i className="ti ti-terminal text-[#004850] dark:text-emerald-500" />
                                 <span className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">Process Logic Structure</span>
                             </div>
-                            <div className="bg-zinc-900 dark:bg-black rounded-sm border border-zinc-800 p-6 h-[600px] overflow-y-auto font-mono text-[11px] leading-relaxed text-zinc-400 custom-scrollbar shadow-2xl">
+                            <div className="bg-zinc-900 dark:bg-black rounded-2xl border border-zinc-800 p-7 h-[600px] overflow-y-auto font-mono text-[11px] leading-relaxed text-zinc-400 custom-scrollbar shadow-2xl shadow-black/40">
                                 {compileRawModelPromptManifest().split('\n').map((line, lIdx) => (
                                     <p key={lIdx} className={`${line.startsWith('===') ? 'text-emerald-500 font-bold mt-6 mb-2' : line.startsWith('###') ? 'text-[#004850] dark:text-emerald-300 font-bold mt-8 mb-3 text-sm' : line.startsWith('**') ? 'text-zinc-200 dark:text-zinc-300 font-bold mt-2' : 'text-zinc-500 dark:text-zinc-500'} py-0.5`}>
                                         {line}
@@ -2089,7 +2089,7 @@ export default function ClientCockpitDashboard() {
                             setTimeout(() => setCopyFeedback(null), 3000);
                           }}
                           disabled={isAttached}
-                          className={`h-14 px-12 rounded-sm text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-4 shadow-xl active:scale-95 ${isAttached ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 cursor-default' : 'bg-[#004850] text-white hover:bg-[#003840] shadow-[#004850]/20'}`}
+                          className={`h-14 px-14 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-4 shadow-2xl active:scale-95 ${isAttached ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 cursor-default' : 'bg-[#004850] text-white hover:bg-[#003840] shadow-[#004850]/20'}`}
                         >
                           <i className={`ti ${isAttached ? 'ti-check' : 'ti-bookmark'}`} />
                           {isAttached ? "Process Attached to Card" : "Finalize & Attach to Card"}
