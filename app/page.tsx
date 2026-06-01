@@ -312,9 +312,9 @@ export default function ClientCockpitDashboard() {
     }
   }, [visibleChatHistory, isAiTyping]);
 
-  // Fire a real Gemini background call for AI telemetry guesses the moment a card enters preflight
+  // Fire a real Gemini background call for AI telemetry guesses the moment a card enters goal calibration
   useEffect(() => {
-    if (wizardStep !== 'preflight' || !abSelectedImageId) return;
+    if (wizardStep !== 'GOAL_CALIBRATION' || !abSelectedImageId) return;
     const targetImage = images.find(img => img.id === abSelectedImageId);
     if (!targetImage) return;
 
