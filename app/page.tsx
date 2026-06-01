@@ -16,6 +16,7 @@ type LiveImage = CRMArchitectureBlueprint & {
   deals: number; 
   runbookManifest?: string;
   compiledRunbook?: any[];
+  abCompiledObjects?: any[];
   selectedIntegrations?: string[];
 };
 
