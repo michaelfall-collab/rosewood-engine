@@ -439,14 +439,16 @@ export default function ClientCockpitDashboard() {
     reader.onload = (event) => {
       const text = event.target?.result as string;
       try {
-        const { blueprint, abCompiledObjects: importedAbObjects } = deserializeFromRwe(text);
+        const { blueprint, compiledRunbook, abCompiledObjects: importedAbObjects } = deserializeFromRwe(text);
+        const runbookPayload = importedAbObjects || compiledRunbook || [];
         const enrichedBlueprint = ensureStageTelemetry(blueprint);
         const rehydratedCard: LiveImage = { 
             ...enrichedBlueprint, 
             id: generateRweId(), 
             owner: 'Imported', 
             deals: 0, 
-            compiledRunbook: importedAbObjects,
+            compiledRunbook: runbookPayload,
+            abCompiledObjects: runbookPayload,
             selectedIntegrations: []
         };
         const newImages = [rehydratedCard, ...images];
@@ -473,13 +475,15 @@ export default function ClientCockpitDashboard() {
     try {
       const importedObj = JSON.parse(pastedConfig);
       if (importedObj.type === "ROSEWOOD_ENGINE_PROPRIETARY_EXPORT") {
+        const runbookPayload = importedObj.abCompiledObjects || importedObj.compiledRunbook || [];
         const enrichedBlueprint = ensureStageTelemetry(importedObj.blueprint);
         const hydratedObj: LiveImage = {
           ...enrichedBlueprint,
           id: generateRweId(),
           owner: 'Imported (Paste)',
           deals: 0,
-          compiledRunbook: importedObj.abCompiledObjects || []
+          compiledRunbook: runbookPayload,
+          abCompiledObjects: runbookPayload
         };
         setImages(prev => [hydratedObj, ...prev]);
         setIsPasteModalOpen(false);
@@ -1261,7 +1265,12 @@ export default function ClientCockpitDashboard() {
                       <div className="absolute right-0 bottom-10 w-40 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm z-[50] overflow-hidden shadow-xl">
                         <button onClick={() => { setRenamingId(img.id); setRenameValue(img.name); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center gap-3"><i className="ti ti-pencil" /> Rename</button>
                         <button onClick={() => { 
-                            const blob = new Blob([serializeToRwe(img, img.compiledRunbook || [])], { type: 'application/json' });
+                            const exportData = {
+                              ...img,
+                              abCompiledObjects: img.compiledRunbook || img.abCompiledObjects || [],
+                              compiledRunbook: img.compiledRunbook || img.abCompiledObjects || []
+                            };
+                            const blob = new Blob([serializeToRwe(exportData, exportData.compiledRunbook || [])], { type: 'application/json' });
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
