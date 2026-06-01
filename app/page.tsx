@@ -51,22 +51,6 @@ const SYSTEM_SEED: LiveImage = {
   runbookManifest: "TRIGGER: New deal created\nACTION: Post to Slack #ops-feed\nCONDITION: Deal value > 500"
 };
 
-const getPipelineTheme = (coordinate: string) => {
-  const prefix = coordinate.split('.')[0];
-  switch (prefix) {
-    case '1': // Lead to Waitlist
-      return { border: 'border-[#1B3A6B]', text: 'text-[#1B3A6B]', bg: 'bg-[#D6E4F0]' };
-    case '2': // Waitlist to Onboarding
-      return { border: 'border-[#1B5E20]', text: 'text-[#1B5E20]', bg: 'bg-[#D5F5E3]' };
-    case '3': // Onboarded Client
-      return { border: 'border-[#4A148C]', text: 'text-[#4A148C]', bg: 'bg-[#E8DAEF]' };
-    case '4': // Post Graduation & Legacy
-      return { border: 'border-[#922B21]', text: 'text-[#922B21]', bg: 'bg-[#FADBD8]' };
-    default:
-      return { border: 'border-zinc-700', text: 'text-zinc-800 dark:text-zinc-200', bg: 'bg-zinc-100' };
-  }
-};
-
 export default function ClientCockpitDashboard() {
   const [images, setImages] = useState<LiveImage[]>(() => {
     if (typeof window !== "undefined") {
@@ -144,6 +128,33 @@ export default function ClientCockpitDashboard() {
     } : img));
   };
 
+  const moveAutomationBlockUp = (index: number) => {
+    if (index === 0 || !detailId) return;
+    setImages(prev => prev.map(img => img.id === detailId ? {
+      ...img,
+      compiledRunbook: (() => {
+        const dataCopy = [...(img.compiledRunbook || [])];
+        const targetItem = dataCopy[index];
+        dataCopy[index] = dataCopy[index - 1];
+        dataCopy[index - 1] = targetItem;
+        return dataCopy;
+      })()
+    } : img));
+  };
+
+  const moveAutomationBlockDown = (index: number) => {
+    if (!detailId) return;
+    setImages(prev => prev.map(img => {
+      const runbook = img.compiledRunbook || [];
+      if (img.id !== detailId || index >= runbook.length - 1) return img;
+      const dataCopy = [...runbook];
+      const targetItem = dataCopy[index];
+      dataCopy[index] = dataCopy[index + 1];
+      dataCopy[index + 1] = targetItem;
+      return { ...img, compiledRunbook: dataCopy };
+    }));
+  };
+
   const handleAddCadenceStep = (itemIndex: number) => {
     if (!detailId) return;
     setImages(prev => prev.map(img => img.id === detailId ? {
@@ -171,8 +182,12 @@ export default function ClientCockpitDashboard() {
   const [pastedConfig, setPastedConfig] = useState("");
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("Import handler triggered");
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log("No file selected");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
@@ -954,7 +969,15 @@ export default function ClientCockpitDashboard() {
                 ) : activeDetail.compiledRunbook && activeDetail.compiledRunbook.length > 0 ? (
                   <div className="space-y-8 font-sans">
                     {activeDetail.compiledRunbook.map((item: any, i: number) => {
-                      const theme = getPipelineTheme(item.automationNumber);
+                      const themeSelectionIndex = i % 4;
+                      const palette = [
+                        { border: 'border-[#008080]', text: 'text-[#008080]', bg: 'bg-[#008080]/5' }, // Deep Teal
+                        { border: 'border-[#000080]', text: 'text-[#000080]', bg: 'bg-[#000080]/5' }, // Navy Tone
+                        { border: 'border-[#006400]', text: 'text-[#006400]', bg: 'bg-[#006400]/5' }, // Dark Green
+                        { border: 'border-[#4B0082]', text: 'text-[#4B0082]', bg: 'bg-[#4B0082]/5' }  // Deep Purple
+                      ];
+                      const theme = palette[themeSelectionIndex];
+
                       return (
                         <div key={i} className={`border ${theme.border} rounded-sm overflow-hidden bg-white dark:bg-zinc-900 shadow-none`}>
                           {/* Stage Block Header */}
@@ -962,9 +985,27 @@ export default function ClientCockpitDashboard() {
                             <h3 className={`text-sm font-bold uppercase tracking-tight ${theme.text}`}>
                               Automation {item.automationNumber}: {item.stageName}
                             </h3>
-                            <button onClick={() => handleDeleteAutomationBlock(i)} className="text-zinc-400 hover:text-rose-500">
-                              <i className="ti ti-trash" />
-                            </button>
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1 border-r border-zinc-200 dark:border-zinc-800 pr-3">
+                                <button 
+                                  onClick={() => moveAutomationBlockUp(i)} 
+                                  className="h-6 w-6 flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors text-[10px] active:scale-95"
+                                  title="Move Up"
+                                >
+                                  ▲
+                                </button>
+                                <button 
+                                  onClick={() => moveAutomationBlockDown(i)} 
+                                  className="h-6 w-6 flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors text-[10px] active:scale-95"
+                                  title="Move Down"
+                                >
+                                  ▼
+                                </button>
+                              </div>
+                              <button onClick={() => handleDeleteAutomationBlock(i)} className="text-zinc-400 hover:text-rose-500 transition-colors active:scale-95">
+                                <i className="ti ti-trash" />
+                              </button>
+                            </div>
                           </div>
 
                           <div className="p-6 space-y-6">
@@ -980,11 +1021,12 @@ export default function ClientCockpitDashboard() {
                             {/* Impacted Personnel Section */}
                             <div className="space-y-2">
                               <h4 className="font-mono text-[10px] font-black uppercase tracking-widest text-zinc-400">Impacted Personnel</h4>
-                              <ul className="list-disc pl-5 text-sm text-zinc-700 dark:text-zinc-300 space-y-1">
-                                {item.impactedRoles.map((role: string, idx: number) => (
-                                  <li key={idx} className="pl-1">{role}</li>
-                                ))}
-                              </ul>
+                              <input
+                                value={(item.impactedRoles || []).join(', ')}
+                                onChange={(e) => updateRunbookObjectField(i, 'impactedRoles', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                                placeholder="Role A, Role B, Role C..."
+                                className="w-full bg-transparent border-b border-zinc-100 dark:border-zinc-800 focus:border-zinc-400 outline-none py-1 text-sm text-zinc-700 dark:text-zinc-300"
+                              />
                             </div>
 
                             {/* Setup Cadence List */}
@@ -1017,15 +1059,25 @@ export default function ClientCockpitDashboard() {
                             </div>
 
                             {/* Governance Box */}
-                            <div className="mt-6 border-l-2 border-amber-500 bg-amber-500/5 p-4 rounded-sm flex gap-3 items-start">
-                              <i className="ti ti-info-circle text-amber-600 mt-0.5" />
-                              <textarea
-                                value={item.governanceNotes || ""}
-                                onChange={(e) => updateRunbookObjectField(i, 'governanceNotes', e.target.value)}
-                                className="w-full bg-transparent outline-none text-xs text-amber-700 dark:text-amber-400 font-medium leading-relaxed resize-none"
-                                rows={3}
-                              />
-                            </div>
+                            {item.governanceNotes && (
+                              <div className="mt-6 border-l-2 border-amber-500 bg-amber-500/5 p-4 rounded-sm flex gap-3 items-start animate-in fade-in slide-in-from-left-2 duration-300">
+                                <i className="ti ti-info-circle text-amber-600 mt-0.5" />
+                                <div className="flex-1">
+                                  <textarea
+                                    value={item.governanceNotes || ""}
+                                    onChange={(e) => updateRunbookObjectField(i, 'governanceNotes', e.target.value)}
+                                    className="w-full bg-transparent outline-none text-xs text-amber-700 dark:text-amber-400 font-medium leading-relaxed resize-none"
+                                    rows={3}
+                                  />
+                                </div>
+                                <button 
+                                  onClick={() => updateRunbookObjectField(i, 'governanceNotes', "")}
+                                  className="text-[9px] font-bold uppercase tracking-widest text-amber-600 hover:text-amber-700 border border-amber-600/20 px-2 py-1 rounded-sm transition-colors active:scale-95"
+                                >
+                                  [OMIT NOTES]
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
