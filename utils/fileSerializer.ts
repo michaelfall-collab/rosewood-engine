@@ -8,6 +8,8 @@ export const serializeToRwe = (
 ): string => {
   const preparedBlueprint: any = {
     ...blueprint,
+    // Maintain strict state fallbacks
+    lifecycleState: blueprint.lifecycleState || 'PRESCRIPTIVE_BUILD', 
     pipelines: (blueprint.pipelines || []).map((pipeline, pIdx) => ({
       ...pipeline,
       order_nr: pipeline.order_nr ?? pIdx + 1,

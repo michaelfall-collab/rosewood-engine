@@ -1956,7 +1956,7 @@ export default function ClientCockpitDashboard() {
                       </div>
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm overflow-hidden h-10 w-fit">
-                          <input placeholder="Add Role..." value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-24 pl-4" />
+                          <input placeholder="Add Role..." value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-48 pl-4" />
                           <div className="flex items-center gap-1 border-x border-zinc-100 dark:border-zinc-800 px-3 h-full">
                               <span className="text-[8px] font-mono text-zinc-400">#</span>
                               <input type="number" value={tempRoleSeats} onChange={e => setTempRoleSeats(parseInt(e.target.value) || 1)} className="bg-transparent border-none outline-none text-[10px] font-mono font-bold w-6 text-center" />

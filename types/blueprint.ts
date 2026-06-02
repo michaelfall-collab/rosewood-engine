@@ -72,6 +72,8 @@ export interface CRMArchitectureBlueprint {
   version: string;
   name: string;
   description: string;
+  // Formal definition identifier tracking the asset phase lifecycle status
+  lifecycleState: 'PRESCRIPTIVE_BUILD' | 'PRODUCTION_AS_BUILT'; 
   pipelines: PipelineSpec[];
   customFields?: CustomFieldSpec[];
   activityTypes?: ActivityTypeSpec[];

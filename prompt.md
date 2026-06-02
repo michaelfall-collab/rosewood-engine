@@ -17,4 +17,70 @@ CRITICAL CODING GUARDRAILS:
 PROMPT:
 ==============================================================================================================================
 
-Address an issue with the AI API for the automation builder hitting a RPM limit after roughly 10 hits. Propose a solution where the building could continue in the background at a pace that supports the API limits and a notification that pops up when complete or perhaps a real-time estimate of Estimated Time Remaining based on the speed at which the automations are being built.
+-Make the text entry field for adding team members twice as wide to accomodate larger role names
+
+Formally Defining "Build File" vs. "As-Built"
+To handle this cleanly at the code layer, add a strict tracking flag field to your proprietary envelope contract. Update types/blueprint.ts to include a new state enum property:
+
+TypeScript
+// types/blueprint.ts
+
+export interface CRMArchitectureBlueprint {
+  id: string;
+  version: string;
+  name: string;
+  description: string;
+  // Formal definition identifier tracking the asset phase lifecycle status
+  lifecycleState: 'PRESCRIPTIVE_BUILD' | 'PRODUCTION_AS_BUILT'; 
+  pipelines: PipelineSpec[];
+  customFields?: CustomFieldSpec[];
+  activityTypes?: ActivityTypeSpec[];
+  lostReasons?: LostReasonSpec[];
+  systemFieldMutations?: SystemFieldMutationSpec[];
+}
+Then update utils/fileSerializer.ts to ensure this state transitions seamlessly during serialization:
+
+TypeScript
+// utils/fileSerializer.ts
+
+import { CRMArchitectureBlueprint } from "@/types/blueprint";
+
+export const ROSEWOOD_ENGINE_PROPRIETARY_EXPORT_TYPE = "ROSEWOOD_ENGINE_PROPRIETARY_EXPORT";
+
+export const serializeToRwe = (
+  blueprint: CRMArchitectureBlueprint,
+  abCompiledObjects: any[]
+): string => {
+  const preparedBlueprint: any = {
+    ...blueprint,
+    // Maintain strict state fallbacks
+    lifecycleState: blueprint.lifecycleState || 'PRESCRIPTIVE_BUILD', 
+    pipelines: (blueprint.pipelines || []).map((pipeline, pIdx) => ({
+      ...pipeline,
+      order_nr: pipeline.order_nr ?? pIdx + 1,
+      stages: (pipeline.stages || []).map((stage, sIdx) => ({
+        ...stage,
+        order_nr: stage.order_nr ?? sIdx + 1,
+        operational_telemetry: (stage as any).operational_telemetry || {
+          targetDirective: "",
+          stuckThreshold: "",
+          routingDropdownKey: "",
+          isRecurringLoop: false,
+          recurrenceDays: 7
+        }
+      }))
+    }))
+  };
+
+  const payload: any = {
+    type: ROSEWOOD_ENGINE_PROPRIETARY_EXPORT_TYPE,
+    ...preparedBlueprint,
+    blueprint: preparedBlueprint, 
+    compiledRunbook: abCompiledObjects || [],
+    abCompiledObjects: abCompiledObjects || [],
+    version: "1.0.0",
+    timestamp: new Date().toISOString(),
+  };
+
+  return JSON.stringify(payload, null, 2);
+};
