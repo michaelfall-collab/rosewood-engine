@@ -17,23 +17,4 @@ CRITICAL ARCHITECTURAL GUARDRAILS:
 PROMPT:
 ==============================================================================================================================
 
-We are tearing down the old, conversational chatbot Automation Builder interface to clear a clean foundation for our upcoming LEGO-style data pipeline.
-
-### 1. Surgical State Excision inside `app/page.tsx`
-- Delete only the state variables and side-effect loops directly associated with the old chatbot wizard workspace. 
-- Specifically remove: `abOpen`, `wizardStep`, `abRoadmap`, `abReviewFeedback`, `staplingState`, `abSelectedImageId`, `abSelectedIntegrations`, `abChatHistory`, `visibleChatHistory`, `abChatInput`, `isAiTyping`, `abRoles`, `tempRoleLabel`, `tempRoleSeats`, `isAttached`, `isAutoFilling`, `abTelemetryGuesses`, `abQueue`, `abQueueIndex`, and `abQueueTotal`.
-- Keep all other dashboard state definitions intact (such as `images`, `apiKey`, `isVerified`, `flashMode`, `viewLayout`, `detailId`, `detailTab`, `showRawJson`, `telemetryLogs`, `showTelemetry`, `expandedLogs`, etc.).
-
-### 2. Surgical Function Excision inside `app/page.tsx`
-- Remove the background methods exclusively used by the chatbot modal window.
-- Specifically remove: `handleAiAutoFill`, the chat scroll `useEffect`, the telemetry guesser `useEffect`, `compileRawModelPromptManifest`, `compilePromptManifest`, the queue processing loop `useEffect`, and the `openAB` handler function.
-- Do NOT touch or alter the manual runbook block editors: Leave `updateRunbookObjectField`, `handleAddNewManualBlock`, `handleDeleteAutomationBlock`, `moveAutomationBlockUp`, `moveAutomationBlockDown`, `handleAddCadenceStep`, and `handleDeleteCadenceStep` completely intact.
-- Inside `handleCardClick`, delete only the line referencing `setAbCompiledObjects` and `setAbSelectedIntegrations`, keeping the execution flow that sets `detailId` active.
-
-### 3. Surgical UI Cleanup inside `app/page.tsx`
-- Inside the primary header JSX layout grid (`<header>`), remove the `<button onClick={openAB}> AUTO-BUILDER </button>` utility element block completely. Leave the import file and paste data buttons active.
-- Scroll to the bottom of the JSX template wrapper. Locate the massive conditional chatbot element: `{abOpen && (() => { ... })()}`. Delete this block completely. 
-- Ensure that the surrounding dashboard page envelope layout components, closing markup tags (`</main>`, `</div>`, etc.), and component parameters remain balanced and valid to preserve the primary layout shelf.
-
-### 4. Code Cleanup inside `app/api/compile-agent/route.ts`
-- Remove the plain text generation path (`mode === 'text-only'`) and conversational prose prompts configuration variables, leaving the route file optimized and ready for future structural modifications.
+While flashing an image to a live connected account,  there needs to be a state manager that says "In Progress" or something and locks the user from being able to flash while the API transfer is in progress. Utilize a blurred screen and a loading icon in the middle. This should also occur while importing via API (bi-directional).

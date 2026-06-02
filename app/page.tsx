@@ -364,74 +364,87 @@ export default function ClientCockpitDashboard() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsProcessing(true);
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      try {
-        // Run file string through our dual-compatibility parser
-        const importedData = deserializeFromRwe(text);
-        const enrichedBlueprint = ensureStageTelemetry(importedData.blueprint);
-        
-        const rehydratedCard: LiveImage = { 
-            ...enrichedBlueprint, 
-            id: generateRweId(), 
-            name: importedData.blueprint.name || 'Imported Account Map',
-            description: importedData.blueprint.description || '',
-            owner: importedData.blueprint.owner || 'Imported (File)', 
-            deals: importedData.blueprint.deals || 0, 
-            compiledRunbook: importedData.compiledRunbook || [],
-            selectedIntegrations: importedData.selectedIntegrations || []
-        };
-        
-        const newImages = [rehydratedCard, ...images];
-        setImages(newImages);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('rw_workspace_cache', JSON.stringify(newImages));
+      // Use timeout to allow UI to render the loading state before heavy processing
+      setTimeout(() => {
+        try {
+          // Run file string through our dual-compatibility parser
+          const importedData = deserializeFromRwe(text);
+          const enrichedBlueprint = ensureStageTelemetry(importedData.blueprint);
+          
+          const rehydratedCard: LiveImage = { 
+              ...enrichedBlueprint, 
+              id: generateRweId(), 
+              name: importedData.blueprint.name || 'Imported Account Map',
+              description: importedData.blueprint.description || '',
+              owner: importedData.blueprint.owner || 'Imported (File)', 
+              deals: importedData.blueprint.deals || 0, 
+              compiledRunbook: importedData.compiledRunbook || [],
+              selectedIntegrations: importedData.selectedIntegrations || []
+          };
+          
+          const newImages = [rehydratedCard, ...images];
+          setImages(newImages);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('rw_workspace_cache', JSON.stringify(newImages));
+          }
+          setCopyFeedback("◆ File imported successfully");
+          setTimeout(() => setCopyFeedback(null), 3000);
+        } catch (error) {
+          console.error("Import failed:", error);
+        } finally {
+          setIsProcessing(false);
+          // Reset input so the same file can be imported again if needed
+          e.target.value = "";
         }
-        setCopyFeedback("◆ File imported successfully");
-        setTimeout(() => setCopyFeedback(null), 3000);
-      } catch (error) {
-        console.error("Import failed:", error);
-      }
+      }, 500);
     };
     reader.readAsText(file);
   };
  
   const handlePasteImport = () => {
-    try {
-      const importedObj = JSON.parse(pastedConfig);
-      if (importedObj.type === "ROSEWOOD_ENGINE_PROPRIETARY_EXPORT") {
-        // Mirror the same polymorphic normalization for immediate plain-text pastes
-        const baseBlueprint = importedObj.blueprint ? importedObj.blueprint : { ...importedObj };
-        const runbookPayload = importedObj.compiledRunbook || importedObj.abCompiledObjects || [];
-        
-        const enrichedBlueprint = ensureStageTelemetry(baseBlueprint);
-        const hydratedObj: LiveImage = {
-          ...enrichedBlueprint,
-          id: generateRweId(),
-          name: baseBlueprint.name || 'Pasted Setup Map',
-          description: baseBlueprint.description || '',
-          owner: baseBlueprint.owner || 'Imported (Paste)',
-          deals: baseBlueprint.deals || 0,
-          compiledRunbook: runbookPayload,
-          selectedIntegrations: importedObj.selectedIntegrations || baseBlueprint.selectedIntegrations || []
-        };
-        
-        const newImages = [hydratedObj, ...images];
-        setImages(newImages);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('rw_workspace_cache', JSON.stringify(newImages));
+    setIsProcessing(true);
+    setTimeout(() => {
+      try {
+        const importedObj = JSON.parse(pastedConfig);
+        if (importedObj.type === "ROSEWOOD_ENGINE_PROPRIETARY_EXPORT") {
+          // Mirror the same polymorphic normalization for immediate plain-text pastes
+          const baseBlueprint = importedObj.blueprint ? importedObj.blueprint : { ...importedObj };
+          const runbookPayload = importedObj.compiledRunbook || importedObj.abCompiledObjects || [];
+          
+          const enrichedBlueprint = ensureStageTelemetry(baseBlueprint);
+          const hydratedObj: LiveImage = {
+            ...enrichedBlueprint,
+            id: generateRweId(),
+            name: baseBlueprint.name || 'Pasted Setup Map',
+            description: baseBlueprint.description || '',
+            owner: baseBlueprint.owner || 'Imported (Paste)',
+            deals: baseBlueprint.deals || 0,
+            compiledRunbook: runbookPayload,
+            selectedIntegrations: importedObj.selectedIntegrations || baseBlueprint.selectedIntegrations || []
+          };
+          
+          const newImages = [hydratedObj, ...images];
+          setImages(newImages);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('rw_workspace_cache', JSON.stringify(newImages));
+          }
+          setIsPasteModalOpen(false);
+          setPastedConfig("");
+          setCopyFeedback("◆ Data imported successfully");
+          setTimeout(() => setCopyFeedback(null), 3000);
+        } else {
+          throw new Error("Invalid data type signature.");
         }
-        setIsPasteModalOpen(false);
-        setPastedConfig("");
-        setCopyFeedback("◆ Data imported successfully");
-        setTimeout(() => setCopyFeedback(null), 3000);
-      } else {
-        throw new Error("Invalid data type signature.");
+      } catch (e) {
+        console.error("Paste hydration error:", e);
+      } finally {
+        setIsProcessing(false);
       }
-    } catch (e) {
-      console.error("Paste hydration error:", e);
-    }
+    }, 500);
   };
 
 
@@ -1366,6 +1379,20 @@ export default function ClientCockpitDashboard() {
               >
                 IMPORT DATA
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* 6. GLOBAL PROCESSING OVERLAY */}
+      {isProcessing && (
+        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="flex flex-col items-center gap-4 bg-white dark:bg-zinc-900 p-8 rounded-sm border border-zinc-200 dark:border-zinc-800 shadow-2xl">
+            <i className="ti ti-loader-2 text-4xl text-[#004850] animate-spin" />
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900 dark:text-zinc-100">Transfer in Progress</span>
+              <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Synchronizing Engine State...</span>
             </div>
           </div>
         </div>
