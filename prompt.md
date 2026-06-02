@@ -4,83 +4,36 @@ docs/ARCHITECTURE.md
 docs/CONTRIBUTING.md
 docs/UI_UX_DIRECTIVE.md
 
-After finishing the following prompt, input a summary of changes into session_results.md (clearing any existing info there if it exists).
+After finishing the following prompt, input an abbreviated commit message into session_results.md.
 Launch using the --skip-permissions flag.
 
-CRITICAL CODING GUARDRAILS:
-- You are strictly forbidden from altering, simplifying, or truncating any business logic functions, API fetch calls, schema definitions, or LLM system prompt strings.
-- Leave all functional methods exactly as they are currently written. 
-- Do NOT use comments like "// implementation", "// existing code", or "// ...". Every single line of active code must be printed out in full.
-- Only make changes to the visual Tailwind styling properties of the targeted elements.
+CRITICAL ARCHITECTURAL GUARDRAILS:
+- You are strictly forbidden from utilizing heavy-handed shell tools like 'sed' or string truncations to cut sections of the file. You must perform surgical text modifications.
+- Do NOT use comments like "// implementation", "// existing code", or "// ...". Every single line of active code left in the targeted files must be printed out in full to prevent compilation failures.
+- The functions handling manual automation editing (such as `updateRunbookObjectField`, `handleAddNewManualBlock`, `handleDeleteAutomationBlock`, `moveAutomationBlockUp`, `moveAutomationBlockDown`, `handleAddCadenceStep`, `handleDeleteCadenceStep`) power the Inspection Playground Deck and MUST remain completely untouched.
+- Your .rwe parsing structures, type systems, and the production deploy endpoint (`app/api/deploy/route.ts`) must remain 100% active and unchanged.
 
 ==============================================================================================================================
 PROMPT:
 ==============================================================================================================================
 
--Make the text entry field for adding team members twice as wide to accomodate larger role names
+We are tearing down the old, conversational chatbot Automation Builder interface to clear a clean foundation for our upcoming LEGO-style data pipeline.
 
-Formally Defining "Build File" vs. "As-Built"
-To handle this cleanly at the code layer, add a strict tracking flag field to your proprietary envelope contract. Update types/blueprint.ts to include a new state enum property:
+### 1. Surgical State Excision inside `app/page.tsx`
+- Delete only the state variables and side-effect loops directly associated with the old chatbot wizard workspace. 
+- Specifically remove: `abOpen`, `wizardStep`, `abRoadmap`, `abReviewFeedback`, `staplingState`, `abSelectedImageId`, `abSelectedIntegrations`, `abChatHistory`, `visibleChatHistory`, `abChatInput`, `isAiTyping`, `abRoles`, `tempRoleLabel`, `tempRoleSeats`, `isAttached`, `isAutoFilling`, `abTelemetryGuesses`, `abQueue`, `abQueueIndex`, and `abQueueTotal`.
+- Keep all other dashboard state definitions intact (such as `images`, `apiKey`, `isVerified`, `flashMode`, `viewLayout`, `detailId`, `detailTab`, `showRawJson`, `telemetryLogs`, `showTelemetry`, `expandedLogs`, etc.).
 
-TypeScript
-// types/blueprint.ts
+### 2. Surgical Function Excision inside `app/page.tsx`
+- Remove the background methods exclusively used by the chatbot modal window.
+- Specifically remove: `handleAiAutoFill`, the chat scroll `useEffect`, the telemetry guesser `useEffect`, `compileRawModelPromptManifest`, `compilePromptManifest`, the queue processing loop `useEffect`, and the `openAB` handler function.
+- Do NOT touch or alter the manual runbook block editors: Leave `updateRunbookObjectField`, `handleAddNewManualBlock`, `handleDeleteAutomationBlock`, `moveAutomationBlockUp`, `moveAutomationBlockDown`, `handleAddCadenceStep`, and `handleDeleteCadenceStep` completely intact.
+- Inside `handleCardClick`, delete only the line referencing `setAbCompiledObjects` and `setAbSelectedIntegrations`, keeping the execution flow that sets `detailId` active.
 
-export interface CRMArchitectureBlueprint {
-  id: string;
-  version: string;
-  name: string;
-  description: string;
-  // Formal definition identifier tracking the asset phase lifecycle status
-  lifecycleState: 'PRESCRIPTIVE_BUILD' | 'PRODUCTION_AS_BUILT'; 
-  pipelines: PipelineSpec[];
-  customFields?: CustomFieldSpec[];
-  activityTypes?: ActivityTypeSpec[];
-  lostReasons?: LostReasonSpec[];
-  systemFieldMutations?: SystemFieldMutationSpec[];
-}
-Then update utils/fileSerializer.ts to ensure this state transitions seamlessly during serialization:
+### 3. Surgical UI Cleanup inside `app/page.tsx`
+- Inside the primary header JSX layout grid (`<header>`), remove the `<button onClick={openAB}> AUTO-BUILDER </button>` utility element block completely. Leave the import file and paste data buttons active.
+- Scroll to the bottom of the JSX template wrapper. Locate the massive conditional chatbot element: `{abOpen && (() => { ... })()}`. Delete this block completely. 
+- Ensure that the surrounding dashboard page envelope layout components, closing markup tags (`</main>`, `</div>`, etc.), and component parameters remain balanced and valid to preserve the primary layout shelf.
 
-TypeScript
-// utils/fileSerializer.ts
-
-import { CRMArchitectureBlueprint } from "@/types/blueprint";
-
-export const ROSEWOOD_ENGINE_PROPRIETARY_EXPORT_TYPE = "ROSEWOOD_ENGINE_PROPRIETARY_EXPORT";
-
-export const serializeToRwe = (
-  blueprint: CRMArchitectureBlueprint,
-  abCompiledObjects: any[]
-): string => {
-  const preparedBlueprint: any = {
-    ...blueprint,
-    // Maintain strict state fallbacks
-    lifecycleState: blueprint.lifecycleState || 'PRESCRIPTIVE_BUILD', 
-    pipelines: (blueprint.pipelines || []).map((pipeline, pIdx) => ({
-      ...pipeline,
-      order_nr: pipeline.order_nr ?? pIdx + 1,
-      stages: (pipeline.stages || []).map((stage, sIdx) => ({
-        ...stage,
-        order_nr: stage.order_nr ?? sIdx + 1,
-        operational_telemetry: (stage as any).operational_telemetry || {
-          targetDirective: "",
-          stuckThreshold: "",
-          routingDropdownKey: "",
-          isRecurringLoop: false,
-          recurrenceDays: 7
-        }
-      }))
-    }))
-  };
-
-  const payload: any = {
-    type: ROSEWOOD_ENGINE_PROPRIETARY_EXPORT_TYPE,
-    ...preparedBlueprint,
-    blueprint: preparedBlueprint, 
-    compiledRunbook: abCompiledObjects || [],
-    abCompiledObjects: abCompiledObjects || [],
-    version: "1.0.0",
-    timestamp: new Date().toISOString(),
-  };
-
-  return JSON.stringify(payload, null, 2);
-};
+### 4. Code Cleanup inside `app/api/compile-agent/route.ts`
+- Remove the plain text generation path (`mode === 'text-only'`) and conversational prose prompts configuration variables, leaving the route file optimized and ready for future structural modifications.

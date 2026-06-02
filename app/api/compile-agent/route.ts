@@ -65,21 +65,9 @@ Do not wrap the output in markdown code blocks or return conversational prose.`,
       });
     }
 
-    // NEW: Handle plain text generation for chat auto-fill
-    if (mode === 'text-only') {
-      const response = await ai.models.generateContent({
-        model: TARGET_MODEL,
-        contents: userPrompt,
-        config: { systemInstruction: systemPrompt, temperature: 0.7 }
-      });
-      return NextResponse.json({ success: true, text: response.text });
-    }
-
     if (!systemPrompt || !userPrompt) {
       return NextResponse.json({ success: false, error: "Missing prompt payloads" }, { status: 400 });
     }
-
-    // app/api/compile-agent/route.ts
 
     const response = await ai.models.generateContent({
       model: TARGET_MODEL,
