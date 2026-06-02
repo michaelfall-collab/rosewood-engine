@@ -281,6 +281,11 @@ export default function ClientCockpitDashboard() {
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   const [abTelemetryGuesses, setAbTelemetryGuesses] = useState<Record<string, StageOperationalContext>>({});
 
+  // Automation Builder Queue States
+  const [abQueue, setAbQueue] = useState<any[]>([]);
+  const [abQueueIndex, setAbQueueIndex] = useState(0);
+  const [abQueueTotal, setAbQueueTotal] = useState(0);
+
   const handleAiAutoFill = async () => {
     const targetImage = images.find(img => img.id === abSelectedImageId);
     if (!targetImage) return;
@@ -656,16 +661,7 @@ export default function ClientCockpitDashboard() {
         dataWidget: "STAPLING_PROGRESS"
       });
 
-      const newCompiledObjects = [];
-
-      for (const [index, item] of abRoadmap.entries()) {
-        setStaplingState({ 
-          index: index + 1, 
-          total: abRoadmap.length, 
-          currentStage: item.stageName 
-        });
-        
-        // Find stage operational telemetry
+      const queueItems = abRoadmap.map(item => {
         let stageTelemetry = null;
         let customFieldsList = targetImage.customFields || [];
         for (const pipeline of targetImage.pipelines) {
@@ -675,73 +671,119 @@ export default function ClientCockpitDashboard() {
             break;
           }
         }
-        
-        try {
-          const response = await fetch('/api/compile-agent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              systemPrompt: `You are an Enterprise CRM Systems Architect. Capabilities: ${JSON.stringify(PIPEDRIVE_CAPABILITIES_REGISTRY)}. 
-              Generate detailed configuration for the following roadmap item.
-              STRICT NAMING RULE: automationNumber must remain "${item.automationNumber}".
-              
-              CRITICAL PATTERNS TO ENFORCE:
-              
-              Pattern A: Looping/Recurring State Machine
-              - If the operational telemetry has 'isRecurringLoop' set to true, you MUST implement a self-sustaining activity loop.
-              - The step-by-step layout MUST read: 'Trigger: Activity updated where subject matches [Name] and status matches DONE. Action: Instantly create a clean follow-up Activity with an identical subject line, natively mapped relative to the trigger execution timestamp with a relative delay offset of X days.' (where X is the recurrenceDays in telemetry).
-              
-              Pattern B: Multi-Branch Dropdown Router
-              - If a 'routingDropdownKey' is specified in the operational telemetry, you are PROHIBITED from creating simple activity list reminders.
-              - You must construct an explicit If/Else routing tree based entirely on the target field's valid options in the custom fields schema.
-              - The step-by-step layout MUST read: 'Trigger: Deal custom field [Field Key] updates. Branching Conditions: If field matches Option A -> move Deal natively to Stage X. Else if field matches Option B -> move Deal natively to Stage Y.'`,
-              userPrompt: `Generate configuration for automation goal: "${item.operationalGoal}" in stage "${item.stageName}".
-              Roles involved: ${JSON.stringify(abRoles)}.
-              Coordinate Index: ${item.automationNumber}
-              
-              Stage Operational Telemetry Context:
-              ${stageTelemetry ? JSON.stringify(stageTelemetry, null, 2) : "None provided."}
-              Custom Fields Schema:
-              ${JSON.stringify(customFieldsList, null, 2)}`
-            })
-          });
-
-          const data = await response.json();
-          
-          if (data.success && data.jsonObject) {
-            newCompiledObjects.push(data.jsonObject);
-          } else {
-            newCompiledObjects.push({
-              automationNumber: item.automationNumber,
-              stageName: item.stageName,
-              operationalGoal: item.operationalGoal,
-              impactedRoles: [],
-              setupSteps: ["Error: Step generation failed."],
-              governanceNotes: data.error || "Failed."
-            });
-          }
-        } catch (error: any) {
-          console.error("Stapling failed:", error);
-        }
-      }
-
-      setAbCompiledObjects(newCompiledObjects);
-      const assembledPromptText = compileRawModelPromptManifest(newCompiledObjects);
-
-      setTelemetryLogs(prev => [{
-        type: "OUTBOUND",
-        timestamp: new Date().toLocaleTimeString(),
-        payload: { promptManifestAuditTrail: assembledPromptText }
-      }, ...prev]);
-
-      setWizardStep('PREVIEW');
-      typewriterAddMessage({
-        sender: "ai",
-        text: "Architecture complete. Your unified process guide is ready for review and export.",
-        dataWidget: "FINAL_PREVIEW"
+        return { item, stageTelemetry, customFieldsList };
       });
+
+      const newCompiledObjects: any[] = [];
+      const queue = queueItems.map(({ item, stageTelemetry, customFieldsList }) => ({
+        item,
+        stageTelemetry,
+        customFieldsList,
+        resolve: (result: any) => {
+          newCompiledObjects.push(result);
+          if (newCompiledObjects.length === abRoadmap.length) {
+            setAbCompiledObjects(newCompiledObjects);
+            const assembledPromptText = compileRawModelPromptManifest(newCompiledObjects);
+            
+            setTelemetryLogs(prev => [{
+              type: "OUTBOUND",
+              timestamp: new Date().toLocaleTimeString(),
+              payload: { promptManifestAuditTrail: assembledPromptText }
+            }, ...prev]);
+
+            setWizardStep('PREVIEW');
+            typewriterAddMessage({
+              sender: "ai",
+              text: "Architecture complete. Your unified process guide is ready for review and export.",
+              dataWidget: "FINAL_PREVIEW"
+            });
+            setAbQueue([]);
+            setAbQueueIndex(0);
+          }
+        }
+      }));
+
+      setAbQueue(queue);
+      setAbQueueIndex(0);
     }
   };
+
+  // Queue Processing Loop
+  useEffect(() => {
+    if (abQueue.length === 0 || abQueueIndex >= abQueue.length) return;
+
+    const processNext = async () => {
+      const { item, stageTelemetry, customFieldsList, resolve } = abQueue[abQueueIndex];
+      
+      setStaplingState({ 
+        index: abQueueIndex + 1, 
+        total: abQueue.length, 
+        currentStage: item.stageName 
+      });
+      
+      try {
+        const response = await fetch('/api/compile-agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemPrompt: `You are an Enterprise CRM Systems Architect. Capabilities: ${JSON.stringify(PIPEDRIVE_CAPABILITIES_REGISTRY)}. 
+            Generate detailed configuration for the following roadmap item.
+            STRICT NAMING RULE: automationNumber must remain "${item.automationNumber}".
+            
+            CRITICAL PATTERNS TO ENFORCE:
+            
+            Pattern A: Looping/Recurring State Machine
+            - If the operational telemetry has 'isRecurringLoop' set to true, you MUST implement a self-sustaining activity loop.
+            - The step-by-step layout MUST read: 'Trigger: Activity updated where subject matches [Name] and status matches DONE. Action: Instantly create a clean follow-up Activity with an identical subject line, natively mapped relative to the trigger execution timestamp with a relative delay offset of X days.' (where X is the recurrenceDays in telemetry).
+            
+            Pattern B: Multi-Branch Dropdown Router
+            - If a 'routingDropdownKey' is specified in the operational telemetry, you are PROHIBITED from creating simple activity list reminders.
+            - You must construct an explicit If/Else routing tree based entirely on the target field's valid options in the custom fields schema.
+            - The step-by-step layout MUST read: 'Trigger: Deal custom field [Field Key] updates. Branching Conditions: If field matches Option A -> move Deal natively to Stage X. Else if field matches Option B -> move Deal natively to Stage Y.'`,
+            userPrompt: `Generate configuration for automation goal: "${item.operationalGoal}" in stage "${item.stageName}".
+            Roles involved: ${JSON.stringify(abRoles)}.
+            Coordinate Index: ${item.automationNumber}
+            
+            Stage Operational Telemetry Context:
+            ${stageTelemetry ? JSON.stringify(stageTelemetry, null, 2) : "None provided."}
+            Custom Fields Schema:
+            ${JSON.stringify(customFieldsList, null, 2)}`
+          })
+        });
+
+        const data = await response.json();
+        
+        if (data.success && data.jsonObject) {
+          resolve(data.jsonObject);
+        } else {
+          resolve({
+            automationNumber: item.automationNumber,
+            stageName: item.stageName,
+            operationalGoal: item.operationalGoal,
+            impactedRoles: [],
+            setupSteps: ["Error: Step generation failed."],
+            governanceNotes: data.error || "Failed."
+          });
+        }
+      } catch (error: any) {
+        console.error("Stapling failed:", error);
+        resolve({
+          automationNumber: item.automationNumber,
+          stageName: item.stageName,
+          operationalGoal: item.operationalGoal,
+          impactedRoles: [],
+          setupSteps: ["Error: Connection failed."],
+          governanceNotes: error.message || "Failed."
+        });
+      }
+      
+      setAbQueueIndex(prev => prev + 1);
+    };
+
+    // Throttle to respect API RPM limits
+    const timer = setTimeout(processNext, 6000); // 6 seconds per request = 10 RPM
+    return () => clearTimeout(timer);
+  }, [abQueue, abQueueIndex]);
 
   const openAB = () => {
     setAbOpen(true);
