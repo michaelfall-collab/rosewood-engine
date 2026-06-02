@@ -1805,348 +1805,295 @@ export default function ClientCockpitDashboard() {
 
               {/* MAIN WIZARD BODY */}
               <div id="wizard-container" className="flex-1 overflow-y-auto p-8 bg-white dark:bg-zinc-950 scroll-smooth">
-                {visibleChatHistory.map((msg, i) => (
-                  <div key={msg.id} id={`msg-${msg.id}`} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-500`}>
-                    <div className={`flex gap-5 w-full ${msg.sender === 'user' ? 'max-w-[70%] flex-row-reverse' : 'max-w-[95%]'}`}>
-                      <div className={`h-9 w-9 rounded-2xl shrink-0 flex items-center justify-center text-[10px] font-black uppercase shadow-sm ${msg.sender === 'user' ? 'bg-zinc-900 text-white' : 'bg-[#004850] text-white shadow-[#004850]/20'}`}>
-                        {msg.sender === 'user' ? '//' : 'AI'}
-                      </div>
-                      <div className="space-y-4 flex-1">
-                        <div className={`px-6 py-4 rounded-3xl text-sm leading-relaxed shadow-sm ${msg.sender === 'user' ? 'bg-[#004850] text-white rounded-tr-none' : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 rounded-tl-none border border-zinc-100 dark:border-zinc-800'}`}>
-                          {msg.text}
-                          {msg.isTyping && <span className="inline-block w-1 h-4 bg-[#004850] dark:bg-emerald-500 ml-1 animate-pulse align-middle" />}
-                        </div>
-                        
-                        {/* WIDGETS */}
-                        {msg.dataWidget === "SELECT_PROJECT" && (
-                          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 ${i < visibleChatHistory.length - 1 ? 'opacity-40 pointer-events-none' : ''}`}>
-                            {images.map(img => (
-                              <button key={img.id} disabled={i < visibleChatHistory.length - 1} onClick={() => {
-                                setAbSelectedImageId(img.id);
-                                const userMsg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: `I've selected the '${img.name}' project.` };
-                                setAbChatHistory(prev => [...prev, userMsg]);
-                                setVisibleChatHistory(prev => [...prev, userMsg]);
-                                typewriterAddMessage({ sender: 'ai', text: "Excellent choice. Let's calibrate your process track objectives. Tune the goals and thresholds in the matrix below.", dataWidget: "GOAL_MATRIX" });
-                                setWizardStep('GOAL_CALIBRATION');
-                              }} className="p-5 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900 hover:border-[#004850] dark:hover:border-emerald-500 transition-all text-left group active:scale-[0.98] shadow-sm">
-                                <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-[#004850] dark:group-hover:text-emerald-400 transition-colors uppercase">{img.name}</h3>
-                                <p className="text-[9px] text-zinc-400 mt-2 font-mono uppercase tracking-widest">{img.pipelines?.length || 0} TRACKS // {img.pipelines?.reduce((acc, p) => acc + (p.stages?.length || 0), 0) || 0} STEPS</p>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {msg.dataWidget === "GOAL_MATRIX" && targetImage && (
-                          <div className="space-y-6 pt-2 animate-in zoom-in-95 duration-500">
-                            <div className="flex items-center justify-between gap-4 bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-                              <p className="text-[10px] text-zinc-500 font-medium">Verify step goals. Use <kbd className="px-1 py-0.5 border rounded bg-white dark:bg-black font-mono">Tab</kbd> to accept AI suggestions.</p>
-                              <button onClick={acceptAllAIGuesses} className="h-8 px-4 border border-[#004850]/20 hover:border-[#004850] bg-white dark:bg-zinc-900 text-[#004850] dark:text-[#008080] rounded-full text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm">[ Accept All Suggestions ]</button>
-                            </div>
-                            <div className="space-y-8">
-                              {targetImage.pipelines.map((pipeline, pIdx) => (
-                                <div key={pIdx} className="space-y-3">
-                                  <div className="flex items-center gap-2 font-mono text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400">
-                                    <span>Track {pIdx + 1}: {pipeline.name}</span>
-                                    <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
-                                  </div>
-                                  <div className="border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 shadow-xl shadow-black/5">
-                                    <table className="w-full text-left border-collapse table-fixed">
-                                      <thead>
-                                        <tr className="bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-100 dark:border-zinc-800 text-[8px] font-mono font-black uppercase tracking-widest text-zinc-400">
-                                          <th className="py-3 px-4 w-40">Step</th>
-                                          <th className="py-3 px-4">Work Goal {isFetchingGuesses && <span className="text-emerald-500 animate-pulse">⟳ AI</span>}</th>
-                                          <th className="py-3 px-4 w-28">Alert</th>
-                                          <th className="py-3 px-4 w-32">Router</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                                        {pipeline.stages.map((stage, sIdx) => {
-                                          const tel: StageOperationalContext = (stage.operational_telemetry as StageOperationalContext) || {};
-                                          const guesses = abTelemetryGuesses[stage.name] || getLocalFallbackGuess(stage.name);
-                                          return (
-                                            <tr key={sIdx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 text-[11px] transition-colors">
-                                              <td className="py-3 px-4 align-top">
-                                                <span className="font-mono text-[8px] font-bold text-zinc-300 block mb-0.5">{pIdx + 1}.{sIdx + 1}</span>
-                                                <span className="font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate block" title={stage.name}>{stage.name}</span>
-                                              </td>
-                                              <td className="py-2.5 px-3 align-top">
-                                                <textarea value={tel.targetDirective || ""} onChange={e => updateStageTelemetry(pIdx, sIdx, "targetDirective", e.target.value)} onKeyDown={e => e.key === 'Tab' && !tel.targetDirective && (e.preventDefault(), updateStageTelemetry(pIdx, sIdx, "targetDirective", guesses.targetDirective))} placeholder={guesses.targetDirective} rows={2} className="w-full bg-transparent border-none outline-none p-1 text-[11px] text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 resize-none leading-relaxed transition-all" />
-                                              </td>
-                                              <td className="py-2.5 px-3 align-top">
-                                                <input value={tel.stuckThreshold || ""} onChange={e => updateStageTelemetry(pIdx, sIdx, "stuckThreshold", e.target.value)} placeholder={guesses.stuckThreshold} className="w-full bg-transparent border-none outline-none p-1 text-[11px] font-mono tracking-tighter" />
-                                              </td>
-                                              <td className="py-2.5 px-3 align-top">
-                                                <select value={tel.routingDropdownKey || ""} onChange={e => updateStageTelemetry(pIdx, sIdx, "routingDropdownKey", e.target.value || undefined)} className="w-full bg-transparent outline-none text-[9px] text-zinc-500 font-bold uppercase truncate appearance-none cursor-pointer">
-                                                  <option value="">Off</option>
-                                                  {targetImage.customFields?.filter(f => f.type === 'enum' || f.type === 'set').map(f => (
-                                                    <option key={f.key} value={f.key}>{f.name}</option>
-                                                  ))}
-                                                </select>
-                                              </td>
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="flex justify-end">
-                              <button disabled={i < visibleChatHistory.length - 1} onClick={() => {
-                                const userMsg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: "Goals calibrated. Ready to define system context." };
-                                setAbChatHistory(prev => [...prev, userMsg]);
-                                setVisibleChatHistory(prev => [...prev, userMsg]);
-                                typewriterAddMessage({ sender: 'ai', text: "Understood. Now, let's specify the connected tools and team roles involved in this project. You can update these parameters in the console below.", dataWidget: "CONTEXT_TUNING" });
-                              }} className="h-11 px-8 bg-[#004850] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95">Confirm Matrix & Proceed <i className="ti ti-arrow-right" /></button>
-                            </div>
-                          </div>
-                        )}
-
-                        {msg.dataWidget === "CONTEXT_TUNING" && (
-                          <div className={`space-y-10 pt-2 animate-in fade-in duration-500 ${i < visibleChatHistory.length - 1 ? 'opacity-40 pointer-events-none' : ''}`}>
-                            {/* Integration Selector */}
-                            <div className="space-y-4">
-                              <div className="flex items-center gap-3">
-                                <span className="font-mono text-[9px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Available Integrations</span>
-                                <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
-                              </div>
-                              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                {Object.keys(PIPEDRIVE_CAPABILITIES_REGISTRY.supportedIntegrations).map((slug) => (
-                                  <button
-                                    key={slug}
-                                    disabled={i < visibleChatHistory.length - 1}
-                                    onClick={() => setAbSelectedIntegrations(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug])}
-                                    className={`p-3 border rounded-2xl transition-all flex flex-col items-center gap-2 text-center active:scale-95 shadow-sm ${abSelectedIntegrations.includes(slug) ? 'border-[#004850] bg-[#004850]/5 text-[#004850] dark:border-emerald-500 dark:text-emerald-400 shadow-md' : 'border-zinc-200 dark:border-zinc-800 text-zinc-400 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 bg-white dark:bg-zinc-900'}`}
-                                  >
-                                    <i className={`ti ti-brand-${slug === 'msteams' ? 'messenger' : slug === 'projects' ? 'clipboard' : slug === 'campaigns' ? 'mail' : slug} text-xl`} />
-                                    <span className="text-[8px] font-black uppercase tracking-widest truncate w-full">{slug}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* Team Registry */}
-                            <div className="space-y-4">
-                              <div className="flex items-center gap-3">
-                                <span className="font-mono text-[9px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Team Registry</span>
-                                <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
-                              </div>
-                              <div className="flex flex-col gap-2">
-                                <div className="flex items-center gap-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm overflow-hidden h-10 w-fit">
-                                  <input disabled={i < visibleChatHistory.length - 1} placeholder="Add Role..." value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-24 pl-4" />
-                                  <div className="flex items-center gap-1 border-x border-zinc-100 dark:border-zinc-800 px-3 h-full">
-                                      <span className="text-[8px] font-mono text-zinc-400">#</span>
-                                      <input disabled={i < visibleChatHistory.length - 1} type="number" value={tempRoleSeats} onChange={e => setTempRoleSeats(parseInt(e.target.value) || 1)} className="bg-transparent border-none outline-none text-[10px] font-mono font-bold w-6 text-center" />
-                                  </div>
-                                  <button disabled={i < visibleChatHistory.length - 1} onClick={() => { if (tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="h-full w-12 text-[#004850] dark:text-emerald-500 hover:bg-[#004850] hover:text-white transition-all flex items-center justify-center"><i className="ti ti-plus" /></button>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                  {abRoles.map((role, idx) => (
-                                    <div key={idx} className="flex items-center gap-3 pl-4 pr-1 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm animate-in zoom-in-95 w-fit">
-                                      <span className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 uppercase">{role.roleName}</span>
-                                      <span className="h-6 px-2 bg-[#004850] rounded-full text-[9px] font-mono flex items-center justify-center text-white">{role.count}</span>
-                                      <button disabled={i < visibleChatHistory.length - 1} onClick={() => setAbRoles(prev => prev.filter((_, i) => i !== idx))} className="h-6 w-6 hover:text-rose-500 transition-colors flex items-center justify-center"><i className="ti ti-x text-xs" /></button>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex justify-end pt-4">
-                              <button disabled={i < visibleChatHistory.length - 1} onClick={() => {
-                                const userMsg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: "Context finalized. Ready to build logic." };
-                                setAbChatHistory(prev => [...prev, userMsg]);
-                                setVisibleChatHistory(prev => [...prev, userMsg]);
-                                typewriterAddMessage({ sender: 'ai', text: "Perfect. Now, describe the automation behaviors you'd like to build for this project. Mention triggers, Slack notifications, or conditional fallback rules. I'll translate your instructions into a structured roadmap." });
-                                setWizardStep('CONTEXT_TUNING');
-                              }} className="h-11 px-10 bg-[#004850] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95">Finalize Context & Start Building <i className="ti ti-wand" /></button>
-                            </div>
-                          </div>
-                        )}
-
-                        {msg.dataWidget === "ROADMAP_REVIEW" && (
-                          <div className="space-y-6 pt-2 animate-in slide-in-from-bottom-4 duration-500">
-                            <div className="space-y-3">
-                              {abRoadmap.map((item, idx) => (
-                                <div key={idx} className="p-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl flex items-center justify-between group shadow-sm">
-                                  <div className="flex items-center gap-6">
-                                    <span className="font-mono text-xs font-black px-3 py-1.5 bg-zinc-900 text-white rounded-xl">{item.automationNumber}</span>
-                                    <div>
-                                      <span className="block text-[9px] font-mono font-black text-zinc-400 uppercase tracking-widest mb-1">{item.stageName}</span>
-                                      <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{item.operationalGoal}</span>
-                                    </div>
-                                  </div>
-                                  <button onClick={() => setAbRoadmap(prev => prev.filter((_, i) => i !== idx))} className="h-10 w-10 text-zinc-300 hover:text-rose-500 transition-colors flex items-center justify-center bg-white dark:bg-black rounded-full border border-zinc-100 dark:border-zinc-800 shadow-sm"><i className="ti ti-trash" /></button>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="flex items-center gap-4 bg-zinc-50 dark:bg-zinc-900/50 p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-inner">
-                              <input placeholder="Add adjustment instructions..." value={abReviewFeedback} onChange={e => setAbReviewFeedback(e.target.value)} className="flex-1 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl py-3.5 px-5 text-sm outline-none focus:border-[#004850] transition-all shadow-sm" />
-                              <button onClick={() => {
-                                const userMsg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: `Adjust roadmap: ${abReviewFeedback}` };
-                                setAbChatHistory(prev => [...prev, userMsg]);
-                                setVisibleChatHistory(prev => [...prev, userMsg]);
-                                compilePromptManifest(abReviewFeedback);
-                                setAbReviewFeedback("");
-                              }} className="h-12 px-7 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 shadow-sm">Update</button>
-                            </div>
-                            <div className="flex justify-end gap-3">
-                              <button onClick={() => compilePromptManifest()} className="h-12 px-10 bg-[#004850] text-white rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95">Generate Logic <i className="ti ti-wand" /></button>
-                            </div>
-                          </div>
-                        )}
-
-                        {msg.dataWidget === "STAPLING_PROGRESS" && (
-                          <div className="py-12 flex flex-col items-center justify-center space-y-8 animate-in fade-in zoom-in-95 duration-700">
-                            <div className="relative">
-                              <div className="h-24 w-24 rounded-full border-[3px] border-zinc-100 dark:border-zinc-800 border-t-[#004850] animate-spin shadow-2xl" />
-                              <div className="absolute inset-0 flex items-center justify-center"><i className="ti ti-wand text-3xl text-[#004850] animate-pulse" /></div>
-                            </div>
-                            <div className="text-center space-y-3 max-w-sm">
-                              <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tighter">Crafting Logic...</h3>
-                              <p className="text-[11px] text-zinc-500 font-sans leading-relaxed">System is building setup guides for <span className="font-mono text-[#004850] dark:text-emerald-500 font-bold">{staplingState.currentStage}</span>.</p>
-                              <div className="w-full bg-zinc-100 dark:bg-zinc-900 h-2 rounded-full overflow-hidden mt-6 shadow-inner">
-                                <div className="bg-[#004850] h-full transition-all duration-700 ease-out shadow-[0_0_15px_#004850]" style={{ width: `${(staplingState.index / staplingState.total) * 100}%` }} />
-                              </div>
-                              <div className="flex justify-between font-mono text-[8px] text-zinc-400 uppercase tracking-widest font-black pt-2 px-1"><span>{staplingState.index} / {staplingState.total}</span><span>{Math.round((staplingState.index / staplingState.total) * 100)}%</span></div>
-                            </div>
-                          </div>
-                        )}
-
-                        {msg.dataWidget === "FINAL_PREVIEW" && (
-                          <div className="space-y-8 pt-2 animate-in fade-in duration-1000">
-                            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
-                              <div className="flex gap-2">
-                                <button onClick={handleDocxDownload} className="h-10 px-5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-blue-600/20"><i className="ti ti-file-text" /> Export .Docx</button>
-                                <button onClick={() => copyToClipboard(compileRawModelPromptManifest())} className="h-10 px-5 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all flex items-center gap-2 active:scale-95 shadow-sm"><i className="ti ti-copy" /> Copy Raw Text</button>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                              <div className="space-y-6">
-                                {abCompiledObjects.map((item, idx) => (
-                                  <div key={idx} className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden bg-zinc-50/50 dark:bg-zinc-900/50 shadow-sm">
-                                    <div className="px-5 py-4 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
-                                      <span className="font-mono text-[10px] font-black px-3 py-1 bg-zinc-900 text-white rounded-xl tracking-widest shadow-sm">{item.automationNumber}</span>
-                                      <span className="text-[10px] font-bold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 truncate">{item.stageName}</span>
-                                    </div>
-                                    <div className="p-6 space-y-5">
-                                      <div><span className="block text-[8px] font-mono font-black text-zinc-400 uppercase tracking-widest mb-1">Goal</span><p className="text-xs font-bold text-zinc-800 dark:text-zinc-200 leading-relaxed">{item.operationalGoal}</p></div>
-                                      <div><span className="block text-[8px] font-mono font-black text-zinc-400 uppercase tracking-widest mb-1">Personnel</span><div className="flex flex-wrap gap-2 mt-2">{item.impactedRoles.map((role: string, rIdx: number) => (<span key={rIdx} className="px-3 py-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full text-[8px] font-black uppercase shadow-sm border border-zinc-300/20 dark:border-zinc-700/20">{role}</span>))}</div></div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="space-y-4">
-                                <div className="flex items-center gap-2 mb-2 pl-2"><i className="ti ti-terminal text-[#004850] dark:text-emerald-500" /><span className="font-mono text-[9px] font-black uppercase tracking-widest text-zinc-400">Process Logic Structure</span></div>
-                                <div className="bg-zinc-900 dark:bg-black rounded-2xl border border-zinc-800 p-7 h-[600px] overflow-y-auto font-mono text-[10px] leading-relaxed text-zinc-400 custom-scrollbar shadow-2xl shadow-black/40">
-                                  {compileRawModelPromptManifest().split('\n').map((line, lIdx) => (<p key={lIdx} className={`${line.startsWith('===') ? 'text-emerald-500 font-bold mt-6 mb-2' : line.startsWith('###') ? 'text-[#004850] dark:text-emerald-300 font-bold mt-8 mb-3 text-sm' : line.startsWith('**') ? 'text-zinc-200 dark:text-zinc-300 font-bold mt-2' : 'text-zinc-500 dark:text-zinc-500'} py-0.5`}>{line}</p>))}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex justify-center border-t border-zinc-100 dark:border-zinc-800 pt-10 pb-4">
-                              <button onClick={() => {
-                                setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, compiledRunbook: abCompiledObjects, selectedIntegrations: abSelectedIntegrations } : img));
-                                setIsAttached(true);
-                                setCopyFeedback("◆ Process Guide Attached");
-                                setTimeout(() => setCopyFeedback(null), 3000);
-                              }} disabled={isAttached} className={`h-14 px-14 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-4 shadow-2xl active:scale-95 ${isAttached ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 cursor-default' : 'bg-[#004850] text-white hover:bg-[#003840] shadow-[#004850]/20'}`}>
-                                <i className={`ti ${isAttached ? 'ti-check' : 'ti-bookmark'}`} />
-                                {isAttached ? "Process Attached to Card" : "Finalize & Attach to Card"}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                {wizardStep === 'PROJECT_SELECT' && (
+                  <div className="space-y-8 animate-in fade-in duration-500">
+                    <div className="text-center space-y-2">
+                        <h3 className="text-xl font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tighter">Select a Project Track</h3>
+                        <p className="text-xs text-zinc-500 font-sans">Choose an account blueprint from your library to begin automation configuration.</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {images.map(img => (
+                        <button key={img.id} onClick={() => {
+                            setAbSelectedImageId(img.id);
+                            setWizardStep('GOAL_CALIBRATION');
+                        }} className="p-5 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900 hover:border-[#004850] dark:hover:border-emerald-500 transition-all text-left group active:scale-[0.98] shadow-sm">
+                            <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-[#004850] dark:group-hover:text-emerald-400 transition-colors uppercase">{img.name}</h3>
+                            <p className="text-[9px] text-zinc-400 mt-2 font-mono uppercase tracking-widest">{img.pipelines?.length || 0} TRACKS // {img.pipelines?.reduce((acc, p) => acc + (p.stages?.length || 0), 0) || 0} STEPS</p>
+                        </button>
+                        ))}
                     </div>
                   </div>
-                ))}
+                )}
 
-                {isAiTyping && (
-                  <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="flex gap-5 w-full max-w-[95%]">
-                      <div className="h-9 w-9 rounded-2xl bg-[#004850] text-white shrink-0 flex items-center justify-center text-[10px] font-black uppercase shadow-lg shadow-[#004850]/20">AI</div>
-                      <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 px-6 py-4 rounded-3xl rounded-tl-none flex items-center gap-1 shadow-sm">
-                        <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                        <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                        <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" />
+                {wizardStep === 'GOAL_CALIBRATION' && targetImage && (
+                  <div className="space-y-6 pt-2 animate-in zoom-in-95 duration-500">
+                    <div className="flex items-center justify-between gap-4 bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                      <p className="text-[10px] text-zinc-500 font-medium">Verify step goals. Use <kbd className="px-1 py-0.5 border rounded bg-white dark:bg-black font-mono">Tab</kbd> to accept AI suggestions.</p>
+                      <button onClick={acceptAllAIGuesses} className="h-8 px-4 border border-[#004850]/20 hover:border-[#004850] bg-white dark:bg-zinc-900 text-[#004850] dark:text-[#008080] rounded-full text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm">[ Accept All Suggestions ]</button>
+                    </div>
+                    <div className="space-y-8">
+                      {targetImage.pipelines.map((pipeline, pIdx) => (
+                        <div key={pIdx} className="space-y-3">
+                          <div className="flex items-center gap-2 font-mono text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                            <span>Track {pIdx + 1}: {pipeline.name}</span>
+                            <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                          </div>
+                          <div className="border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 shadow-xl shadow-black/5">
+                            <table className="w-full text-left border-collapse table-fixed">
+                              <thead>
+                                <tr className="bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-100 dark:border-zinc-800 text-[8px] font-mono font-black uppercase tracking-widest text-zinc-400">
+                                  <th className="py-3 px-4 w-40">Step</th>
+                                  <th className="py-3 px-4">Work Goal {isFetchingGuesses && <span className="text-emerald-500 animate-pulse">⟳ AI</span>}</th>
+                                  <th className="py-3 px-4 w-28">Alert</th>
+                                  <th className="py-3 px-4 w-32">Router</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                                {pipeline.stages.map((stage, sIdx) => {
+                                  const tel: StageOperationalContext = (stage.operational_telemetry as StageOperationalContext) || {};
+                                  const guesses = abTelemetryGuesses[stage.name] || getLocalFallbackGuess(stage.name);
+                                  return (
+                                    <tr key={sIdx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 text-[11px] transition-colors">
+                                      <td className="py-3 px-4 align-top">
+                                        <span className="font-mono text-[8px] font-bold text-zinc-300 block mb-0.5">{pIdx + 1}.{sIdx + 1}</span>
+                                        <span className="font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate block" title={stage.name}>{stage.name}</span>
+                                      </td>
+                                      <td className="py-2.5 px-3 align-top">
+                                        <textarea value={tel.targetDirective || ""} onChange={e => updateStageTelemetry(pIdx, sIdx, "targetDirective", e.target.value)} onKeyDown={e => e.key === 'Tab' && !tel.targetDirective && (e.preventDefault(), updateStageTelemetry(pIdx, sIdx, "targetDirective", guesses.targetDirective))} placeholder={guesses.targetDirective} rows={2} className="w-full bg-transparent border-none outline-none p-1 text-[11px] text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700/80 resize-none leading-relaxed transition-all" />
+                                      </td>
+                                      <td className="py-2.5 px-3 align-top">
+                                        <input value={tel.stuckThreshold || ""} onChange={e => updateStageTelemetry(pIdx, sIdx, "stuckThreshold", e.target.value)} placeholder={guesses.stuckThreshold} className="w-full bg-transparent border-none outline-none p-1 text-[11px] font-mono tracking-tighter" />
+                                      </td>
+                                      <td className="py-2.5 px-3 align-top">
+                                        <select value={tel.routingDropdownKey || ""} onChange={e => updateStageTelemetry(pIdx, sIdx, "routingDropdownKey", e.target.value || undefined)} className="w-full bg-transparent outline-none text-[9px] text-zinc-500 font-bold uppercase truncate appearance-none cursor-pointer">
+                                          <option value="">Off</option>
+                                          {targetImage.customFields?.filter(f => f.type === 'enum' || f.type === 'set').map(f => (
+                                            <option key={f.key} value={f.key}>{f.name}</option>
+                                          ))}
+                                        </select>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-end">
+                      <button onClick={() => setWizardStep('CONTEXT_TUNING')} className="h-11 px-8 bg-[#004850] text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95">Confirm Matrix & Proceed <i className="ti ti-arrow-right" /></button>
+                    </div>
+                  </div>
+                )}
+                
+                {wizardStep === 'CONTEXT_TUNING' && (
+                  <div className="space-y-10 pt-2 animate-in fade-in duration-500">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-[9px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Available Integrations</span>
+                        <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                        {Object.keys(PIPEDRIVE_CAPABILITIES_REGISTRY.supportedIntegrations).map((slug) => (
+                          <button
+                            key={slug}
+                            onClick={() => setAbSelectedIntegrations(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug])}
+                            className={`p-3 border rounded-2xl transition-all flex flex-col items-center gap-2 text-center active:scale-95 shadow-sm ${abSelectedIntegrations.includes(slug) ? 'border-[#004850] bg-[#004850]/5 text-[#004850] dark:border-emerald-500 dark:text-emerald-400 shadow-md' : 'border-zinc-200 dark:border-zinc-800 text-zinc-400 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 bg-white dark:bg-zinc-900'}`}
+                          >
+                            <i className={`ti ti-brand-${slug === 'msteams' ? 'messenger' : slug === 'projects' ? 'clipboard' : slug === 'campaigns' ? 'mail' : slug} text-xl`} />
+                            <span className="text-[8px] font-black uppercase tracking-widest truncate w-full">{slug}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-[9px] font-black uppercase tracking-[0.2em] text-[#004850] dark:text-emerald-500">Team Registry</span>
+                        <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm overflow-hidden h-10 w-fit">
+                          <input placeholder="Add Role..." value={tempRoleLabel} onChange={e => setTempRoleLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="bg-transparent border-none outline-none text-[10px] font-bold uppercase tracking-widest w-24 pl-4" />
+                          <div className="flex items-center gap-1 border-x border-zinc-100 dark:border-zinc-800 px-3 h-full">
+                              <span className="text-[8px] font-mono text-zinc-400">#</span>
+                              <input type="number" value={tempRoleSeats} onChange={e => setTempRoleSeats(parseInt(e.target.value) || 1)} className="bg-transparent border-none outline-none text-[10px] font-mono font-bold w-6 text-center" />
+                          </div>
+                          <button onClick={() => { if (tempRoleLabel) { setAbRoles(prev => [...prev, { roleName: tempRoleLabel, count: tempRoleSeats }]); setTempRoleLabel(""); setTempRoleSeats(1); } }} className="h-full w-12 text-[#004850] dark:text-emerald-500 hover:bg-[#004850] hover:text-white transition-all flex items-center justify-center"><i className="ti ti-plus" /></button>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          {abRoles.map((role, idx) => (
+                            <div key={idx} className="flex items-center gap-3 pl-4 pr-1 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm animate-in zoom-in-95 w-fit">
+                              <span className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 uppercase">{role.roleName}</span>
+                              <span className="h-6 px-2 bg-[#004850] rounded-full text-[9px] font-mono flex items-center justify-center text-white">{role.count}</span>
+                              <button onClick={() => setAbRoles(prev => prev.filter((_, i) => i !== idx))} className="h-6 w-6 hover:text-rose-500 transition-colors flex items-center justify-center"><i className="ti ti-x text-xs" /></button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
                 
+                {(wizardStep === 'LOGIC_PLANNING' || wizardStep === 'LOGIC_STAPLING') && (
+                  <div className="py-12 flex flex-col items-center justify-center space-y-8 animate-in fade-in zoom-in-95 duration-700">
+                    <div className="relative">
+                      <div className="h-24 w-24 rounded-full border-[3px] border-zinc-100 dark:border-zinc-800 border-t-[#004850] animate-spin shadow-2xl" />
+                      <div className="absolute inset-0 flex items-center justify-center"><i className="ti ti-wand text-3xl text-[#004850] animate-pulse" /></div>
+                    </div>
+                    <div className="text-center space-y-3 max-w-sm">
+                      <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tighter">Crafting Logic...</h3>
+                      <p className="text-[11px] text-zinc-500 font-sans leading-relaxed">System is building setup guides for <span className="font-mono text-[#004850] dark:text-emerald-500 font-bold">{staplingState.currentStage}</span>.</p>
+                      <div className="w-full bg-zinc-100 dark:bg-zinc-900 h-2 rounded-full overflow-hidden mt-6 shadow-inner">
+                        <div className="bg-[#004850] h-full transition-all duration-700 ease-out shadow-[0_0_15px_#004850]" style={{ width: `${(staplingState.index / staplingState.total) * 100}%` }} />
+                      </div>
+                      <div className="flex justify-between font-mono text-[8px] text-zinc-400 uppercase tracking-widest font-black pt-2 px-1"><span>{staplingState.index} / {staplingState.total}</span><span>{Math.round((staplingState.index / staplingState.total) * 100)}%</span></div>
+                    </div>
+                  </div>
+                )}
+                
+                {wizardStep === 'LOGIC_REVIEW' && (
+                  <div className="space-y-6 pt-2 animate-in slide-in-from-bottom-4 duration-500">
+                    <div className="space-y-3">
+                      {abRoadmap.map((item, idx) => (
+                        <div key={idx} className="p-5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl flex items-center justify-between group shadow-sm">
+                          <div className="flex items-center gap-6">
+                            <span className="font-mono text-xs font-black px-3 py-1.5 bg-zinc-900 text-white rounded-xl">{item.automationNumber}</span>
+                            <div>
+                              <span className="block text-[9px] font-mono font-black text-zinc-400 uppercase tracking-widest mb-1">{item.stageName}</span>
+                              <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{item.operationalGoal}</span>
+                            </div>
+                          </div>
+                          <button onClick={() => setAbRoadmap(prev => prev.filter((_, i) => i !== idx))} className="h-10 w-10 text-zinc-300 hover:text-rose-500 transition-colors flex items-center justify-center bg-white dark:bg-black rounded-full border border-zinc-100 dark:border-zinc-800 shadow-sm"><i className="ti ti-trash" /></button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-4 bg-zinc-50 dark:bg-zinc-900/50 p-5 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-inner">
+                      <input placeholder="Add adjustment instructions..." value={abReviewFeedback} onChange={e => setAbReviewFeedback(e.target.value)} className="flex-1 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl py-3.5 px-5 text-sm outline-none focus:border-[#004850] transition-all shadow-sm" />
+                      <button onClick={() => {
+                        compilePromptManifest(abReviewFeedback);
+                        setAbReviewFeedback("");
+                      }} className="h-12 px-7 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 shadow-sm">Update</button>
+                    </div>
+                    <div className="flex justify-end gap-3">
+                      <button onClick={() => compilePromptManifest()} className="h-12 px-10 bg-[#004850] text-white rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:bg-[#003840] transition-all flex items-center gap-3 shadow-lg active:scale-95">Generate Logic <i className="ti ti-wand" /></button>
+                    </div>
+                  </div>
+                )}
+                
+                {wizardStep === 'PREVIEW' && (
+                  <div className="space-y-8 pt-2 animate-in fade-in duration-1000">
+                    <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
+                      <div className="flex gap-2">
+                        <button onClick={handleDocxDownload} className="h-10 px-5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 active:scale-95 shadow-md shadow-blue-600/20"><i className="ti ti-file-text" /> Export .Docx</button>
+                        <button onClick={() => copyToClipboard(compileRawModelPromptManifest())} className="h-10 px-5 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all flex items-center gap-2 active:scale-95 shadow-sm"><i className="ti ti-copy" /> Copy Raw Text</button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div className="space-y-6">
+                        {abCompiledObjects.map((item, idx) => (
+                          <div key={idx} className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden bg-zinc-50/50 dark:bg-zinc-900/50 shadow-sm">
+                            <div className="px-5 py-4 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
+                              <span className="font-mono text-[10px] font-black px-3 py-1 bg-zinc-900 text-white rounded-xl tracking-widest shadow-sm">{item.automationNumber}</span>
+                              <span className="text-[10px] font-bold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 truncate">{item.stageName}</span>
+                            </div>
+                            <div className="p-6 space-y-5">
+                              <div><span className="block text-[8px] font-mono font-black text-zinc-400 uppercase tracking-widest mb-1">Goal</span><p className="text-xs font-bold text-zinc-800 dark:text-zinc-200 leading-relaxed">{item.operationalGoal}</p></div>
+                              <div><span className="block text-[8px] font-mono font-black text-zinc-400 uppercase tracking-widest mb-1">Personnel</span><div className="flex flex-wrap gap-2 mt-2">{item.impactedRoles.map((role: string, rIdx: number) => (<span key={rIdx} className="px-3 py-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full text-[8px] font-black uppercase shadow-sm border border-zinc-300/20 dark:border-zinc-700/20">{role}</span>))}</div></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 mb-2 pl-2"><i className="ti ti-terminal text-[#004850] dark:text-emerald-500" /><span className="font-mono text-[9px] font-black uppercase tracking-widest text-zinc-400">Process Logic Structure</span></div>
+                        <div className="bg-zinc-900 dark:bg-black rounded-2xl border border-zinc-800 p-7 h-[600px] overflow-y-auto font-mono text-[10px] leading-relaxed text-zinc-400 custom-scrollbar shadow-2xl shadow-black/40">
+                          {compileRawModelPromptManifest().split('\n').map((line, lIdx) => (<p key={lIdx} className={`${line.startsWith('===') ? 'text-emerald-500 font-bold mt-6 mb-2' : line.startsWith('###') ? 'text-[#004850] dark:text-emerald-300 font-bold mt-8 mb-3 text-sm' : line.startsWith('**') ? 'text-zinc-200 dark:text-zinc-300 font-bold mt-2' : 'text-zinc-500 dark:text-zinc-500'} py-0.5`}>{line}</p>))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-center border-t border-zinc-100 dark:border-zinc-800 pt-10 pb-4">
+                      <button onClick={() => {
+                        setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, compiledRunbook: abCompiledObjects, selectedIntegrations: abSelectedIntegrations } : img));
+                        setIsAttached(true);
+                        setCopyFeedback("◆ Process Guide Attached");
+                        setTimeout(() => setCopyFeedback(null), 3000);
+                      }} disabled={isAttached} className={`h-14 px-14 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-4 shadow-2xl active:scale-95 ${isAttached ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 cursor-default' : 'bg-[#004850] text-white hover:bg-[#003840] shadow-[#004850]/20'}`}>
+                        <i className={`ti ${isAttached ? 'ti-check' : 'ti-bookmark'}`} />
+                        {isAttached ? "Process Attached to Card" : "Finalize & Attach to Card"}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div id="chat-end" className="h-4 w-full shrink-0" />
               </div>
 
+
               {/* UNIFIED CHAT INPUT BAR */}
-              <div className="shrink-0 p-8 bg-zinc-50/50 dark:bg-zinc-900/50 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-800">
-                <div className="max-w-4xl mx-auto relative group">
-                  <div className="absolute -top-10 left-0 right-0 flex justify-center pointer-events-none">
-                    {isFetchingGuesses && (
-                      <div className="px-4 py-1.5 bg-emerald-500 text-white rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-lg animate-bounce pointer-events-auto">
-                        AI Brain Active...
-                      </div>
-                    )}
-                  </div>
-                  <textarea
-                    value={abChatInput}
-                    onChange={e => setAbChatInput(e.target.value)}
-                    onInput={(e) => {
-                      e.currentTarget.style.height = 'auto';
-                      e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 200) + 'px';
-                    }}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        if (abChatInput.trim() && wizardStep === 'CONTEXT_TUNING') {
+              {(wizardStep === 'CONTEXT_TUNING' || wizardStep === 'LOGIC_REVIEW') && (
+                <div className="shrink-0 p-8 bg-zinc-50/50 dark:bg-zinc-900/50 backdrop-blur-md border-t border-zinc-100 dark:border-zinc-800">
+                  <div className="max-w-4xl mx-auto relative group">
+                    <div className="absolute -top-10 left-0 right-0 flex justify-center pointer-events-none">
+                      {isFetchingGuesses && (
+                        <div className="px-4 py-1.5 bg-emerald-500 text-white rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-lg animate-bounce pointer-events-auto">
+                          AI Brain Active...
+                        </div>
+                      )}
+                    </div>
+                    <textarea
+                      value={abChatInput}
+                      onChange={e => setAbChatInput(e.target.value)}
+                      onInput={(e) => {
+                        e.currentTarget.style.height = 'auto';
+                        e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 200) + 'px';
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          if (abChatInput.trim() && wizardStep === 'CONTEXT_TUNING') {
+                            const msg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: abChatInput };
+                            setAbChatHistory(prev => [...prev, msg]);
+                            setVisibleChatHistory(prev => [...prev, msg]);
+                            setAbChatInput("");
+                            e.currentTarget.style.height = '60px'; // Reset to min-height
+                          }
+                        }
+                      }}
+                      placeholder="Type your automation instructions here... (Enter to Send)"
+                      className="w-full min-h-[60px] max-h-[200px] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 pr-32 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-2xl shadow-black/5 scrollbar-hide"
+                    />
+                    <div className="absolute bottom-5 right-5 flex gap-3">
+                      <button 
+                        onClick={handleAiAutoFill}
+                        disabled={isAutoFilling || wizardStep !== 'CONTEXT_TUNING'}
+                        className={`h-11 w-11 bg-zinc-100 dark:bg-zinc-800 text-[#004850] dark:text-emerald-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-2xl flex items-center justify-center transition-all active:scale-90 disabled:opacity-30 shadow-sm ${isAutoFilling ? 'animate-pulse' : ''}`}
+                        title="Magic AI Auto-fill"
+                      >
+                        <i className={`ti ${isAutoFilling ? 'ti-loader animate-spin' : 'ti-sparkles'} text-xl`} />
+                      </button>
+                      <button 
+                        onClick={() => { if (abChatInput.trim()) { 
                           const msg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: abChatInput };
                           setAbChatHistory(prev => [...prev, msg]);
                           setVisibleChatHistory(prev => [...prev, msg]);
-                          setAbChatInput("");
-                          e.currentTarget.style.height = '60px'; // Reset to min-height
-                        }
-                      }
-                    }}
-                    disabled={wizardStep === 'PROJECT_SELECT' || wizardStep === 'GOAL_CALIBRATION' || wizardStep === 'LOGIC_PLANNING' || wizardStep === 'LOGIC_STAPLING'}
-                    placeholder={
-                      wizardStep === 'PROJECT_SELECT' ? "Please select a project track above first..." :
-                      wizardStep === 'GOAL_CALIBRATION' ? "Tune your objectives in the matrix above..." :
-                      "Type your automation instructions here... (Enter to Send)"
-                    }
-                    className="w-full min-h-[60px] max-h-[200px] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 pr-32 text-sm font-sans focus:outline-none focus:border-[#004850] dark:focus:border-emerald-500 transition-all resize-none shadow-2xl shadow-black/5 disabled:opacity-50 scrollbar-hide"
-                  />
-                  <div className="absolute bottom-5 right-5 flex gap-3">
-                    <button 
-                      onClick={handleAiAutoFill}
-                      disabled={isAutoFilling || wizardStep !== 'CONTEXT_TUNING'}
-                      className={`h-11 w-11 bg-zinc-100 dark:bg-zinc-800 text-[#004850] dark:text-emerald-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-2xl flex items-center justify-center transition-all active:scale-90 disabled:opacity-30 shadow-sm ${isAutoFilling ? 'animate-pulse' : ''}`}
-                      title="Magic AI Auto-fill"
-                    >
-                      <i className={`ti ${isAutoFilling ? 'ti-loader animate-spin' : 'ti-sparkles'} text-xl`} />
-                    </button>
-                    <button 
-                      onClick={() => { if (abChatInput.trim()) { 
-                        const msg = { id: Date.now().toString() + Math.random().toString(), sender: 'user' as const, text: abChatInput };
-                        setAbChatHistory(prev => [...prev, msg]);
-                        setVisibleChatHistory(prev => [...prev, msg]);
-                        setAbChatInput(""); 
-                      } }}
-                      disabled={!abChatInput.trim() || wizardStep !== 'CONTEXT_TUNING'}
-                      className="h-11 w-11 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-2xl flex items-center justify-center transition-all active:scale-90 disabled:opacity-30 shadow-sm"
-                      title="Add instruction to log"
-                    >
-                      <i className="ti ti-arrow-up text-xl" />
-                    </button>
-                    <button 
-                      onClick={() => compilePromptManifest()}
-                      disabled={wizardStep !== 'CONTEXT_TUNING'}
-                      className="h-11 px-6 bg-[#004850] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-2 shadow-lg shadow-[#004850]/20 active:scale-95 disabled:opacity-30"
-                    >
-                      Build Logic <i className="ti ti-wand" />
-                    </button>
+                          setAbChatInput(""); 
+                        } }}
+                        disabled={!abChatInput.trim() || wizardStep !== 'CONTEXT_TUNING'}
+                        className="h-11 w-11 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-2xl flex items-center justify-center transition-all active:scale-90 disabled:opacity-30 shadow-sm"
+                        title="Add instruction to log"
+                      >
+                        <i className="ti ti-arrow-up text-xl" />
+                      </button>
+                      <button 
+                        onClick={() => compilePromptManifest()}
+                        disabled={wizardStep !== 'CONTEXT_TUNING'}
+                        className="h-11 px-6 bg-[#004850] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#003840] transition-all flex items-center gap-2 shadow-lg shadow-[#004850]/20 active:scale-95 disabled:opacity-30"
+                      >
+                        Build Logic <i className="ti ti-wand" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
             </div>
           </div>
