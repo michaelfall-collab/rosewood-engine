@@ -31,7 +31,7 @@ export async function POST(request: Request) {
           const pagination = json.additional_data?.pagination;
           if (pagination && (pagination.more === true || pagination.has_more === true)) {
             // Reconstruct next URL based on next_start
-            const urlObj = new URL(nextUrl);
+            const urlObj: URL = new URL(nextUrl as string);
             urlObj.searchParams.set('start', pagination.next_start || (pagination.start + pagination.limit));
             nextUrl = urlObj.toString();
           } else {

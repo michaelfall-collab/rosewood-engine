@@ -95,10 +95,16 @@ Do not wrap the output in markdown code blocks or return conversational prose.`,
     });
 
     const textOutput = response.text || "{}";
+    const compiledData = JSON.parse(textOutput);
+
+    // Basic structural verification
+    if (!compiledData.blueprint || !Array.isArray(compiledData.blueprint.pipelines)) {
+      throw new Error("AI output failed structural schema verification. Aborting generation.");
+    }
 
     return NextResponse.json({ 
       success: true, 
-      jsonObject: JSON.parse(textOutput),
+      jsonObject: compiledData,
       compiledBy: TARGET_MODEL // Telemetry tracking parameter
     });
   } catch (error: any) {

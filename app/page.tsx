@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useMemo } from 'react';
 import { CRMArchitectureBlueprint, StageOperationalContext, PipelineStageSpec } from "@/types/blueprint";
 import { generateRunbookPrompt } from "@/utils/promptCompiler";
 import { PIPEDRIVE_CAPABILITIES_REGISTRY } from "@/config/pipedriveCapabilities";
@@ -10,6 +11,7 @@ type LiveImage = CRMArchitectureBlueprint & {
   runbookManifest?: string;
   compiledRunbook?: any[];
   selectedIntegrations?: string[];
+  abCompiledObjects?: any[];
 };
 
 const generateRweId = () => "rwe_card_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
@@ -542,7 +544,7 @@ export default function ClientCockpitDashboard() {
       setAbStep('stapling');
       setStaplingState({ index: 0, total: abRoadmap.length, currentStage: "" });
 
-      const newCompiledObjects = [];
+      const newCompiledObjects: any[] = [];
 
       for (const [index, item] of abRoadmap.entries()) {
         setStaplingState({ 

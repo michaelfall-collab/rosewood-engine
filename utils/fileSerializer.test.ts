@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { serializeToRwe, deserializeFromRwe, ROSEWOOD_ENGINE_PROPRIETARY_EXPORT_TYPE } from './fileSerializer';
 import { CRMArchitectureBlueprint } from "@/types/blueprint";
 
