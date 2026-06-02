@@ -145,6 +145,7 @@ export async function POST(request: Request) {
       version: "1.0.0",
       name: "Discovered CRM Architecture",
       description: `Automated ingest from account at ${new Date().toISOString()}`,
+      lifecycleState: 'PRODUCTION_AS_BUILT',
       pipelines,
       customFields,
       activityTypes,
