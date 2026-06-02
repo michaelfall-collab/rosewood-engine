@@ -17,19 +17,32 @@ export async function POST(request: Request) {
     if (!token) return NextResponse.json({ success: false, error: "Missing authentication string." }, { status: 400 });
 
     const fetchStream = async (url: string) => {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`Status ${res.status}`);
-        const json = await res.json();
-        // Strict validation of Pipedrive response structure
-        if (json && json.success && Array.isArray(json.data)) {
-          return json.data;
+      let results: any[] = [];
+      let nextUrl: string | null = url;
+      while (nextUrl) {
+        try {
+          const res = await fetch(nextUrl);
+          if (!res.ok) throw new Error(`Status ${res.status}`);
+          const json = await res.json();
+          if (json && json.success && Array.isArray(json.data)) {
+            results = results.concat(json.data);
+          }
+          // Pipedrive pagination handling
+          const pagination = json.additional_data?.pagination;
+          if (pagination && (pagination.more === true || pagination.has_more === true)) {
+            // Reconstruct next URL based on next_start
+            const urlObj = new URL(nextUrl);
+            urlObj.searchParams.set('start', pagination.next_start || (pagination.start + pagination.limit));
+            nextUrl = urlObj.toString();
+          } else {
+            nextUrl = null;
+          }
+        } catch (e) {
+          console.error(`Ingest Error [${nextUrl}]:`, e);
+          nextUrl = null;
         }
-        return [];
-      } catch (e) {
-        console.error(`Ingest Error [${url}]:`, e);
-        return []; 
       }
+      return results;
     };
 
     const baseURL = "https://api.pipedrive.com/v1";

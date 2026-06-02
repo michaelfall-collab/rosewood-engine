@@ -20,6 +20,12 @@ describe('fileSerializer', () => {
     expect(parsed.abCompiledObjects).toEqual(mockCompiledObjects);
   });
 
+  it('should deserialize a raw blueprint', () => {
+    const rawBlueprint = { id: "test", name: "Test", pipelines: [] };
+    const parsed = deserializeFromRwe(JSON.stringify(rawBlueprint));
+    expect(parsed.blueprint).toEqual(rawBlueprint);
+  });
+
   it('should throw error on invalid signature', () => {
     const invalidJson = JSON.stringify({ type: 'INVALID', blueprint: {}, abCompiledObjects: [] });
     expect(() => deserializeFromRwe(invalidJson)).toThrow("Invalid file signature");

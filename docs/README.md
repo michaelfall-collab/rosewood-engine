@@ -1,4 +1,11 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Rosewood CRM Engine
+
+The Rosewood CRM Engine is a high-velocity dashboard built with Next.js 15+ App Router, providing a unified interface for Pipedrive configuration, automation building, and CRM lifecycle management.
+
+## Project Documentation
+- [Developer Workflow & Agents](./docs/AGENTS.md)
+- [AI Assistant Context](./docs/CLAUDE.md)
+- [UI/UX Design Directives](./docs/UI_UX_DIRECTIVE.md)
 
 ## Getting Started
 

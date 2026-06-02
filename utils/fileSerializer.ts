@@ -42,6 +42,15 @@ export const serializeToRwe = (
 export const deserializeFromRwe = (jsonString: string): any => {
   const parsed = JSON.parse(jsonString);
   if (parsed.type !== ROSEWOOD_ENGINE_PROPRIETARY_EXPORT_TYPE) {
+    // If it doesn't match the proprietary type, try to interpret as a raw blueprint fragment
+    if (parsed.pipelines) {
+      return {
+        blueprint: parsed,
+        compiledRunbook: [],
+        abCompiledObjects: [],
+        selectedIntegrations: []
+      };
+    }
     throw new Error("Invalid file signature");
   }
 

@@ -286,7 +286,7 @@ export async function POST(request: NextRequest) {
         if (isNewPipeline && currentPipelineStages.length > pipelineSpec.stages.length) {
           const leftovers = currentPipelineStages.slice(pipelineSpec.stages.length);
           for (const remainingDummy of leftovers) {
-            await sleep(50);
+            await sleep(100);
             await fetch(buildUrl(`stages/${remainingDummy.id}`), { method: 'DELETE' });
             deploymentLogs.push(`  • Pruned Leftover placeholder stage ID [${remainingDummy.id}]`);
           }
@@ -314,7 +314,7 @@ export async function POST(request: NextRequest) {
         for (const lostReason of template.lostReasons) {
           const matchedReason = existingReasons.find((er: any) => er.reason?.toLowerCase() === lostReason.reason.toLowerCase());
           if (!matchedReason) {
-            await sleep(50);
+            await sleep(100);
             await fetch(buildUrl('lostReasons'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
