@@ -63,7 +63,7 @@ export async function exportRunbookToDocx(automationItems: any[], imageTitle: st
       spacing: { after: 60 }
     }),
     new Paragraph({
-      children: [tr(`Configuration Target: ${imageTitle}  ·  Generated via Gemini 3.1 Flash Lite`, { size: 18, color: C.gray, italics: true })],
+      children: [tr(`Configuration Target: ${imageTitle}  ·  Generated via Gemini 3 Flash Preview`, { size: 18, color: C.gray, italics: true })],
       spacing: { after: 300 }
     })
   );

@@ -249,6 +249,7 @@ export default function ClientCockpitDashboard() {
   const [abSelectedImageId, setAbSelectedImageId] = useState<string | null>(null);
   const [abSelectedIntegrations, setAbSelectedIntegrations] = useState<string[]>([]);
   const [abChatHistory, setAbChatHistory] = useState<{ sender: "user" | "ai"; text: string; dataWidget?: any }[]>([]);
+  const [visibleChatHistory, setVisibleChatHistory] = useState<any[]>([]);
   const [abRoles, setAbRoles] = useState<{ roleName: string; count: number }[]>([]);
   const [abCompiledObjects, setAbCompiledObjects] = useState<any[]>([]);
   const [tempRoleLabel, setTempRoleLabel] = useState("");
@@ -256,6 +257,9 @@ export default function ClientCockpitDashboard() {
   const [isAttached, setIsAttached] = useState(false);
   const [abTelemetryGuesses, setAbTelemetryGuesses] = useState<Record<string, StageOperationalContext>>({});
   const [isFetchingGuesses, setIsFetchingGuesses] = useState(false);
+  const [abChatInput, setAbChatInput] = useState("");
+  const [isAiTyping, setIsAiTyping] = useState(false);
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
 
   // Fire a real Gemini background call for AI telemetry guesses the moment a card enters preflight
   useEffect(() => {
@@ -452,178 +456,6 @@ export default function ClientCockpitDashboard() {
     }, 50);
   };
 
-  const compileRawModelPromptManifest = (compiledObjects?: any[]) => {
-    const targetImage = images.find(i => i.id === abSelectedImageId);
-    if (!targetImage) return "";
-    const sanitizedIntegrations = abSelectedIntegrations.map(i => typeof i === 'object' ? (i as any).name || JSON.stringify(i) : i);
-    
-    const objArray = compiledObjects || abCompiledObjects;
-    const markdown = objArray.map((o, idx) => {
-      const coordinate = deriveAutomationCoordinate(o, idx, objArray, targetImage);
-      return `### ${coordinate}: ${o.stageName}\nGoal: ${o.operationalGoal}\nSteps: ${o.setupSteps.join(', ')}`;
-    }).join('\n\n---\n\n');
-    
-    return generateRunbookPrompt(targetImage, sanitizedIntegrations, { 
-      userRoles: abRoles,
-      automationBlocks: markdown
-    });
-  };
-
-  const compilePromptManifest = async (feedback?: string) => {
-    const targetImage = images.find(i => i.id === abSelectedImageId);
-    if (!targetImage) return;
-
-    if (abStep === 'select' || abStep === 'preflight' || abStep === 'chat' || (abStep === 'review' && feedback)) {
-      setAbStep('planning');
-      setIsAttached(false);
-
-      const roadmapSchema = {
-        type: "OBJECT",
-        properties: {
-          roadmap: {
-            type: "ARRAY",
-            items: {
-              type: "OBJECT",
-              properties: {
-                automationNumber: { type: "STRING" },
-                stageName: { type: "STRING" },
-                operationalGoal: { type: "STRING" }
-              },
-              required: ["automationNumber", "stageName", "operationalGoal"]
-            }
-          }
-        },
-        required: ["roadmap"]
-      };
-
-      try {
-        const response = await fetch('/api/compile-agent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            systemPrompt: `You are a Master CRM Planner. Analyze the provided CRM blueprint and team registry. 
-            Generate a high-level roadmap of automations. 
-            
-            STRICT NAMING RULE: For each automation, the automationNumber MUST use the 3-digit coordinate pattern:
-            - Stage-anchored blocks: "PipelineIndex.StageIndex.AutomationIndex" (e.g., "1.1.1", "1.1.2" for multiple automations in stage 1, "1.2.1", "2.1.1").
-            - Global/account-wide blocks: "G.0.Z" (e.g., "G.0.1", "G.0.2") — these trigger across all pipelines and are not tied to any single stage.
-            The first digit is Pipeline Index (1-based), second digit is Stage Index (1-based), and third digit is the sequential Automation Index (1-based) for that stage.
-            
-            CRITICAL ENRICHMENT DIRECTIVE:
-            Analyze the 'operational_telemetry' object inside each stage of the blueprint:
-            - If 'targetDirective' is set, construct a dedicated automation that operationalizes that directive — mapping it to concrete Pipedrive trigger/action steps.
-            - If 'stuckThreshold' is set, you must generate a separate fallback automation for a Stalled Deal Alarm (e.g. "X.Y.2: Stalled Deal Alarm") that runs if a deal is stuck for longer than the threshold.
-            - If 'routingDropdownKey' is set, you must generate a separate Multi-Branch Dropdown Router automation (e.g. "X.Y.3: Dropdown Option Router") mapping that custom field's options.
-            - If 'isRecurringLoop' is true, you must generate a separate automation for a Looping/Recurring Activity.
-            
-            Therefore, instead of just 1 flat automation per stage, you must generate multiple distinct, rich operational automations per stage where these telemetry context parameters are present.
-            
-            Integrations available: ${JSON.stringify(abSelectedIntegrations)}.
-            Team Registry: ${JSON.stringify(abRoles)}.
-            ${feedback ? `CRITICAL: The user has provided feedback for this revision: "${feedback}". Adjust the roadmap accordingly.` : ""}`,
-            userPrompt: `Analyze this blueprint and generate the automation roadmap array: ${JSON.stringify(targetImage)}`,
-            schema: roadmapSchema
-          })
-        });
-
-        const data = await response.json();
-        if (data.success && data.jsonObject?.roadmap) {
-          setAbRoadmap(data.jsonObject.roadmap);
-          setAbStep('review');
-        } else {
-          console.error("Roadmap generation failed:", data.error);
-          setAbStep('chat');
-        }
-      } catch (error) {
-        console.error("Roadmap compilation error:", error);
-        setAbStep('chat');
-      }
-      return;
-    }
-
-    if (abStep === 'review' && !feedback) {
-      setAbStep('stapling');
-      setStaplingState({ index: 0, total: abRoadmap.length, currentStage: "" });
-
-      const newCompiledObjects: any[] = [];
-
-      for (const [index, item] of abRoadmap.entries()) {
-        setStaplingState({ 
-          index: index + 1, 
-          total: abRoadmap.length, 
-          currentStage: item.stageName 
-        });
-        
-        let stageTelemetry = null;
-        let customFieldsList = targetImage.customFields || [];
-        for (const pipeline of targetImage.pipelines) {
-          const found = pipeline.stages.find(s => s.name === item.stageName);
-          if (found) {
-            stageTelemetry = (found as any).operational_telemetry;
-            break;
-          }
-        }
-        
-        try {
-          const response = await fetch('/api/compile-agent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              systemPrompt: `You are an Enterprise CRM Systems Architect. Capabilities: ${JSON.stringify(PIPEDRIVE_CAPABILITIES_REGISTRY)}. 
-              Generate detailed configuration for the following roadmap item.
-              STRICT NAMING RULE: automationNumber must remain "${item.automationNumber}".
-              
-              CRITICAL PATTERNS TO ENFORCE:
-              
-              Pattern A: Looping/Recurring State Machine
-              - If the operational telemetry has 'isRecurringLoop' set to true, you MUST implement a self-sustaining activity loop.
-              - The step-by-step layout MUST read: 'Trigger: Activity updated where subject matches [Name] and status matches DONE. Action: Instantly create a clean follow-up Activity with an identical subject line, natively mapped relative to the trigger execution timestamp with a relative delay offset of X days.' (where X is the recurrenceDays in telemetry).
-              
-              Pattern B: Multi-Branch Dropdown Router
-              - If a 'routingDropdownKey' is specified in the operational telemetry, you are PROHIBITED from creating simple activity list reminders.
-              - You must construct an explicit If/Else routing tree based entirely on the target field's valid options in the custom fields schema.
-              - The step-by-step layout MUST read: 'Trigger: Deal custom field [Field Key] updates. Branching Conditions: If field matches Option A -> move Deal natively to Stage X. Else if field matches Option B -> move Deal natively to Stage Y.'`,
-              userPrompt: `Generate configuration for automation goal: "${item.operationalGoal}" in stage "${item.stageName}".
-              Roles involved: ${JSON.stringify(abRoles)}.
-              Coordinate Index: ${item.automationNumber}
-              
-              Stage Operational Telemetry Context:
-              ${stageTelemetry ? JSON.stringify(stageTelemetry, null, 2) : "None provided."}
-              Custom Fields Schema:
-              ${JSON.stringify(customFieldsList, null, 2)}`
-            })
-          });
-
-          const data = await response.json();
-          
-          if (data.success && data.jsonObject) {
-            newCompiledObjects.push(data.jsonObject);
-          } else {
-            newCompiledObjects.push({
-              automationNumber: item.automationNumber,
-              stageName: item.stageName,
-              operationalGoal: item.operationalGoal,
-              impactedRoles: [],
-              setupSteps: ["Error: Step generation failed."],
-              governanceNotes: data.error || "Failed."
-            });
-          }
-        } catch (error: any) {
-          console.error("Stapling failed:", error);
-        }
-      }
-
-      setAbCompiledObjects(newCompiledObjects);
-      setTelemetryLogs(prev => [{
-        type: "OUTBOUND",
-        timestamp: new Date().toLocaleTimeString(),
-        payload: { promptManifestAuditTrail: compileRawModelPromptManifest(newCompiledObjects) }
-      }, ...prev]);
-
-      setAbStep('preview');
-    }
-  };
-
   const openAB = () => {
     setAbOpen(true);
     setAbStep('select');
@@ -809,22 +641,6 @@ export default function ClientCockpitDashboard() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopyFeedback("◆ Data copied to clipboard");
-    setTimeout(() => setCopyFeedback(null), 3000);
-  };
-
-  const handleDocxDownload = async () => {
-    if (!abCompiledObjects || abCompiledObjects.length === 0) return;
-    const targetImage = images.find(i => i.id === abSelectedImageId);
-    const fileBlob = await exportRunbookToDocx(abCompiledObjects, targetImage?.name || "Backup Workspace");
-    const downloadUrl = URL.createObjectURL(fileBlob);
-    const anchorElement = document.createElement('a');
-    anchorElement.href = downloadUrl;
-    anchorElement.download = `process-guide-${abSelectedImageId || 'export'}.docx`;
-    document.body.appendChild(anchorElement);
-    anchorElement.click();
-    document.body.removeChild(anchorElement);
-    URL.revokeObjectURL(downloadUrl);
-    setCopyFeedback("◆ Guide Downloaded (.docx)");
     setTimeout(() => setCopyFeedback(null), 3000);
   };
 
@@ -1217,50 +1033,502 @@ export default function ClientCockpitDashboard() {
         </div>
       )}
 
-      {/* AUTO-BUILDER MODAL (OLD VERSION) */}
-      {abOpen && (
-        <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-8 animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden shadow-2xl relative shadow-black/50">
-            {/* Modal Header */}
-            <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
-              <div className="flex items-center gap-4">
-                <div className="h-10 w-10 rounded-sm bg-[#004850] flex items-center justify-center text-white shadow-lg shadow-[#004850]/20">
-                  <i className={`ti ${abStep === 'select' ? 'ti-apps' : 'ti-wand'} text-xl`} />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase font-mono">
-                    {abStep === 'select' ? "1. Select Project Track" : "Automation Builder"}
-                  </h2>
-                </div>
-              </div>
-              <button onClick={() => setAbOpen(false)} className="h-10 w-10 rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 active:scale-90">
-                <i className="ti ti-x text-xl" />
-              </button>
-            </div>
-            
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto p-8">
-              {abStep === 'select' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {images.map((img) => (
-                    <button
-                      key={img.id}
-                      onClick={() => { setAbSelectedImageId(img.id); setAbStep('preflight'); }}
-                      className="p-6 border border-zinc-200 dark:border-zinc-800 rounded-sm bg-zinc-50/50 dark:bg-zinc-900/50 hover:border-[#004850] dark:hover:border-emerald-500 transition-all text-left group active:scale-[0.98]"
-                    >
-                      <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-[#004850] dark:group-hover:text-emerald-400 transition-colors uppercase">{img.name}</h3>
-                      <p className="text-[10px] text-zinc-400 mt-2 font-mono uppercase tracking-widest">
-                          {img.pipelines?.length || 0} TRACKS // {img.pipelines?.reduce((acc, p) => acc + (p.stages?.length || 0), 0) || 0} STEPS
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {/* ... other steps follow ... */}
-            </div>
-          </div>
+      {/* AUTO-BUILDER MODAL */}
+      <AutoBuilderWizard
+        abOpen={abOpen}
+        setAbOpen={setAbOpen}
+        abStep={abStep}
+        setAbStep={setAbStep}
+        images={images}
+        setImages={setImages}
+        abSelectedImageId={abSelectedImageId}
+        setAbSelectedImageId={setAbSelectedImageId}
+        abSelectedIntegrations={abSelectedIntegrations}
+        setAbSelectedIntegrations={setAbSelectedIntegrations}
+        abRoles={abRoles}
+        setAbRoles={setAbRoles}
+        abChatHistory={abChatHistory}
+        setAbChatHistory={setAbChatHistory}
+        visibleChatHistory={visibleChatHistory}
+        setVisibleChatHistory={setVisibleChatHistory}
+        abChatInput={abChatInput}
+        setAbChatInput={setAbChatInput}
+        isAiTyping={isAiTyping}
+        setIsAiTyping={setIsAiTyping}
+        abCompiledObjects={abCompiledObjects}
+        setAbCompiledObjects={setAbCompiledObjects}
+        abRoadmap={abRoadmap}
+        setAbRoadmap={setAbRoadmap}
+        abReviewFeedback={abReviewFeedback}
+        setAbReviewFeedback={setAbReviewFeedback}
+        staplingState={staplingState}
+        setStaplingState={setStaplingState}
+        isAttached={isAttached}
+        setIsAttached={setIsAttached}
+        isAutoFilling={isAutoFilling}
+        setIsAutoFilling={setIsAutoFilling}
+        abTelemetryGuesses={abTelemetryGuesses}
+        setAbTelemetryGuesses={setAbTelemetryGuesses}
+        isFetchingGuesses={isFetchingGuesses}
+        setIsFetchingGuesses={setIsFetchingGuesses}
+        setCopyFeedback={setCopyFeedback}
+      />
+
+      {/* FLOATING SUCCESS FEEDBACK */}
+      {copyFeedback && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black px-6 py-3 rounded-sm font-mono text-[10px] font-black uppercase tracking-widest shadow-2xl z-[500] animate-in fade-in slide-in-from-bottom-4 duration-300 border border-white/10 dark:border-black/10">
+          {copyFeedback}
         </div>
       )}
+    </div>
+  );
+}
+
+// --- SUB-COMPONENTS ---
+
+interface AutoBuilderWizardProps {
+  abOpen: boolean;
+  setAbOpen: (open: boolean) => void;
+  abStep: 'select' | 'preflight' | 'chat' | 'planning' | 'review' | 'stapling' | 'preview';
+  setAbStep: (step: any) => void;
+  images: LiveImage[];
+  setImages: React.Dispatch<React.SetStateAction<LiveImage[]>>;
+  abSelectedImageId: string | null;
+  setAbSelectedImageId: (id: string | null) => void;
+  abSelectedIntegrations: string[];
+  setAbSelectedIntegrations: (integrations: string[]) => void;
+  abRoles: { roleName: string; count: number }[] | any;
+  setAbRoles: (roles: any) => void;
+  abChatHistory: any[];
+  setAbChatHistory: (history: any) => void;
+  visibleChatHistory: any[];
+  setVisibleChatHistory: (history: any) => void;
+  abChatInput: string;
+  setAbChatInput: (input: string) => void;
+  isAiTyping: boolean;
+  setIsAiTyping: (typing: boolean) => void;
+  abCompiledObjects: any[];
+  setAbCompiledObjects: (objects: any) => void;
+  abRoadmap: any[];
+  setAbRoadmap: (roadmap: any) => void;
+  abReviewFeedback: string;
+  setAbReviewFeedback: (feedback: string) => void;
+  staplingState: { index: number; total: number; currentStage: string };
+  setStaplingState: (state: any) => void;
+  isAttached: boolean;
+  setIsAttached: (attached: boolean) => void;
+  isAutoFilling: boolean;
+  setIsAutoFilling: (filling: boolean) => void;
+  abTelemetryGuesses: Record<string, StageOperationalContext>;
+  setAbTelemetryGuesses: (guesses: any) => void;
+  isFetchingGuesses: boolean;
+  setIsFetchingGuesses: (fetching: boolean) => void;
+  setCopyFeedback: (feedback: string | null) => void;
+}
+
+function AutoBuilderWizard({
+  abOpen,
+  setAbOpen,
+  abStep,
+  setAbStep,
+  images,
+  setImages,
+  abSelectedImageId,
+  setAbSelectedImageId,
+  abSelectedIntegrations,
+  setAbSelectedIntegrations,
+  abRoles,
+  setAbRoles,
+  abChatHistory,
+  setAbChatHistory,
+  visibleChatHistory,
+  setVisibleChatHistory,
+  abChatInput,
+  setAbChatInput,
+  isAiTyping,
+  setIsAiTyping,
+  abCompiledObjects,
+  setAbCompiledObjects,
+  abRoadmap,
+  setAbRoadmap,
+  abReviewFeedback,
+  setAbReviewFeedback,
+  staplingState,
+  setStaplingState,
+  isAttached,
+  setIsAttached,
+  isAutoFilling,
+  setIsAutoFilling,
+  abTelemetryGuesses,
+  setAbTelemetryGuesses,
+  isFetchingGuesses,
+  setIsFetchingGuesses,
+  setCopyFeedback,
+}: AutoBuilderWizardProps) {
+  const targetImage = images.find(img => img.id === abSelectedImageId);
+
+  const updateStageTelemetry = (pIdx: number, sIdx: number, field: string, value: any) => {
+    setImages(prev => prev.map(img => {
+      if (img.id !== abSelectedImageId) return img;
+      const pipelinesCopy = [...img.pipelines];
+      const stagesCopy = [...pipelinesCopy[pIdx].stages];
+      const stageCopy = { ...stagesCopy[sIdx] };
+      const telemetryCopy = { ...((stageCopy as any).operational_telemetry || {}) };
+      telemetryCopy[field] = value;
+      (stageCopy as any).operational_telemetry = telemetryCopy;
+      stagesCopy[sIdx] = stageCopy;
+      pipelinesCopy[pIdx] = { ...pipelinesCopy[pIdx], stages: stagesCopy };
+      return { ...img, pipelines: pipelinesCopy };
+    }));
+  };
+
+  const acceptAllAIGuesses = () => {
+    if (!abSelectedImageId) return;
+    setImages(prev => prev.map(img => {
+      if (img.id !== abSelectedImageId) return img;
+      return {
+        ...img,
+        pipelines: img.pipelines.map(p => ({
+          ...p,
+          stages: p.stages.map(s => {
+            const guesses = abTelemetryGuesses[s.name] || getLocalFallbackGuess(s.name);
+            const tel = { ...(s.operational_telemetry || {}) } as any;
+            if (!tel.targetDirective) tel.targetDirective = guesses.targetDirective;
+            if (!tel.stuckThreshold) tel.stuckThreshold = guesses.stuckThreshold;
+            return { ...s, operational_telemetry: tel };
+          })
+        }))
+      };
+    }));
+  };
+
+  const compileRawModelPromptManifest = (compiledObjects?: any[]) => {
+    if (!targetImage) return "";
+    const sanitizedIntegrations = abSelectedIntegrations.map(i => typeof i === 'object' ? (i as any).name || JSON.stringify(i) : i);
+    const objArray = compiledObjects || abCompiledObjects;
+    const markdown = objArray.map((o, idx) => {
+      const coordinate = deriveAutomationCoordinate(o, idx, objArray, targetImage);
+      return `### ${coordinate}: ${o.stageName}\nGoal: ${o.operationalGoal}\nSteps: ${o.setupSteps.join(', ')}`;
+    }).join('\n\n---\n\n');
+    return generateRunbookPrompt(targetImage, sanitizedIntegrations, { userRoles: abRoles, automationBlocks: markdown });
+  };
+
+  const compilePromptManifest = async (feedback?: string) => {
+    if (!targetImage) return;
+
+    if (abStep === 'select' || abStep === 'preflight' || abStep === 'chat' || (abStep === 'review' && feedback)) {
+      setAbStep('planning');
+      setIsAttached(false);
+
+      try {
+        const response = await fetch('/api/compile-agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemPrompt: `You are a Master CRM Planner. Integrations: ${JSON.stringify(abSelectedIntegrations)}. Team: ${JSON.stringify(abRoles)}. ${feedback ? `Feedback: ${feedback}` : ""}`,
+            userPrompt: `Blueprint: ${JSON.stringify(targetImage)}`,
+            schema: { type: "OBJECT", properties: { roadmap: { type: "ARRAY", items: { type: "OBJECT", properties: { automationNumber: { type: "STRING" }, stageName: { type: "STRING" }, operationalGoal: { type: "STRING" } }, required: ["automationNumber", "stageName", "operationalGoal"] } } }, required: ["roadmap"] }
+          })
+        });
+
+        const data = await response.json();
+        if (data.success && data.jsonObject?.roadmap) {
+          setAbRoadmap(data.jsonObject.roadmap);
+          setAbStep('review');
+        } else {
+          setAbStep('chat');
+        }
+      } catch (error) {
+        setAbStep('chat');
+      }
+      return;
+    }
+
+    if (abStep === 'review' && !feedback) {
+      setAbStep('stapling');
+      setStaplingState({ index: 0, total: abRoadmap.length, currentStage: "" });
+      const newCompiledObjects: any[] = [];
+
+      for (const [index, item] of abRoadmap.entries()) {
+        setStaplingState({ index: index + 1, total: abRoadmap.length, currentStage: item.stageName });
+        try {
+          const response = await fetch('/api/compile-agent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              systemPrompt: `Enterprise Systems Architect. Goal: ${item.operationalGoal}`,
+              userPrompt: `Blueprint Context: ${JSON.stringify(targetImage)}`
+            })
+          });
+          const data = await response.json();
+          if (data.success && data.jsonObject) {
+            newCompiledObjects.push(data.jsonObject);
+          } else {
+            newCompiledObjects.push({ automationNumber: item.automationNumber, stageName: item.stageName, operationalGoal: item.operationalGoal, setupSteps: ["Error"] });
+          }
+        } catch (error) { console.error(error); }
+      }
+      setAbCompiledObjects(newCompiledObjects);
+      setAbStep('preview');
+    }
+  };
+
+  const handleDocxDownload = async () => {
+    if (!abCompiledObjects || abCompiledObjects.length === 0 || !targetImage) return;
+    const fileBlob = await exportRunbookToDocx(abCompiledObjects, targetImage.name);
+    const downloadUrl = URL.createObjectURL(fileBlob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `process-guide-${abSelectedImageId}.docx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(downloadUrl);
+    setCopyFeedback("◆ Guide Downloaded (.docx)");
+    setTimeout(() => setCopyFeedback(null), 3000);
+  };
+
+  const handleAiAutoFill = async () => {
+    if (!targetImage) return;
+    setIsAutoFilling(true);
+    try {
+      const response = await fetch('/api/compile-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'auto-fill', blueprint: targetImage })
+      });
+      const data = await response.json();
+      if (data.success && data.jsonObject) {
+        setAbChatInput(data.jsonObject.instruction || "");
+      }
+    } catch (e) { console.error(e); }
+    setIsAutoFilling(false);
+  };
+
+  if (!abOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-8 animate-in fade-in duration-300">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden shadow-2xl relative shadow-black/50">
+        <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 rounded-sm bg-[#004850] flex items-center justify-center text-white shadow-lg shadow-[#004850]/20">
+              <i className={`ti ${abStep === 'select' ? 'ti-apps' : 'ti-wand'} text-xl`} />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase font-mono">
+                {abStep === 'select' ? "1. Select Project Track" : "Automation Builder"}
+              </h2>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.15em] mt-0.5">
+                {abStep === 'select' ? "Generated via Gemini 3 Flash Preview" : "Conversational Process Architect // v1.2"}
+              </p>
+            </div>
+          </div>
+          <button onClick={() => setAbOpen(false)} className="h-10 w-10 flex items-center justify-center text-zinc-400 hover:text-rose-500 transition-colors">
+            <i className="ti ti-x text-xl" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-8">
+          {abStep === 'select' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {images.map((img) => (
+                <button
+                  key={img.id}
+                  onClick={() => { setAbSelectedImageId(img.id); setAbStep('preflight'); }}
+                  className="p-6 border border-zinc-200 dark:border-zinc-800 rounded-sm bg-zinc-50/50 dark:bg-zinc-900/50 hover:border-[#004850] dark:hover:border-emerald-500 transition-all text-left group active:scale-[0.98]"
+                >
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-[#004850] dark:group-hover:text-emerald-400 transition-colors uppercase">{img.name}</h3>
+                  <p className="text-[10px] text-zinc-400 mt-2 font-mono uppercase tracking-widest">
+                    {img.pipelines?.length || 0} TRACKS // {img.pipelines?.reduce((acc, p) => acc + (p.stages?.length || 0), 0) || 0} STEPS
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {abStep === 'preflight' && targetImage && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-sm">
+                <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Verify step goals. Use AI suggestions to fill missing context.</p>
+                <button onClick={acceptAllAIGuesses} className="px-4 py-2 bg-[#004850] text-white text-[9px] font-bold uppercase tracking-widest rounded-sm hover:bg-[#003840] transition-all">Accept All AI Suggestions</button>
+              </div>
+              <div className="space-y-8">
+                {targetImage.pipelines.map((pipeline, pIdx) => (
+                  <div key={pIdx} className="space-y-3">
+                    <div className="flex items-center gap-2 font-mono text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                      <span>Track {pIdx + 1}: {pipeline.name}</span>
+                      <span className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                    </div>
+                    <table className="w-full text-left border-collapse border border-zinc-100 dark:border-zinc-800">
+                      <thead>
+                        <tr className="bg-zinc-50 dark:bg-zinc-900">
+                          <th className="py-2 px-4 text-[9px] font-black uppercase text-zinc-400 w-1/4">Stage</th>
+                          <th className="py-2 px-4 text-[9px] font-black uppercase text-zinc-400 w-1/2">Operational Goal</th>
+                          <th className="py-2 px-4 text-[9px] font-black uppercase text-zinc-400 w-1/4">Threshold</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pipeline.stages.map((stage, sIdx) => {
+                          const tel = (stage as any).operational_telemetry || {};
+                          const guesses = abTelemetryGuesses[stage.name] || getLocalFallbackGuess(stage.name);
+                          return (
+                            <tr key={sIdx} className="border-t border-zinc-100 dark:border-zinc-800">
+                              <td className="py-3 px-4 text-xs font-bold uppercase text-zinc-900 dark:text-zinc-100">{stage.name}</td>
+                              <td className="py-3 px-4">
+                                <textarea
+                                  value={tel.targetDirective || ""}
+                                  onChange={e => updateStageTelemetry(pIdx, sIdx, "targetDirective", e.target.value)}
+                                  placeholder={guesses.targetDirective}
+                                  className="w-full bg-transparent border-none focus:ring-0 text-xs p-0 resize-none"
+                                  rows={1}
+                                />
+                              </td>
+                              <td className="py-3 px-4">
+                                <input
+                                  value={tel.stuckThreshold || ""}
+                                  onChange={e => updateStageTelemetry(pIdx, sIdx, "stuckThreshold", e.target.value)}
+                                  placeholder={guesses.stuckThreshold}
+                                  className="w-full bg-transparent border-none focus:ring-0 text-xs p-0"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-6 flex justify-end">
+                <button onClick={() => setAbStep('chat')} className="px-8 py-3 bg-[#004850] text-white text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-[#003840] transition-all">Continue to Configuration</button>
+              </div>
+            </div>
+          )}
+
+          {abStep === 'chat' && (
+            <div className="h-full flex flex-col space-y-6">
+              <div className="flex-1 overflow-y-auto space-y-4 pr-4">
+                {abChatHistory.map((msg, i) => (
+                  <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] px-4 py-3 rounded-sm text-sm ${msg.sender === 'user' ? 'bg-[#004850] text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'}`}>
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+                {isAiTyping && <div className="text-[10px] font-mono animate-pulse uppercase text-zinc-400">AI is thinking...</div>}
+              </div>
+              <div className="relative">
+                <textarea
+                  value={abChatInput}
+                  onChange={e => setAbChatInput(e.target.value)}
+                  placeholder="Tell Gemini how to build your automations..."
+                  className="w-full h-24 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm p-4 pr-32 text-sm focus:outline-none focus:border-[#004850] transition-all resize-none"
+                />
+                <div className="absolute bottom-4 right-4 flex gap-2">
+                  <button 
+                    onClick={handleAiAutoFill}
+                    disabled={isAutoFilling}
+                    className={`h-10 w-10 bg-zinc-100 dark:bg-zinc-800 text-[#004850] dark:text-emerald-500 rounded-sm flex items-center justify-center transition-all active:scale-95 disabled:opacity-50 ${isAutoFilling ? 'animate-pulse' : ''}`}
+                    title="AI Auto-fill"
+                  >
+                    <i className={`ti ${isAutoFilling ? 'ti-loader animate-spin' : 'ti-sparkles'} text-lg`} />
+                  </button>
+                  <button onClick={() => compilePromptManifest()} className="px-6 py-2 bg-[#004850] text-white text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-[#003840] transition-all">Build Logic</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {abStep === 'planning' && (
+            <div className="h-full flex flex-col items-center justify-center space-y-6">
+              <div className="h-12 w-12 border-4 border-zinc-200 dark:border-zinc-800 border-t-[#004850] rounded-full animate-spin" />
+              <h3 className="text-sm font-bold uppercase tracking-widest">Architecting Automation Roadmap...</h3>
+            </div>
+          )}
+
+          {abStep === 'review' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {abRoadmap.map((item, i) => (
+                  <div key={i} className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-sm bg-zinc-50/50 dark:bg-zinc-900/50">
+                    <span className="text-[10px] font-mono font-bold text-[#004850]">{item.automationNumber}</span>
+                    <h4 className="text-xs font-bold uppercase mt-1">{item.stageName}</h4>
+                    <p className="text-xs text-zinc-500 mt-2">{item.operationalGoal}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800">
+                <label className="block text-[10px] font-bold uppercase text-zinc-400 mb-2">Revision Notes (Optional)</label>
+                <textarea
+                  value={abReviewFeedback}
+                  onChange={e => setAbReviewFeedback(e.target.value)}
+                  placeholder="e.g. 'Add Slack alert to stage 1'..."
+                  className="w-full h-20 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm p-4 text-sm focus:outline-none focus:border-[#004850] transition-all resize-none"
+                />
+                <div className="flex justify-end gap-3 mt-4">
+                  <button onClick={() => compilePromptManifest(abReviewFeedback)} className="px-6 py-3 border border-zinc-200 dark:border-zinc-800 text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all">Request Revision</button>
+                  <button onClick={() => compilePromptManifest()} className="px-6 py-3 bg-[#004850] text-white text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-[#003840] transition-all">Approve & Finalize</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {abStep === 'stapling' && (
+            <div className="h-full flex flex-col items-center justify-center space-y-8">
+              <div className="w-full max-w-md bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
+                <div className="bg-[#004850] h-full transition-all duration-500" style={{ width: `${(staplingState.index / staplingState.total) * 100}%` }} />
+              </div>
+              <div className="text-center">
+                <h3 className="text-sm font-bold uppercase tracking-widest mb-2">Stapling Logic: {staplingState.currentStage}</h3>
+                <p className="text-[10px] text-zinc-400 font-mono">{staplingState.index} / {staplingState.total} Blocks Processed</p>
+              </div>
+            </div>
+          )}
+
+          {abStep === 'preview' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-widest">Process Blueprint Preview</h3>
+                <div className="flex gap-2">
+                  <button onClick={handleDocxDownload} className="px-4 py-2 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-widest rounded-sm hover:bg-blue-700 transition-all flex items-center gap-2"><i className="ti ti-file-text" /> Export Docx</button>
+                  <button onClick={() => {
+                    setImages(prev => prev.map(img => img.id === abSelectedImageId ? { ...img, compiledRunbook: abCompiledObjects, selectedIntegrations: abSelectedIntegrations } : img));
+                    setIsAttached(true);
+                    setCopyFeedback("◆ Process Attached to Card");
+                    setTimeout(() => setCopyFeedback(null), 3000);
+                  }} disabled={isAttached} className={`px-4 py-2 text-[9px] font-bold uppercase tracking-widest rounded-sm transition-all flex items-center gap-2 ${isAttached ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-[#004850] text-white hover:bg-[#003840]'}`}>
+                    <i className={`ti ${isAttached ? 'ti-check' : 'ti-bookmark'}`} /> {isAttached ? "Attached" : "Attach to Card"}
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  {abCompiledObjects.map((item, i) => (
+                    <div key={i} className="p-4 border border-zinc-100 dark:border-zinc-800 rounded-sm bg-zinc-50/30">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="px-2 py-0.5 bg-zinc-900 text-white text-[8px] font-mono rounded-sm">{item.automationNumber}</span>
+                        <span className="text-[10px] font-bold uppercase">{item.stageName}</span>
+                      </div>
+                      <p className="text-[11px] font-bold mb-2">{item.operationalGoal}</p>
+                      <ul className="space-y-1">
+                        {item.setupSteps?.map((step: string, si: number) => (
+                          <li key={si} className="text-[10px] text-zinc-500 flex gap-2">
+                            <span className="text-[#004850]">•</span> {step}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-zinc-900 rounded-sm p-6 font-mono text-[10px] text-zinc-400 h-[500px] overflow-y-auto">
+                  <pre className="whitespace-pre-wrap">{compileRawModelPromptManifest()}</pre>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
