@@ -4,7 +4,7 @@ import { GoogleGenAI } from '@google/genai';
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 // Dynamically extract the model ID from the environment with a robust fallback target
-const TARGET_MODEL = process.env.GEMINI_MODEL_ID || 'gemini-3.1-flash-lite';
+const TARGET_MODEL = process.env.GEMINI_MODEL_ID || 'gemini-2.5-flash';
 
 const automationBlockSchema = {
   type: "OBJECT",

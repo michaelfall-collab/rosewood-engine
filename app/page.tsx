@@ -1220,14 +1220,49 @@ function AutoBuilderWizard({
       setAbStep('planning');
       setIsAttached(false);
 
+      const roadmapSchema = {
+        type: "OBJECT",
+        properties: {
+          roadmap: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                automationNumber: { type: "STRING" },
+                stageName: { type: "STRING" },
+                operationalGoal: { type: "STRING" }
+              },
+              required: ["automationNumber", "stageName", "operationalGoal"]
+            }
+          }
+        },
+        required: ["roadmap"]
+      };
+
       try {
         const response = await fetch('/api/compile-agent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            systemPrompt: `You are a Master CRM Planner. Integrations: ${JSON.stringify(abSelectedIntegrations)}. Team: ${JSON.stringify(abRoles)}. ${feedback ? `Feedback: ${feedback}` : ""}`,
-            userPrompt: `Blueprint: ${JSON.stringify(targetImage)}`,
-            schema: { type: "OBJECT", properties: { roadmap: { type: "ARRAY", items: { type: "OBJECT", properties: { automationNumber: { type: "STRING" }, stageName: { type: "STRING" }, operationalGoal: { type: "STRING" } }, required: ["automationNumber", "stageName", "operationalGoal"] } } }, required: ["roadmap"] }
+            systemPrompt: `You are a Master CRM Planner. Analyze the provided CRM blueprint and team registry. 
+            Generate a high-level roadmap of automations. 
+            
+            STRICT NAMING RULE: For each automation, the automationNumber MUST use the 3-digit coordinate pattern:
+            - Stage-anchored blocks: "PipelineIndex.StageIndex.AutomationIndex" (e.g., "1.1.1", "1.1.2").
+            - Global/account-wide blocks: "G.0.Z" (e.g., "G.0.1", "G.0.2") — cross-pipeline.
+            
+            CRITICAL ENRICHMENT DIRECTIVE:
+            Analyze the 'operational_telemetry' object inside each stage of the blueprint:
+            - If 'targetDirective' is set, construct a dedicated automation that operationalizes that directive.
+            - If 'stuckThreshold' is set, generate a separate fallback automation for a Stalled Deal Alarm (e.g. "X.Y.2: Stalled Deal Alarm").
+            - If 'routingDropdownKey' is set, generate a separate Multi-Branch Dropdown Router automation.
+            - If 'isRecurringLoop' is true, generate a separate automation for a Looping/Recurring Activity.
+            
+            Integrations available: ${JSON.stringify(abSelectedIntegrations)}.
+            Team Registry: ${JSON.stringify(abRoles)}.
+            ${feedback ? `CRITICAL: The user has provided feedback for this revision: "${feedback}". Adjust the roadmap accordingly.` : ""}`,
+            userPrompt: `Analyze this blueprint and generate the automation roadmap array: ${JSON.stringify(targetImage)}`,
+            schema: roadmapSchema
           })
         });
 
@@ -1251,20 +1286,46 @@ function AutoBuilderWizard({
 
       for (const [index, item] of abRoadmap.entries()) {
         setStaplingState({ index: index + 1, total: abRoadmap.length, currentStage: item.stageName });
+        
+        let stageTelemetry = null;
+        let customFieldsList = targetImage.customFields || [];
+        for (const pipeline of targetImage.pipelines) {
+          const found = pipeline.stages.find(s => s.name === item.stageName);
+          if (found) {
+            stageTelemetry = (found as any).operational_telemetry;
+            break;
+          }
+        }
+
         try {
           const response = await fetch('/api/compile-agent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              systemPrompt: `Enterprise Systems Architect. Goal: ${item.operationalGoal}`,
-              userPrompt: `Blueprint Context: ${JSON.stringify(targetImage)}`
+              systemPrompt: `You are an Enterprise CRM Systems Architect. Capabilities: ${JSON.stringify(PIPEDRIVE_CAPABILITIES_REGISTRY)}. 
+              Generate detailed configuration for the following roadmap item.
+              STRICT NAMING RULE: automationNumber must remain "${item.automationNumber}".
+              
+              CRITICAL PATTERNS TO ENFORCE:
+              Pattern A: Looping/Recurring State Machine
+              - If telemetry 'isRecurringLoop' is true, implement a self-sustaining activity loop.
+              - Layout MUST read: 'Trigger: Activity updated where subject matches [Name] and status matches DONE. Action: Instantly create a clean follow-up Activity with an identical subject line, natively mapped relative to the trigger execution timestamp with a relative delay offset of X days.'
+              
+              Pattern B: Multi-Branch Dropdown Router
+              - If a 'routingDropdownKey' is specified, construct an explicit If/Else routing tree tree.
+              - Layout MUST read: 'Trigger: Deal custom field [Field Key] updates. Branching Conditions: If field matches Option A -> move Deal natively to Stage X. Else if field matches Option B -> move Deal natively to Stage Y.'`,
+              userPrompt: `Generate configuration for automation goal: "${item.operationalGoal}" in stage "${item.stageName}".
+              Roles involved: ${JSON.stringify(abRoles)}.
+              Coordinate Index: ${item.automationNumber}
+              Stage Operational Telemetry Context: ${stageTelemetry ? JSON.stringify(stageTelemetry, null, 2) : "None."}
+              Custom Fields Schema: ${JSON.stringify(customFieldsList, null, 2)}`
             })
           });
           const data = await response.json();
           if (data.success && data.jsonObject) {
             newCompiledObjects.push(data.jsonObject);
           } else {
-            newCompiledObjects.push({ automationNumber: item.automationNumber, stageName: item.stageName, operationalGoal: item.operationalGoal, setupSteps: ["Error"] });
+            newCompiledObjects.push({ automationNumber: item.automationNumber, stageName: item.stageName, operationalGoal: item.operationalGoal, setupSteps: ["Error: Step generation failed."] });
           }
         } catch (error) { console.error(error); }
       }
@@ -1308,7 +1369,7 @@ function AutoBuilderWizard({
   if (!abOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-8 animate-in fade-in duration-300">
+    <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden shadow-2xl relative shadow-black/50">
         <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
           <div className="flex items-center gap-4">
@@ -1317,10 +1378,16 @@ function AutoBuilderWizard({
             </div>
             <div>
               <h2 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase font-mono">
-                {abStep === 'select' ? "1. Select Project Track" : "Automation Builder"}
+                {abStep === 'select' && "1. Select Project Track"}
+                {abStep === 'preflight' && "2. Configure Goal Matrix"}
+                {abStep === 'chat' && "3. Build Logic via Chat"}
+                {abStep === 'planning' && "4. Generating Roadmap..."}
+                {abStep === 'review' && "5. Review Proposed Sequence"}
+                {abStep === 'stapling' && `6. Writing Automation Logic (${staplingState.index}/${staplingState.total})`}
+                {abStep === 'preview' && "7. Final Process Review"}
               </h2>
               <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.15em] mt-0.5">
-                {abStep === 'select' ? "Generated via Gemini 3 Flash Preview" : "Conversational Process Architect // v1.2"}
+                Conversational Process Architect // Powered by Gemini 3 Flash Preview
               </p>
             </div>
           </div>
@@ -1380,8 +1447,8 @@ function AutoBuilderWizard({
                                   value={tel.targetDirective || ""}
                                   onChange={e => updateStageTelemetry(pIdx, sIdx, "targetDirective", e.target.value)}
                                   placeholder={guesses.targetDirective}
-                                  className="w-full bg-transparent border-none focus:ring-0 text-xs p-0 resize-none"
-                                  rows={1}
+                                  className="w-full bg-transparent border-none focus:ring-0 text-xs p-0 resize-none border-b border-zinc-100 dark:border-zinc-800 focus:border-[#004850]"
+                                  rows={2}
                                 />
                               </td>
                               <td className="py-3 px-4">
@@ -1389,7 +1456,7 @@ function AutoBuilderWizard({
                                   value={tel.stuckThreshold || ""}
                                   onChange={e => updateStageTelemetry(pIdx, sIdx, "stuckThreshold", e.target.value)}
                                   placeholder={guesses.stuckThreshold}
-                                  className="w-full bg-transparent border-none focus:ring-0 text-xs p-0"
+                                  className="w-full bg-transparent border-none focus:ring-0 text-xs p-0 border-b border-zinc-100 dark:border-zinc-800 focus:border-[#004850]"
                                 />
                               </td>
                             </tr>
@@ -1409,6 +1476,10 @@ function AutoBuilderWizard({
           {abStep === 'chat' && (
             <div className="h-full flex flex-col space-y-6">
               <div className="flex-1 overflow-y-auto space-y-4 pr-4">
+                <div className="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm text-xs text-zinc-500 leading-relaxed">
+                  <span className="font-bold uppercase tracking-wider block mb-1">Architecture Context Seeding:</span>
+                  Tracks, stages, and telemetry preferences are loaded. Add explicit business rules, personnel ownership updates, or Slack routing adjustments below.
+                </div>
                 {abChatHistory.map((msg, i) => (
                   <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[80%] px-4 py-3 rounded-sm text-sm ${msg.sender === 'user' ? 'bg-[#004850] text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'}`}>
@@ -1443,7 +1514,7 @@ function AutoBuilderWizard({
           {abStep === 'planning' && (
             <div className="h-full flex flex-col items-center justify-center space-y-6">
               <div className="h-12 w-12 border-4 border-zinc-200 dark:border-zinc-800 border-t-[#004850] rounded-full animate-spin" />
-              <h3 className="text-sm font-bold uppercase tracking-widest">Architecting Automation Roadmap...</h3>
+              <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400">Architecting Automation Roadmap...</h3>
             </div>
           )}
 
@@ -1460,11 +1531,11 @@ function AutoBuilderWizard({
               </div>
               <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800">
                 <label className="block text-[10px] font-bold uppercase text-zinc-400 mb-2">Revision Notes (Optional)</label>
-                <textarea
+                <input
                   value={abReviewFeedback}
                   onChange={e => setAbReviewFeedback(e.target.value)}
                   placeholder="e.g. 'Add Slack alert to stage 1'..."
-                  className="w-full h-20 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm p-4 text-sm focus:outline-none focus:border-[#004850] transition-all resize-none"
+                  className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm p-4 text-sm focus:outline-none focus:border-[#004850] transition-all"
                 />
                 <div className="flex justify-end gap-3 mt-4">
                   <button onClick={() => compilePromptManifest(abReviewFeedback)} className="px-6 py-3 border border-zinc-200 dark:border-zinc-800 text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all">Request Revision</button>
@@ -1528,7 +1599,25 @@ function AutoBuilderWizard({
             </div>
           )}
         </div>
+
+        {/* Progress Stepper Footer */}
+        <div className="px-8 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-center">
+          <div className="flex items-center gap-3">
+            {['select', 'preflight', 'chat', 'planning', 'review', 'stapling', 'preview'].map((step) => {
+              const stepOrder = ['select', 'preflight', 'chat', 'planning', 'review', 'stapling', 'preview'];
+              const currentIdx = stepOrder.indexOf(abStep);
+              const thisIdx = stepOrder.indexOf(step);
+              return (
+                <div key={step} className="flex items-center gap-3">
+                  <div className={`h-2.5 w-2.5 rounded-full transition-all duration-500 ${thisIdx <= currentIdx ? 'bg-[#004850] dark:bg-emerald-500 scale-125' : 'bg-zinc-200 dark:bg-zinc-800'}`} />
+                  {stepOrder.indexOf(step) < 6 && <div className={`h-0.5 w-8 rounded-full transition-all duration-700 ${thisIdx < currentIdx ? 'bg-[#004850]/40 dark:bg-emerald-500/40' : 'bg-zinc-200 dark:bg-zinc-800'}`} />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+
