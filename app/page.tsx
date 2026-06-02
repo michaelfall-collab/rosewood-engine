@@ -132,6 +132,7 @@ export function ensureStageTelemetry(blueprint: CRMArchitectureBlueprint): CRMAr
   
   return {
     ...blueprint,
+    lifecycleState: blueprint.lifecycleState || 'PRESCRIPTIVE_BUILD',
     pipelines: updatedPipelines
   };
 }
@@ -203,6 +204,7 @@ const SYSTEM_SEED: LiveImage = {
   version: "1.2.0",
   name: "Rosewood Corporate Core Architecture",
   description: "Internal multi-pipeline customer journey from intake verification through legacy graduation tracks.",
+  lifecycleState: 'PRESCRIPTIVE_BUILD',
   owner: "System Seed",
   deals: 142,
   pipelines: [
