@@ -1,19 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { PipedriveCapabilitiesRegistry } from "@/types/blueprint";
+import { formatKey } from "@/utils/formatters";
 
 type TabType = 'general' | 'triggers' | 'actions' | 'integrations' | 'conditions';
-
-// --- HELPERS ---
-
-const formatKey = (key: string) => {
-  if (!key) return '';
-  return key
-    .toLowerCase()
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-};
 
 export default function CapabilitiesEditor({ onClose }: { onClose: () => void }) {
   const [config, setConfig] = useState<PipedriveCapabilitiesRegistry | null>(null);

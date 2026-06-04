@@ -24,7 +24,8 @@ export const serializeToRwe = (
           recurrenceDays: 7
         }
       }))
-    }))
+    })),
+    legoAutomations: blueprint.legoAutomations || []
   };
 
   // Dual-Key Serialization: Writes both systems simultaneously to protect backward-compatibility
@@ -34,7 +35,7 @@ export const serializeToRwe = (
     blueprint: preparedBlueprint, 
     compiledRunbook: abCompiledObjects || [],
     abCompiledObjects: abCompiledObjects || [],
-    version: "1.0.0",
+    version: "1.1.0", // Bumped version for LEGO blocks
     timestamp: new Date().toISOString(),
   };
 

@@ -1,3 +1,4 @@
+import { CRMArchitectureBlueprint } from "@/types/blueprint";
 import { PIPEDRIVE_CAPABILITIES_REGISTRY } from "@/config/pipedriveCapabilities";
 
 interface AutomationTuningConfig {
@@ -40,15 +41,60 @@ CRITICAL PAIRED NOMENCLATURE RULES:
 3. You may only use the word 'Task' when strictly specifying the internal value parameters for an activity configuration (e.g., Type: 'Task'), matching your provided toolkit options exactly.
 `;
 
+export function generateBlueprintPrompt(transcript: string): string {
+  return `=== SYSTEM IDENTITY ===
+Enterprise CRM Architect for Rosewood Engine.
+
+=== TASK ===
+Analyze the provided discovery meeting transcript and design a complete Pipedrive CRM architecture blueprint.
+
+=== ARCHITECTURAL CONSTRAINTS ===
+1. Pipelines: Define distinct tracks (e.g., Sales, Onboarding, Production).
+2. Stages: Sequence ordered milestones for each pipeline. Each stage MUST have a clear 'targetDirective' (What is the human goal here? What defines success?).
+3. Custom Fields: Identify required custom fields (e.g., cf_lead_source, cf_project_type). Standardize keys using 'cf_' prefix.
+4. Activity Types: Define icons and names for task types (e.g., 'Site Visit', 'Contract Review').
+5. Lost Reasons: Define terminal exit codes for deals.
+
+=== OUTPUT SCHEMA ===
+Return a valid JSON object matching this structure:
+{
+  "version": "1.1.0",
+  "name": "Project Name",
+  "description": "High-level summary of the business process",
+  "pipelines": [
+    {
+      "name": "Pipeline Name",
+      "stages": [
+        {
+          "name": "Stage Name",
+          "operational_telemetry": {
+            "targetDirective": "Explicit human objective statement",
+            "stuckThreshold": "X Days"
+          }
+        }
+      ]
+    }
+  ],
+  "customFields": [],
+  "activityTypes": [],
+  "lostReasons": [],
+  "systemFieldMutations": []
+}
+
+=== TRANSCRIPT DATA ===
+${transcript}
+`;
+}
+
 export function generateRunbookPrompt(
-  blueprint: any, 
+  blueprint: CRMArchitectureBlueprint, 
   selectedIntegrations: string[], 
   config: AutomationTuningConfig
 ): string {
   const integrationSection = selectedIntegrations.length > 0
     ? selectedIntegrations
         .filter(int => Object.keys(PIPEDRIVE_CAPABILITIES_REGISTRY.supportedIntegrations).includes(int))
-        .map(int => `* ${int}: ${PIPEDRIVE_CAPABILITIES_REGISTRY.supportedIntegrations[int as keyof typeof PIPEDRIVE_CAPABILITIES_REGISTRY.supportedIntegrations].actions.join(", ")}`)
+        .map(int => `* ${int}: ${PIPEDRIVE_CAPABILITIES_REGISTRY.supportedIntegrations[int as keyof typeof PIPEDRIVE_CAPABILITIES_REGISTRY.supportedIntegrations].actions.map((a: any) => a.id).join(", ")}`)
         .join("\n")
     : "None - All third-party integrations are strictly prohibited.";
 

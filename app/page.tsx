@@ -3,11 +3,12 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { CRMArchitectureBlueprint, StageOperationalContext, PipelineStageSpec } from "@/types/blueprint";
-import { generateRunbookPrompt } from "@/utils/promptCompiler";
+import { generateRunbookPrompt, generateBlueprintPrompt } from "@/utils/promptCompiler";
 import { PIPEDRIVE_CAPABILITIES_REGISTRY } from "@/config/pipedriveCapabilities";
 import { exportRunbookToDocx } from '@/utils/docxExporter';
 import { serializeToRwe, deserializeFromRwe } from '@/utils/fileSerializer';
 import CapabilitiesEditor from './components/CapabilitiesEditor';
+import AutomationBuilder from './components/AutomationBuilder';
 
 /** 
  * PRODUCTION-GRADE TYPES
@@ -266,12 +267,116 @@ export default function ClientCockpitDashboard() {
 
   const [abCompiledObjects, setAbCompiledObjects] = useState<any[]>([]);
   const [isCapabilitiesEditorOpen, setIsCapabilitiesEditorOpen] = useState(false);
+  
+  // NEW AUTOMATION BUILDER STATE
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [transcript, setTranscript] = useState("");
+  const [isCompiling, setIsCompiling] = useState(false);
+
+  const activeWorkspace = useMemo(() => 
+    images.find(img => img.id === activeWorkspaceId) || null,
+  [activeWorkspaceId, images]);
 
   const updateRunbookObjectField = (itemIndex: number, fieldKey: string, newValue: any) => {
     setImages(prev => prev.map(img => img.id === detailId ? {
       ...img,
       compiledRunbook: (img.compiledRunbook || []).map((obj, i) => i === itemIndex ? { ...obj, [fieldKey]: newValue } : obj)
     } : img));
+  };
+
+  const handleCompileTranscript = async () => {
+    if (!transcript.trim()) return;
+    setIsCompiling(true);
+    try {
+      // PASS 1: Macro Skeleton
+      const pass1Res = await fetch('/api/compile-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          systemPrompt: "You are a CRM Skeleton Designer. Create a blueprint from the transcript. Ensure every stage has a targetDirective.",
+          userPrompt: generateBlueprintPrompt(transcript),
+          schema: {
+            type: "OBJECT",
+            properties: {
+              name: { type: "STRING" },
+              description: { type: "STRING" },
+              pipelines: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    name: { type: "STRING" },
+                    stages: {
+                      type: "ARRAY",
+                      items: {
+                        type: "OBJECT",
+                        properties: {
+                          name: { type: "STRING" },
+                          operational_telemetry: {
+                            type: "OBJECT",
+                            properties: {
+                              targetDirective: { type: "STRING" },
+                              stuckThreshold: { type: "STRING" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              customFields: { type: "ARRAY", items: { type: "OBJECT" } },
+              activityTypes: { type: "ARRAY", items: { type: "OBJECT" } }
+            }
+          }
+        })
+      });
+      
+      const data1 = await pass1Res.json();
+      if (!data1.success) throw new Error("Pass 1 Failed");
+
+      const blueprint = ensureStageTelemetry(data1.jsonObject);
+      blueprint.id = generateRweId();
+      blueprint.lifecycleState = 'PRESCRIPTIVE_BUILD';
+
+      // PASS 2: Lego Assembly
+      const allDirectives: { directive: string, coord: string, stageName: string }[] = [];
+      blueprint.pipelines.forEach((p, pIdx) => {
+        p.stages.forEach((s, sIdx) => {
+          if (s.operational_telemetry?.targetDirective) {
+            allDirectives.push({ 
+              directive: s.operational_telemetry.targetDirective, 
+              coord: `${pIdx+1}.${sIdx+1}.1`,
+              stageName: s.name
+            });
+          }
+        });
+      });
+
+      const legoBlocks = await Promise.all(allDirectives.map(async (d) => {
+        const res = await fetch('/api/compile-agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            mode: 'lego-assembly',
+            userPrompt: `Directive: ${d.directive}. Coordination: ${d.coord}. Stage: ${d.stageName}`,
+            capabilities: PIPEDRIVE_CAPABILITIES_REGISTRY,
+            blueprintContext: blueprint
+          })
+        });
+        const d2 = await res.json();
+        return d2.success ? d2.jsonObject : null;
+      }));
+
+      blueprint.legoAutomations = legoBlocks.filter(b => b !== null);
+      
+      setImages(prev => [blueprint as LiveImage, ...prev]);
+      setActiveWorkspaceId(blueprint.id);
+    } catch (e) {
+      console.error("Compilation failed:", e);
+    } finally {
+      setIsCompiling(false);
+    }
   };
 
   const handleAddNewManualBlock = (mode: "stage" | "global" = "stage") => {
@@ -884,8 +989,65 @@ export default function ClientCockpitDashboard() {
       )}
 
       {/* 3. MAIN GALLERY SHELF */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="h-12 px-6 border-b border-zinc-200/60 dark:border-zinc-800/60 flex items-center justify-between bg-white dark:bg-zinc-900">
+      <main className="flex-1 overflow-y-auto custom-scrollbar bg-zinc-50 dark:bg-zinc-950">
+        {activeWorkspaceId && activeWorkspace ? (
+           <div className="h-full flex flex-col md:flex-row animate-in fade-in duration-300">
+             {/* LEFT: TRANSCRIPT CANVAS */}
+             <div className="w-full md:w-[380px] border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-900 shadow-2xl z-10">
+                <div className="p-6 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20">
+                   <div className="flex items-center gap-3 mb-1">
+                      <div className="h-2 w-2 bg-[#004850] rounded-full animate-pulse" />
+                      <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100">Discovery Engine</h3>
+                   </div>
+                   <p className="text-[9px] text-zinc-500 uppercase tracking-widest">Operational Profile Transcription</p>
+                </div>
+                <div className="flex-1 p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
+                   <div className="space-y-2 flex-1 flex flex-col">
+                      <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Input Stream</label>
+                      <textarea 
+                        value={transcript}
+                        onChange={e => setTranscript(e.target.value)}
+                        placeholder="PASTE RAW DISCOVERY MEETING NOTES OR OPERATIONAL SUMMARY..."
+                        className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 p-4 text-[11px] font-sans leading-relaxed focus:outline-none focus:border-[#004850] resize-none shadow-inner rounded-sm"
+                      />
+                   </div>
+                   
+                   <div className="space-y-3">
+                      <button 
+                        onClick={handleCompileTranscript}
+                        disabled={isCompiling || !transcript.trim()}
+                        className="w-full py-4 bg-[#004850] text-white text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-[#003840] disabled:opacity-50 transition-all rounded-sm flex items-center justify-center gap-3 shadow-lg shadow-teal-900/20 active:scale-[0.98]"
+                      >
+                        {isCompiling ? (
+                          <><div className="h-3 w-3 border-2 border-white/20 border-t-white rounded-full animate-spin" /> SYNTHESIZING...</>
+                        ) : (
+                          <><i className="ti ti-wand" /> COMPILE BLOCKS</>
+                        )}
+                      </button>
+                      <button 
+                        onClick={() => setActiveWorkspaceId(null)}
+                        className="w-full py-2 text-[9px] font-bold uppercase tracking-widest text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+                      >
+                        ← Exit Workspace
+                      </button>
+                   </div>
+                </div>
+             </div>
+
+             {/* RIGHT: LEGO PLAYGROUND */}
+             <div className="flex-1 flex flex-col min-w-0 bg-zinc-100 dark:bg-zinc-950">
+                <AutomationBuilder 
+                   blueprint={activeWorkspace} 
+                   capabilities={PIPEDRIVE_CAPABILITIES_REGISTRY}
+                   onUpdate={(updated) => {
+                      setImages(prev => prev.map(img => img.id === updated.id ? { ...img, ...updated } : img));
+                   }}
+                />
+             </div>
+           </div>
+        ) : (
+          <>
+            <div className="h-12 px-6 border-b border-zinc-200/60 dark:border-zinc-800/60 flex items-center justify-between bg-white dark:bg-zinc-900">
           <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-sm border border-zinc-200 dark:border-zinc-800">
             <button 
               onClick={() => setViewLayout("grid")}
@@ -935,22 +1097,22 @@ export default function ClientCockpitDashboard() {
                     const pCount = img.pipelines?.length || 0;
                     const sCount = img.pipelines?.reduce((acc, p) => acc + (p.stages?.length || 0), 0) || 0;
                     const fCount = img.customFields?.length || 0;
-                    const aCount = (img as any).abCompiledObjects?.length || (img as any).compiledRunbook?.length || 0;
+                    const aCount = (img as any).legoAutomations?.length || (img as any).compiledRunbook?.length || 0;
                     return (
                         <p className="font-mono text-[10px] tracking-widest uppercase text-zinc-400 mt-1">
-                            {pCount} PPL // {sCount} STG // {fCount} FLD // {aCount} AUTO
+                            {pCount} PPL // {sCount} STG // {fCount} FLD // {aCount} LEGO
                         </p>
                     );
                   })()}
                 </div>
 
                 <div className="flex items-center justify-between mt-4">
-                  <div className={`px-2 py-1 rounded-sm text-[10px] font-mono font-bold uppercase tracking-widest flex items-center gap-1.5 ${
-                    (img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 border border-transparent'
-                  }`}>
-                    <span className={`h-1 w-1 rounded-full ${(img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
-                    {(img.runbookManifest || (img.compiledRunbook && img.compiledRunbook.length > 0)) ? "Automated" : "Static"}
-                  </div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setActiveWorkspaceId(img.id); }}
+                    className="px-3 py-1 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-[9px] font-black uppercase tracking-widest rounded-sm hover:scale-105 active:scale-95 transition-all"
+                  >
+                    Build
+                  </button>
                   
                   <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                     <button 
@@ -988,6 +1150,8 @@ export default function ClientCockpitDashboard() {
             ))}
           </div>
         </div>
+          </>
+        )}
       </main>
 
       {/* 4. EXPANSIVE INSPECTION MODAL */}
@@ -1078,7 +1242,7 @@ export default function ClientCockpitDashboard() {
                           <div className="mt-6">
                             <span className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Goal of this Project</span>
                             <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed italic">
-                              "{activeDetail.description}"
+                              &quot;{activeDetail.description}&quot;
                             </p>
                           </div>
                         )}

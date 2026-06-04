@@ -99,6 +99,23 @@ export interface SystemFieldMutationSpec {
   }[];
 }
 
+export interface PipedriveLegoAutomationBlock {
+  automationNumber: string; // e.g., "1.1.1" or "G.0.1"
+  name: string;
+  description: string;
+  trigger: { 
+    scope: 'deal' | 'lead' | 'activity' | 'person' | 'organization' | 'project' | 'task'; 
+    event: 'added' | 'updated' | 'deleted' 
+  };
+  conditions: { field: string; operator: string; value: string }[];
+  actions: { 
+    type: string; 
+    scope: string; 
+    mutations: { field_key: string; value: string }[] 
+  }[];
+  governanceNotes: string;
+}
+
 export interface CRMArchitectureBlueprint {
   id: string;
   version: string;
@@ -111,4 +128,7 @@ export interface CRMArchitectureBlueprint {
   activityTypes?: ActivityTypeSpec[];
   lostReasons?: LostReasonSpec[];
   systemFieldMutations?: SystemFieldMutationSpec[];
+  // The Declarative Automation Ledger
+  legoAutomations?: PipedriveLegoAutomationBlock[];
 }
+

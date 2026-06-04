@@ -50,10 +50,15 @@ function createTableCellBar(title: string, subtitle: string) {
   });
 }
 
+import { PipedriveLegoAutomationBlock } from '@/types/blueprint';
+import { formatKey } from './formatters';
+
+// ... (existing constants)
+
 /**
  * Main Orchestration Compiler: Translates raw state text into a styled document binary
  */
-export async function exportRunbookToDocx(automationItems: any[], imageTitle: string): Promise<Blob> {
+export async function exportRunbookToDocx(automationItems: (PipedriveLegoAutomationBlock | any)[], imageTitle: string): Promise<Blob> {
   const childrenElements: any[] = [];
 
   // Document Title Header Layout Block
@@ -70,22 +75,39 @@ export async function exportRunbookToDocx(automationItems: any[], imageTitle: st
   
   // Programmatically iterate through the clean JSON array to assemble visual grids
   automationItems.forEach((item) => {
-    childrenElements.push(
-      // 1. Full-width colored stage title bar block
-      createTableCellBar(`Automation [${item.automationNumber}]`, item.stageName),
-      
-      // 2. Programmatic structural data row insertion
-      new Paragraph({ children: [bold("Operational Goal: "), tr(item.operationalGoal)], spacing: { before: 200 } }),
-      
-      // 3. Nested table or bullet block parsing
-      new Paragraph({ children: [bold("Impacted Personnel Registry:")], spacing: { before: 100 } }),
-      ...item.impactedRoles.map((role: string) => bullet(role)),
-      
-      new Paragraph({ children: [bold("Click-by-Click Configuration Steps:")], spacing: { before: 100 } }),
-      ...item.setupSteps.map((step: string) => numbered(step)),
+    if ('trigger' in item) {
+      // LEGO BLOCK RENDERING
+      const lego = item as PipedriveLegoAutomationBlock;
+      childrenElements.push(
+        createTableCellBar(`Automation [${lego.automationNumber}]`, lego.name),
+        
+        new Paragraph({ children: [bold("1. Trigger Event: "), tr(`${formatKey(lego.trigger.scope)} ${formatKey(lego.trigger.event)}`)], spacing: { before: 200 } }),
+        
+        new Paragraph({ children: [bold("2. Logical Filters (Conditions):")], spacing: { before: 100 } }),
+        ...(lego.conditions.length > 0 
+          ? lego.conditions.map((c) => bullet(`Where ${formatKey(c.field)} ${c.operator.replace(/_/g, ' ')} "${c.value}"`))
+          : [bullet("No conditions (always fire)")]),
 
-      new Paragraph({ children: [bold("Governance Notes: "), tr(item.governanceNotes)], spacing: { before: 100, after: 200 } })
-    );
+        new Paragraph({ children: [bold("3. System Operations (Actions):")], spacing: { before: 100 } }),
+        ...lego.actions.map((a) => {
+          const mutationStr = a.mutations.map((m) => `${formatKey(m.field_key)} to "${m.value}"`).join(", ");
+          return bullet(`${formatKey(a.type)} in ${formatKey(a.scope)}: Set ${mutationStr}`);
+        }),
+
+        new Paragraph({ children: [bold("Governance Notes: "), tr(lego.governanceNotes || "None defined.")], spacing: { before: 100, after: 200 } })
+      );
+    } else {
+      // LEGACY FORMAT RENDERING
+      childrenElements.push(
+        createTableCellBar(`Automation [${item.automationNumber}]`, item.stageName),
+        new Paragraph({ children: [bold("Operational Goal: "), tr(item.operationalGoal)], spacing: { before: 200 } }),
+        new Paragraph({ children: [bold("Impacted Personnel Registry:")], spacing: { before: 100 } }),
+        ...(item.impactedRoles || []).map((role: string) => bullet(role)),
+        new Paragraph({ children: [bold("Click-by-Click Configuration Steps:")], spacing: { before: 100 } }),
+        ...(item.setupSteps || []).map((step: string) => numbered(step)),
+        new Paragraph({ children: [bold("Governance Notes: "), tr(item.governanceNotes)], spacing: { before: 100, after: 200 } })
+      );
+    }
   });
 
   // Instantiates the document engine shell wrap template
