@@ -734,19 +734,19 @@ export default function ClientCockpitDashboard() {
             onClick={() => document.getElementById('rwe-import-input')?.click()}
             className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-sm flex items-center gap-2 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all active:scale-95"
           >
-            <i className="ti ti-file-import" /> IMPORT FILE
-          </button>
-          <button
-            onClick={() => setIsCapabilitiesEditorOpen(true)}
-            className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-sm flex items-center gap-2 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all active:scale-95"
-          >
-            <i className="ti ti-settings" /> MANAGE CAPABILITIES
+            <i className="ti ti-file-import" /> IMPORT
           </button>
           <button
             onClick={() => setIsPasteModalOpen(true)}
             className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-sm flex items-center gap-2 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all active:scale-95"
           >
-            <i className="ti ti-clipboard-check" /> PASTE DATA
+            <i className="ti ti-clipboard-check" /> PASTE
+          </button>
+          <button
+            onClick={() => setIsCapabilitiesEditorOpen(true)}
+            className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-sm flex items-center gap-2 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all active:scale-95"
+          >
+            <i className="ti ti-settings" /> CAPABILITIES
           </button>
         </div>
 

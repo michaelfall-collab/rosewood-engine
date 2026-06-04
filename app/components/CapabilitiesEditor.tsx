@@ -1,16 +1,18 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { PipedriveCapabilitiesRegistry } from "@/types/blueprint";
 
 export default function CapabilitiesEditor({ onClose }: { onClose: () => void }) {
-  const [config, setConfig] = useState<string>('');
+  const [config, setConfig] = useState<PipedriveCapabilitiesRegistry | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch('/api/config/pipedrive')
       .then(res => res.json())
       .then(data => {
-        setConfig(JSON.stringify(data, null, 2));
+        setConfig(data);
         setLoading(false);
       })
       .catch(() => {
@@ -20,37 +22,74 @@ export default function CapabilitiesEditor({ onClose }: { onClose: () => void })
   }, []);
 
   const handleSave = async () => {
-    setLoading(true);
+    if (!config) return;
+    setSaving(true);
+    setError(null);
     try {
-      const parsedConfig = JSON.parse(config);
       const res = await fetch('/api/config/pipedrive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parsedConfig),
+        body: JSON.stringify(config),
       });
-      if (!res.ok) throw new Error('Failed to save');
+      if (!res.ok) throw new Error('Failed to save configuration.');
       onClose();
     } catch (e) {
-      setError('Invalid JSON or save failed.');
-      setLoading(false);
+      setError('Failed to save configuration. Please try again.');
+      setSaving(false);
     }
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div className="fixed inset-0 bg-black/50 flex items-center justify-center text-white">Loading Editor...</div>;
+  if (!config) return <div className="fixed inset-0 bg-black/50 flex items-center justify-center text-white">Error loading configuration.</div>;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white p-6 rounded-lg w-full max-w-2xl h-[80vh] flex flex-col">
-        <h2 className="text-xl font-bold mb-4">Manage Capabilities</h2>
-        {error && <p className="text-red-500 mb-4">{error}</p>}
-        <textarea
-          className="flex-grow p-2 border border-gray-300 rounded mb-4 font-mono text-sm"
-          value={config}
-          onChange={(e) => setConfig(e.target.value)}
-        />
-        <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
-          <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
+    <div className="fixed inset-0 bg-zinc-950/70 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl">
+        <div className="px-6 py-4 border-b border-zinc-200/60 dark:border-zinc-800/60 flex items-center justify-between">
+          <h2 className="text-sm font-black uppercase tracking-widest text-zinc-900 dark:text-zinc-100">Manage System Capabilities</h2>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">
+            <i className="ti ti-x" />
+          </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="bg-zinc-50 dark:bg-zinc-950 p-4 rounded-sm border border-zinc-200 dark:border-zinc-800">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-4">Meta Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <input 
+                value={config.meta.version}
+                onChange={e => setConfig({...config, meta: {...config.meta, version: e.target.value}})}
+                className="p-2 border rounded text-sm"
+                placeholder="Version"
+              />
+              <input 
+                value={config.meta.engine}
+                onChange={e => setConfig({...config, meta: {...config.meta, engine: e.target.value}})}
+                className="p-2 border rounded text-sm"
+                placeholder="Engine Name"
+              />
+            </div>
+          </div>
+          {/* Add more form fields here based on registry structure */}
+          <p className="text-xs text-zinc-400 italic">Form-based editing currently under construction. Please use JSON for advanced changes.</p>
+          <textarea
+            className="w-full h-64 p-4 border border-zinc-200 dark:border-zinc-800 rounded-sm font-mono text-xs"
+            value={JSON.stringify(config, null, 2)}
+            onChange={(e) => {
+              try { setConfig(JSON.parse(e.target.value)); } catch(err) {}
+            }}
+          />
+        </div>
+
+        <div className="px-6 py-4 border-t border-zinc-200/60 dark:border-zinc-800/60 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 border border-zinc-200 dark:border-zinc-800 rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-100 dark:hover:bg-zinc-800">Cancel</button>
+          <button 
+            onClick={handleSave} 
+            disabled={saving}
+            className="px-4 py-2 bg-[#004850] text-white rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-[#003840] disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
         </div>
       </div>
     </div>
