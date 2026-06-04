@@ -4,6 +4,17 @@ import { PipedriveCapabilitiesRegistry } from "@/types/blueprint";
 
 type TabType = 'general' | 'triggers' | 'actions' | 'integrations' | 'conditions';
 
+// --- HELPERS ---
+
+const formatKey = (key: string) => {
+  if (!key) return '';
+  return key
+    .toLowerCase()
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 export default function CapabilitiesEditor({ onClose }: { onClose: () => void }) {
   const [config, setConfig] = useState<PipedriveCapabilitiesRegistry | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,7 +156,7 @@ function FieldPillEditor({ fields, onChange }: { fields: string[], onChange: (ne
       <div className="flex flex-wrap gap-2 min-h-[40px] p-3 border border-zinc-200 dark:border-zinc-800 rounded-sm bg-zinc-50 dark:bg-zinc-900/30">
         {fields.map(field => (
           <div key={field} className="flex items-center gap-2 px-2 py-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-sm shadow-sm group">
-            <span className="text-[10px] font-mono uppercase text-zinc-600 dark:text-zinc-300">{field}</span>
+            <span className="text-[10px] font-bold uppercase text-zinc-600 dark:text-zinc-300 tracking-wide">{formatKey(field)}</span>
             <button onClick={() => removeField(field)} className="text-zinc-400 hover:text-red-500 transition-colors">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
@@ -318,10 +329,10 @@ function TriggersTab({ config, setConfig, searchQuery }: { config: PipedriveCapa
                 <div className="flex items-center gap-3">
                   <div className={`w-2 h-8 ${trigger.scope === 'deal' ? 'bg-[#1B5E20]' : 'bg-[#1B3A6B]'}`} />
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-widest text-zinc-900 dark:text-zinc-100">{trigger.scope}</h4>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-zinc-900 dark:text-zinc-100">{formatKey(trigger.scope)}</h4>
                     <div className="flex gap-2 mt-1">
                       {trigger.events.map(evt => (
-                        <span key={evt} className="text-[9px] font-mono text-zinc-500 uppercase bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-sm">{evt}</span>
+                        <span key={evt} className="text-[9px] font-bold text-zinc-500 uppercase bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-sm tracking-tighter">{formatKey(evt)}</span>
                       ))}
                     </div>
                   </div>
@@ -349,13 +360,13 @@ function TriggersTab({ config, setConfig, searchQuery }: { config: PipedriveCapa
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {config.triggers.dateBased.map((trigger) => (
             <div key={trigger.scope} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 rounded-sm shadow-sm">
-               <h4 className="text-xs font-black uppercase tracking-widest text-zinc-900 dark:text-zinc-100 mb-4">{trigger.scope} Monitoring</h4>
+               <h4 className="text-xs font-black uppercase tracking-widest text-zinc-900 dark:text-zinc-100 mb-4">{formatKey(trigger.scope)} Monitoring</h4>
                <div className="space-y-4">
                  <div>
                    <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Supported Date Fields</label>
                    <div className="flex flex-wrap gap-2">
                      {trigger.supportedDateFields.map(field => (
-                       <span key={field} className="text-[10px] font-mono uppercase bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-2 py-1 rounded-sm">{field}</span>
+                       <span key={field} className="text-[10px] font-bold uppercase bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-2 py-1 rounded-sm tracking-wide">{formatKey(field)}</span>
                      ))}
                    </div>
                  </div>
@@ -363,7 +374,7 @@ function TriggersTab({ config, setConfig, searchQuery }: { config: PipedriveCapa
                    <div>
                      <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Operators</label>
                      <div className="flex gap-2">
-                        {trigger.operators.map(op => <span key={op} className="text-[9px] font-mono uppercase text-[#004850]">{op.replace('_', ' ')}</span>)}
+                        {trigger.operators.map(op => <span key={op} className="text-[9px] font-bold uppercase text-[#004850] tracking-wide">{formatKey(op)}</span>)}
                      </div>
                    </div>
                    <div>
@@ -431,13 +442,13 @@ function ActionsTab({ config, setConfig, searchQuery }: { config: PipedriveCapab
         return (
           <section key={scope}>
             <div className="flex items-center justify-between mb-6">
-              <SectionHeader title={`${scope} Actions`} description={`Core native capabilities for ${scope} record management.`} />
+              <SectionHeader title={`${formatKey(scope)} Actions`} description={`Core native capabilities for ${scope} record management.`} />
               <button 
                 onClick={() => setAddingToScope(scope)}
                 className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 text-[9px] font-bold uppercase tracking-widest hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-2"
               >
                 <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
-                New {scope} Action
+                New {formatKey(scope)} Action
               </button>
             </div>
             
@@ -466,13 +477,13 @@ function ActionsTab({ config, setConfig, searchQuery }: { config: PipedriveCapab
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
-                  <h5 className="text-[11px] font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100 mb-1">{action.action.replace(/_/g, ' ')}</h5>
+                  <h5 className="text-[11px] font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100 mb-1">{formatKey(action.action)}</h5>
                   <p className="text-[10px] text-zinc-500 leading-relaxed mb-3 h-8 overflow-hidden">{action.description || 'Native system operation.'}</p>
                   
                   {action.parameters && (
                     <div className="flex flex-wrap gap-1">
                       {action.parameters.slice(0, 4).map(p => (
-                        <span key={p} className="text-[8px] font-mono uppercase bg-zinc-50 dark:bg-zinc-800 px-1 py-0.5 rounded-sm">{p}</span>
+                        <span key={p} className="text-[8px] font-bold uppercase bg-zinc-50 dark:bg-zinc-800 px-1 py-0.5 rounded-sm tracking-wide">{formatKey(p)}</span>
                       ))}
                       {action.parameters.length > 4 && <span className="text-[8px] font-mono uppercase text-zinc-400">+{action.parameters.length - 4} more</span>}
                     </div>
@@ -511,10 +522,10 @@ function IntegrationsTab({ config }: { config: PipedriveCapabilitiesRegistry }) 
                 <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Available Actions</label>
                 {integration.actions.map(action => (
                   <div key={action.id} className="p-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-sm">
-                    <div className="text-[10px] font-bold uppercase tracking-wider mb-2">{action.id.split('.').pop()?.replace(/_/g, ' ')}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider mb-2">{formatKey(action.id.split('.').pop() || '')}</div>
                     <div className="flex flex-wrap gap-1">
                       {action.subOptions?.map(opt => (
-                        <span key={opt} className="text-[8px] font-mono uppercase bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-1.5 py-0.5 rounded-sm">{opt}</span>
+                        <span key={opt} className="text-[8px] font-bold uppercase bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-1.5 py-0.5 rounded-sm tracking-wide">{formatKey(opt)}</span>
                       ))}
                     </div>
                   </div>
@@ -537,8 +548,8 @@ function ConditionsTab({ config }: { config: PipedriveCapabilitiesRegistry }) {
           {config.controlFlow.map(node => (
             <div key={node.id} className="p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm">
               <div className="flex items-center justify-between mb-2">
-                <h5 className="text-[11px] font-bold uppercase tracking-wider">{node.id.replace(/_/g, ' ')}</h5>
-                <span className="text-[8px] font-mono uppercase bg-[#E8DAEF] text-[#4A148C] px-1.5 py-0.5 rounded-sm">{node.type}</span>
+                <h5 className="text-[11px] font-bold uppercase tracking-wider">{formatKey(node.id)}</h5>
+                <span className="text-[8px] font-bold uppercase bg-[#E8DAEF] text-[#4A148C] px-1.5 py-0.5 rounded-sm tracking-widest">{formatKey(node.type)}</span>
               </div>
               <p className="text-[10px] text-zinc-500 leading-relaxed">{node.behavior}</p>
             </div>
