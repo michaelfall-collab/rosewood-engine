@@ -1,4 +1,36 @@
-// types/blueprint.ts
+export interface PipedriveCapabilitiesRegistry {
+  meta: {
+    version: string;
+    engine: string;
+    planRequirement: string;
+    governanceLimits: {
+      maxDelayDays: number;
+      maxMonitoredFieldsPerUpdateTrigger: number;
+      historicalLogRetentionDays: number;
+      delayedExecutionLogExtensionDays: string;
+    };
+  };
+  triggers: {
+    eventBased: {
+      scope: string;
+      events: string[];
+      subOptionsMonitoredFields: string[];
+    }[];
+    dateBased: {
+      scope: string;
+      supportedDateFields: string[];
+      operators: string[];
+      timeOffsets: { allowHours: boolean; allowDays: boolean };
+    }[];
+  };
+  conditionOperators: {
+    active: { id: string; label: string; description: string }[];
+    passive: { id: string; label: string }[];
+  };
+  controlFlow: { id: string; type: string; behavior: string }[];
+  nativeInternalActions: Record<string, { action: string; parameters?: string[]; description?: string; allowedOutputs?: string[] }[]>;
+  supportedIntegrations: Record<string, { id: string; actions: { id: string; subOptions?: string[] }[] }>;
+}
 
 export interface StageOperationalContext {
   targetDirective?: string; // Unified human objective + desired outcome
@@ -6,6 +38,7 @@ export interface StageOperationalContext {
   routingDropdownKey?: string;
   isRecurringLoop?: boolean;
   recurrenceDays?: number;
+}
 }
 
 export interface AutomationBlock {

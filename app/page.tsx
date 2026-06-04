@@ -7,6 +7,7 @@ import { generateRunbookPrompt } from "@/utils/promptCompiler";
 import { PIPEDRIVE_CAPABILITIES_REGISTRY } from "@/config/pipedriveCapabilities";
 import { exportRunbookToDocx } from '@/utils/docxExporter';
 import { serializeToRwe, deserializeFromRwe } from '@/utils/fileSerializer';
+import CapabilitiesEditor from './components/CapabilitiesEditor';
 
 /** 
  * PRODUCTION-GRADE TYPES
@@ -264,10 +265,7 @@ export default function ClientCockpitDashboard() {
   const [expandedLogs, setExpandedLogs] = useState<number[]>([]);
 
   const [abCompiledObjects, setAbCompiledObjects] = useState<any[]>([]);
-
-
-
-
+  const [isCapabilitiesEditorOpen, setIsCapabilitiesEditorOpen] = useState(false);
 
   const updateRunbookObjectField = (itemIndex: number, fieldKey: string, newValue: any) => {
     setImages(prev => prev.map(img => img.id === detailId ? {
@@ -737,6 +735,12 @@ export default function ClientCockpitDashboard() {
             className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-sm flex items-center gap-2 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all active:scale-95"
           >
             <i className="ti ti-file-import" /> IMPORT FILE
+          </button>
+          <button
+            onClick={() => setIsCapabilitiesEditorOpen(true)}
+            className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800/60 bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-sm flex items-center gap-2 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all active:scale-95"
+          >
+            <i className="ti ti-settings" /> MANAGE CAPABILITIES
           </button>
           <button
             onClick={() => setIsPasteModalOpen(true)}
@@ -1384,6 +1388,10 @@ export default function ClientCockpitDashboard() {
         </div>
       )}
 
+      {/* RENDER MODAL AT BOTTOM */}
+      {isCapabilitiesEditorOpen && (
+        <CapabilitiesEditor onClose={() => setIsCapabilitiesEditorOpen(false)} />
+      )}
 
       {/* 6. GLOBAL PROCESSING OVERLAY */}
       {isProcessing && (

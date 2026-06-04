@@ -17,19 +17,14 @@ export async function POST(request: Request) {
     if (!token) return NextResponse.json({ success: false, error: "Missing authentication string." }, { status: 400 });
 
     const fetchStream = async (url: string) => {
-      try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`Status ${res.status}`);
+        if (!res.ok) throw new Error(`API Request failed with status ${res.status}: ${url}`);
         const json = await res.json();
         // Strict validation of Pipedrive response structure
         if (json && json.success && Array.isArray(json.data)) {
           return json.data;
         }
-        return [];
-      } catch (e) {
-        console.error(`Ingest Error [${url}]:`, e);
-        return []; 
-      }
+        throw new Error(`Invalid API response structure: ${url}`);
     };
 
     const baseURL = "https://api.pipedrive.com/v1";
