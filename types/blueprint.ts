@@ -39,7 +39,6 @@ export interface StageOperationalContext {
   isRecurringLoop?: boolean;
   recurrenceDays?: number;
 }
-}
 
 export interface AutomationBlock {
   automationNumber: string;
