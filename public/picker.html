@@ -657,6 +657,15 @@ table.pp-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-m)}
 
 /* ── Toast ── */
 .toast{position:fixed;bottom:26px;left:50%;transform:translate(-50%,16px);background:var(--stump);color:var(--birch);font-size:var(--fs-m);font-weight:600;border-radius:var(--r-m);padding:10px 20px;z-index:200;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;box-shadow:var(--sh-3)}
+/* Hidden hatch to the internal deploy Studio — only on the blueprint, only via ⌘S / click */
+.studio-pill{position:fixed;bottom:22px;right:22px;z-index:120;display:none;align-items:center;gap:10px;background:var(--surface-card);border:1px solid var(--border-strong);border-radius:var(--r-pill);padding:7px 14px 7px 11px;box-shadow:var(--sh-2);cursor:pointer;font-family:var(--font-ui);font-size:var(--fs-s);font-weight:600;transition:transform .12s,box-shadow .12s,border-color .12s}
+.studio-pill.show{display:inline-flex;animation:rw-in .3s ease both}
+.studio-pill:hover{transform:translateY(-1px);box-shadow:var(--sh-3);border-color:var(--rw-red)}
+.studio-pill .keys{display:inline-flex;gap:3px}
+.studio-pill kbd{font-family:var(--font-ui);font-size:11px;font-weight:700;color:var(--ink-2);background:var(--surface-sunken);border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:5px;padding:2px 5px;line-height:1;min-width:17px;text-align:center}
+.studio-pill .lbl{color:var(--ink-3)}
+.studio-pill:hover .lbl{color:var(--ink)}
+@media print{.studio-pill{display:none!important}}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
 @media(max-width:760px){
@@ -700,6 +709,10 @@ table.pp-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-m)}
   <div class="drawer-foot" id="drawerFoot" style="display:none"></div>
 </aside>
 <div class="toast" id="toast"></div>
+<button class="studio-pill" id="studioPill" type="button" title="Open the deploy Studio to push this build to Pipedrive" aria-label="Open the deploy Studio">
+  <span class="keys"><kbd id="pillMod">⌘</kbd><kbd>S</kbd></span>
+  <span class="lbl">Push to Pipedrive</span>
+</button>
 
 <script>
 'use strict';
@@ -2262,6 +2275,7 @@ function render() {
   $('#page').classList.toggle('anim', LAST_SCREEN !== S.screen);
   LAST_SCREEN = S.screen;
   setChrome();
+  document.getElementById('studioPill')?.classList.toggle('show', S.screen === 'blueprint');
   document.querySelectorAll('.pp-card, .pp-edit-card, .dz-incl').forEach(card => {
     const name = card.querySelector('h2')?.textContent || '';
     if (openMiles.has(name)) card.querySelector('.pp-miles')?.setAttribute('open', '');
@@ -2508,6 +2522,12 @@ document.addEventListener('input', e => {
   }
 });
 document.addEventListener('keydown', e => {
+  // ⌘S / Ctrl+S on the blueprint → open the internal deploy Studio (hidden hatch)
+  if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S') && S.screen === 'blueprint') {
+    e.preventDefault();
+    goStudio();
+    return;
+  }
   if (e.key === 'Escape') {
     if (addPop) { addPop = null; render(); }
     else if (DRAWER) closeDrawer();
@@ -2532,6 +2552,15 @@ document.addEventListener('keydown', e => {
 $('#logoBtn').addEventListener('click', () => { S.activeClient = null; S.screen = 'home'; S.designCtx = null; addPop = null; HOME_Q = ''; closeDrawer(); render(); });
 $('#drawerClose').addEventListener('click', closeDrawer);
 $('#backdrop').addEventListener('click', closeDrawer);
+
+/* Hidden hatch → internal deploy Studio (same-origin route in the hosted app). */
+function goStudio() { window.location.href = '/studio'; }
+$('#studioPill')?.addEventListener('click', goStudio);
+(function () {
+  const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
+  const mod = document.getElementById('pillMod');
+  if (mod && !isMac) mod.textContent = 'Ctrl';
+})();
 
 /* ════════ INIT (with migration from the v1 plan-picker) ════════ */
 function migrate() {

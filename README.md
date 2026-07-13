@@ -8,7 +8,7 @@ deploy its structure straight into their account.
 | Path | Who | What |
 |------|-----|------|
 | `/` (`/picker.html`) | **Client-facing** | The plan picker — packages, quiz, builder, blueprint, report. Ported verbatim from the standalone tool; nothing internal leaks in. |
-| `/studio` | **Internal only** | The cockpit: the **Deploy Room** (push pipelines + stages to Pipedrive) and the **Automation Runbook** (coming next). Gated by a passphrase; never linked from the client side. |
+| `/studio` | **Internal only** | The cockpit: the **Deploy Room** (push pipelines + stages to Pipedrive) and the **Automation Runbook** (coming next). Not linked from the client side — reached from the picker's **Blueprint** screen via a hidden **⌘S** hatch (or by typing `/studio`). |
 
 ## How the pieces fit
 
@@ -26,20 +26,22 @@ deploy its structure straight into their account.
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000  → redirects to the picker
-                   # http://localhost:3000/studio → cockpit (Basic Auth)
+npm run dev        # http://localhost:3000        → redirects to the picker
+                   # finalize a build, then press ⌘S on the Blueprint → /studio
 ```
 
-## Config
+## Access model
 
-- `STUDIO_PASSWORD` — passphrase for `/studio` and `/api/deploy` (HTTP Basic Auth; any username).
-  Set it in Vercel → Settings → Environment Variables and in `.env.local` for dev. Falls back to
-  `rosewood` if unset — **set a real one before going live.**
+The cockpit isn't password-locked — it's hidden by obscurity: no link from the client-facing
+side, reached only via the **⌘S** hatch on the Blueprint screen (or by typing `/studio`). The
+`/api/deploy` endpoint does nothing without a valid Pipedrive API token supplied at request
+time, so there's no stored secret to protect. (If real auth is ever wanted, add it back as
+middleware — it was removed deliberately.)
 
 ## Deploy (Vercel)
 
-Import the repo in Vercel, set `STUDIO_PASSWORD`, deploy. The `/api/deploy` route runs as a
-serverless function.
+Import the repo in Vercel and deploy. The `/api/deploy` route runs as a serverless function.
+No environment variables required.
 
 ## Roadmap
 
