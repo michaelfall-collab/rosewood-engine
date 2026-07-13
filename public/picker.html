@@ -1,0 +1,2561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rosewood — CRM Build Studio</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Libre+Baskerville:ital@0;1&display=swap');
+:root {
+  --rw-red:#A92F3D; --rw-red-dark:#8E2733; --rw-red-soft:#F5E6E8;
+  --birch:#E4E0D5; --dogwood:#F1EEE3; --bark:#493B32; --wood-chips:#5D4D41;
+  --mushroom:#736253; --stump:#291F1D; --deerskin:#AE9661;
+  --surface-page:#F9F7F1; --surface-card:#FFFFFF; --surface-sunken:var(--dogwood);
+  --surface-tint:#FCFAF4; --hd-bg:rgba(249,247,241,.9);
+  --ink:var(--bark); --ink-2:var(--wood-chips); --ink-3:#8A7B6C;
+  --border:#E9E4D8; --border-strong:#D5CDBB;
+  --accent:var(--rw-red); --focus-ring:rgba(169,47,61,.4);
+  --good:#3E7A34; --good-bg:#EAF2E6;
+  --warn:#B47B0E; --warn-bg:#F9F0DC;
+  --gold-wash:#F7F2E2; --gold-ink:#6E5B2F; --gold-line:#D8C48C; --gold-dot:#BFA45E;
+  --font-ui:'Open Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-serif:'Libre Baskerville',Georgia,serif;
+  --fs-xs:11px; --fs-s:12px; --fs-m:13px; --fs-body:14px; --fs-l:16px;
+  --fs-xl:18px; --fs-2xl:22px; --fs-3xl:28px;
+  --r-s:7px; --r-m:10px; --r-l:14px; --r-pill:999px;
+  --sh-1:0 1px 2px rgba(41,31,29,.04),0 1px 3px rgba(41,31,29,.05);
+  --sh-2:0 4px 14px rgba(41,31,29,.08);
+  --sh-3:0 16px 40px rgba(41,31,29,.16);
+  color-scheme:light;
+}
+/* ── Dark theme — warm, brand-consistent. Cards sit lighter than the page for depth. ── */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --rw-red:#C6414F; --rw-red-dark:#A93340; --rw-red-soft:#3A2320;
+  --dogwood:#322822;
+  --surface-page:#1C1613; --surface-card:#282019; --surface-sunken:#221A15;
+  --surface-tint:#2E251D; --hd-bg:rgba(28,22,19,.9);
+  --ink:#ECE5D8; --ink-2:#C7BBA9; --ink-3:#9A8C79;
+  --border:#3A2F27; --border-strong:#4C3F34;
+  --accent:var(--rw-red); --focus-ring:rgba(198,65,79,.5);
+  --good:#82BB70; --good-bg:#26301F; --warn:#D9A441; --warn-bg:#33280F;
+  --gold-wash:#2F2717; --gold-ink:#E4C97F; --gold-line:#6E5A2E; --gold-dot:#C9A94E;
+  --sh-1:0 1px 2px rgba(0,0,0,.24),0 1px 3px rgba(0,0,0,.3);
+  --sh-2:0 4px 14px rgba(0,0,0,.34); --sh-3:0 16px 40px rgba(0,0,0,.5);
+}
+@media (prefers-color-scheme: dark){
+  :root[data-theme="auto"]{
+    color-scheme:dark;
+    --rw-red:#C6414F; --rw-red-dark:#A93340; --rw-red-soft:#3A2320;
+    --dogwood:#322822;
+    --surface-page:#1C1613; --surface-card:#282019; --surface-sunken:#221A15;
+    --surface-tint:#2E251D; --hd-bg:rgba(28,22,19,.9);
+    --ink:#ECE5D8; --ink-2:#C7BBA9; --ink-3:#9A8C79;
+    --border:#3A2F27; --border-strong:#4C3F34;
+    --accent:var(--rw-red); --focus-ring:rgba(198,65,79,.5);
+    --good:#82BB70; --good-bg:#26301F; --warn:#D9A441; --warn-bg:#33280F;
+    --gold-wash:#2F2717; --gold-ink:#E4C97F; --gold-line:#6E5A2E; --gold-dot:#C9A94E;
+    --sh-1:0 1px 2px rgba(0,0,0,.24),0 1px 3px rgba(0,0,0,.3);
+    --sh-2:0 4px 14px rgba(0,0,0,.34); --sh-3:0 16px 40px rgba(0,0,0,.5);
+  }
+}
+/* Client-facing surfaces always render light — a proposal should look like paper. */
+.rpt-screen, .bp-wrap{
+  --surface-page:#F9F7F1; --surface-card:#FFFFFF; --surface-sunken:#F1EEE3;
+  --surface-tint:#FCFAF4; --dogwood:#F1EEE3;
+  --ink:#493B32; --ink-2:#5D4D41; --ink-3:#8A7B6C;
+  --border:#E9E4D8; --border-strong:#D5CDBB;
+  --rw-red:#A92F3D; --rw-red-dark:#8E2733; --rw-red-soft:#F5E6E8; --accent:#A92F3D;
+  --good:#3E7A34; --good-bg:#EAF2E6; --warn:#B47B0E; --warn-bg:#F9F0DC;
+  --gold-wash:#F7F2E2; --gold-ink:#6E5B2F; --gold-line:#D8C48C; --gold-dot:#BFA45E;
+  --sh-1:0 1px 2px rgba(41,31,29,.04),0 1px 3px rgba(41,31,29,.05);
+  --sh-2:0 4px 14px rgba(41,31,29,.08); --sh-3:0 16px 40px rgba(41,31,29,.16);
+  background:var(--surface-page); color:var(--ink);
+}
+/* Theme toggle (header) */
+.theme-seg{display:inline-flex;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-pill);padding:2px;gap:1px}
+.theme-seg button{display:inline-flex;align-items:center;justify-content:center;width:28px;height:24px;border:0;background:none;color:var(--ink-3);border-radius:var(--r-pill);cursor:pointer;padding:0}
+.theme-seg button:hover{color:var(--ink)}
+.theme-seg button.is-active{background:var(--surface-sunken);color:var(--ink)}
+.theme-seg .ico{width:15px;height:15px}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:var(--font-ui);font-size:var(--fs-body);line-height:1.5;color:var(--ink);background:var(--surface-page);-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;font-weight:600;color:var(--ink)}
+button{font-family:var(--font-ui)}
+:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px;border-radius:2px}
+::selection{background:var(--rw-red-soft)}
+@keyframes rw-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+#page.anim>*{animation:rw-in .26s ease both}
+.ico{width:14px;height:14px;flex:0 0 auto}
+.dz-donut{flex:0 0 auto;transform:rotate(-90deg)}
+
+/* ── Header ── */
+.hd{background:var(--hd-bg);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:0 28px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:50;height:56px}
+.hd-logo{font-family:var(--font-serif);font-style:italic;font-size:22px;color:var(--ink);line-height:1;background:none;border:0;cursor:pointer;padding:4px 2px}
+.hd-logo .accent{color:var(--rw-red)}
+.hd-crumb{font-size:var(--fs-m);color:var(--ink-3);display:flex;align-items:center;gap:8px}
+.hd-crumb .sep{color:var(--border-strong)}
+.hd-crumb b{color:var(--ink-2);font-weight:600}
+.hd .spacer{margin-left:auto}
+.hd-client{display:inline-flex;align-items:center;gap:9px;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-pill);padding:5px 14px 5px 6px;cursor:pointer;font-size:var(--fs-m);font-weight:600;color:var(--ink);transition:border-color .15s,box-shadow .15s}
+.hd-client:hover{border-color:var(--border-strong);box-shadow:var(--sh-1)}
+.hd-client .av{width:24px;height:24px;border-radius:50%;background:var(--bark);color:var(--birch);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.hd-client .pl{font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+.hd-client .chev{color:var(--ink-3);font-size:10px}
+
+/* ── Buttons ── */
+.btn{font-size:var(--fs-m);font-weight:600;border-radius:var(--r-s);padding:8px 16px;border:1px solid transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;line-height:1.3;transition:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .06s;white-space:nowrap}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn-primary{background:var(--rw-red);color:#fff}
+.btn-primary:hover{background:var(--rw-red-dark)}
+.btn-secondary{background:var(--surface-card);color:var(--ink);border-color:var(--border-strong)}
+.btn-secondary:hover{border-color:var(--mushroom);box-shadow:var(--sh-1)}
+.btn-ghost{background:transparent;color:var(--ink-2);border:0}
+.btn-ghost:hover{background:var(--dogwood);color:var(--ink)}
+.btn-ghost.danger:hover{color:var(--rw-red);background:var(--rw-red-soft)}
+.btn-sm{padding:6px 12px;font-size:var(--fs-s)}
+.btn-lg{padding:12px 26px;font-size:var(--fs-l)}
+.btn:disabled{opacity:.45;cursor:default}
+.link{background:none;border:0;color:var(--ink-3);font-size:var(--fs-s);cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:2px}
+.link:hover{color:var(--ink)}
+
+/* ── Inputs ── */
+.in{font-family:var(--font-ui);font-size:var(--fs-body);color:var(--ink);background:var(--surface-card);border:1px solid var(--border-strong);border-radius:var(--r-s);padding:9px 12px;width:100%;transition:border-color .15s}
+.in:focus{border-color:var(--rw-red);outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+.in.money{width:110px;text-align:right}
+.in.error{border-color:var(--rw-red);animation:rw-shake .16s ease 2}
+.fld .err{font-size:var(--fs-xs);color:var(--rw-red);font-weight:600}
+@keyframes rw-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.fld{display:flex;flex-direction:column;gap:5px}
+.fld label{font-size:var(--fs-s);font-weight:600;color:var(--ink-2)}
+.sec-label{font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
+
+/* ── Chips ── */
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:var(--r-pill);padding:2px 10px;white-space:nowrap}
+.chip.neutral{background:var(--dogwood);color:var(--ink-2)}
+.chip.gold{background:var(--gold-wash);color:var(--gold-ink);border:1px solid var(--gold-line)}
+.chip.good{background:var(--good-bg);color:var(--good)}
+.chip.plain{background:transparent;border:1px solid var(--border);color:var(--ink-3)}
+
+/* ── Page shells ── */
+.page{max-width:1240px;margin:0 auto;padding:32px 28px 90px}
+.page.wide{max-width:1460px}
+.page.narrow{max-width:760px}
+.intro{margin-bottom:26px}
+.intro h1{font-size:var(--fs-3xl);font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.intro p{margin:5px 0 0;color:var(--ink-3);max-width:620px}
+.crumb-back{background:none;border:0;color:var(--ink-3);font-size:var(--fs-m);cursor:pointer;padding:4px 0;margin-bottom:14px;display:inline-flex;gap:6px;align-items:center}
+.crumb-back:hover{color:var(--ink)}
+
+/* ── Home ── */
+.home{max-width:840px;margin:0 auto;padding:9vh 24px 80px}
+.home-hero{text-align:center;margin-bottom:56px}
+.home-hero .mark{font-family:var(--font-serif);font-style:italic;font-size:40px;color:var(--ink)}
+.home-hero .mark .accent{color:var(--rw-red)}
+.home-hero .sub{font-size:var(--fs-l);color:var(--ink-3);margin-top:6px}
+.home-hero .cta{margin-top:30px}
+.home-list-head{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}
+.home-list-head .n{font-size:var(--fs-s);color:var(--ink-3)}
+.cl-table{width:100%;border-collapse:collapse;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-m);overflow:hidden;box-shadow:var(--sh-1)}
+.cl-table th{text-align:left;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);padding:11px 16px;border-bottom:1px solid var(--border);background:var(--surface-tint)}
+.cl-table th.num{text-align:right}
+.cl-table td{padding:13px 16px;border-bottom:1px solid var(--border);vertical-align:middle;font-size:var(--fs-m)}
+.cl-table tr:last-child td{border-bottom:0}
+.cl-table tbody tr{cursor:pointer;transition:background .12s}
+.cl-table tbody tr:hover{background:var(--surface-tint)}
+.cl-table .nm{font-weight:700;font-size:var(--fs-body);display:block;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl-table .co{color:var(--ink-3);font-size:var(--fs-s)}
+.cl-table td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cl-table td.num .dim{color:var(--ink-3)}
+.cl-table .row-del{background:none;border:0;color:transparent;font-size:15px;cursor:pointer;padding:2px 6px;border-radius:4px}
+.cl-table tbody tr:hover .row-del{color:var(--ink-3)}
+.cl-table .row-del:hover{color:var(--rw-red);background:var(--rw-red-soft)}
+.cl-table .go{color:var(--border-strong);font-size:14px}
+.cl-table tbody tr:hover .go{color:var(--ink-3)}
+.home-empty{text-align:center;color:var(--ink-3);padding:46px 20px;background:var(--surface-card);border:1px dashed var(--border-strong);border-radius:var(--r-m);font-size:var(--fs-m)}
+.home-foot{text-align:center;margin-top:40px}
+.home-open{max-width:560px;margin:0 auto}
+.home-search{display:flex;align-items:center;gap:10px;background:var(--surface-card);border:1px solid var(--border-strong);border-radius:var(--r-pill);padding:10px 14px;box-shadow:var(--sh-1);transition:border-color .15s,box-shadow .15s}
+.home-search:focus-within{border-color:var(--rw-red);box-shadow:0 0 0 3px var(--focus-ring)}
+.home-search .ico{width:17px;height:17px;color:var(--ink-3);flex:0 0 auto}
+.home-search input{flex:1;border:0;background:none;outline:none;font-family:var(--font-ui);font-size:var(--fs-l);color:var(--ink);min-width:0}
+.home-search input::placeholder{color:var(--ink-3)}
+.home-clear{background:none;border:0;color:var(--ink-3);font-size:20px;cursor:pointer;line-height:1;padding:0 4px;flex:0 0 auto;border-radius:50%}
+.home-clear:hover{color:var(--ink)}
+.home-results{margin-top:16px;min-height:44px}
+.home-hint{text-align:center;color:var(--ink-3);font-size:var(--fs-m);padding:18px 10px}
+.home-hint .dim{color:var(--border-strong)}
+table.cl-table.rounded{border-radius:var(--r-m)}
+
+/* ── Intake / quiz ── */
+.qz-progress{position:fixed;top:56px;left:0;right:0;height:3px;background:var(--border);z-index:49}
+.qz-progress .fill{height:100%;background:var(--rw-red);transition:width .3s ease}
+.qz{max-width:620px;margin:0 auto;padding:11vh 24px 80px}
+.qz .eyebrow{font-size:var(--fs-s);font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-3);margin-bottom:10px}
+.qz h2{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.18}
+.qz .why{color:var(--ink-3);margin:8px 0 0;font-size:var(--fs-body)}
+.qz-opts{display:flex;flex-direction:column;gap:10px;margin-top:28px}
+.qz-opt{text-align:left;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-m);padding:15px 18px;cursor:pointer;font-size:var(--fs-body);color:var(--ink);display:flex;align-items:center;gap:12px;transition:border-color .15s,box-shadow .15s,transform .05s}
+.qz-opt:hover{border-color:var(--border-strong);box-shadow:var(--sh-1)}
+.qz-opt:active{transform:scale(.995)}
+.qz-opt.sel{border-color:var(--rw-red);background:var(--surface-tint);box-shadow:0 0 0 1px var(--rw-red)}
+.qz-opt .k{width:24px;height:24px;border-radius:6px;border:1px solid var(--border-strong);color:var(--ink-3);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+.qz-opt.sel .k{background:var(--rw-red);border-color:var(--rw-red);color:#fff}
+.qz-opt .d{display:block;font-size:var(--fs-s);color:var(--ink-3);font-weight:400;margin-top:1px}
+.qz-opt b{font-weight:600}
+.qz-fields{display:flex;flex-direction:column;gap:16px;margin-top:28px}
+.qz-nav{display:flex;align-items:center;gap:12px;margin-top:34px}
+.qz-nav .spacer{margin-left:auto}
+.qz-hint{font-size:var(--fs-s);color:var(--ink-3);margin-top:14px}
+.qz-result{text-align:center;padding-top:4vh}
+.qz-result .pkg-name{font-family:var(--font-serif);font-style:italic;font-size:44px;margin:18px 0 6px}
+.qz-result .because{max-width:440px;margin:14px auto 0;color:var(--ink-2);font-size:var(--fs-body)}
+.qz-result .acts{margin-top:32px;display:flex;gap:12px;justify-content:center}
+
+/* ── Plans ── */
+.pp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:start}
+@media(max-width:980px){.pp-grid{grid-template-columns:1fr}}
+.pp-card{background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-l);box-shadow:var(--sh-1);position:relative;display:flex;flex-direction:column;transition:box-shadow .2s,border-color .2s}
+.pp-card:hover{box-shadow:var(--sh-2)}
+.pp-card.is-selected{border-color:var(--rw-red);box-shadow:0 0 0 1px var(--rw-red),var(--sh-2)}
+.pp-flag{position:absolute;top:-11px;left:20px;background:var(--bark);color:var(--birch);font-size:var(--fs-xs);font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:var(--r-pill);padding:3px 12px}
+.pp-flag.rec{background:var(--rw-red);color:#fff}
+.pp-card-body{padding:22px 22px 18px;display:flex;flex-direction:column;gap:15px;flex:1}
+.pp-card h2{font-size:var(--fs-2xl);font-weight:700;margin-top:4px}
+.pp-tag{font-size:var(--fs-m);color:var(--ink-3);margin-top:2px}
+.pp-price .from{font-size:var(--fs-s);color:var(--ink-3);font-weight:600}
+.pp-price .amt{font-size:32px;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums}
+.pp-price .per{font-size:var(--fs-m);color:var(--ink-2);margin-top:2px}
+.pp-price .weeks{font-size:var(--fs-s);color:var(--ink-3);margin-top:2px}
+.pp-bullets{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.pp-bullets li{font-size:var(--fs-m);display:flex;gap:9px;line-height:1.45}
+.pp-bullets li::before{content:"✓";color:var(--good);font-weight:700;flex:0 0 auto}
+.pp-bullets li b{font-weight:600}
+.pp-total{margin-top:auto;border-top:1px solid var(--border);padding:14px 22px;display:flex;align-items:center;gap:12px}
+.pp-total .setup{font-size:var(--fs-l);font-weight:700;font-variant-numeric:tabular-nums}
+.pp-total .mo{font-size:var(--fs-s);color:var(--ink-2)}
+.pp-total .addon-note{font-size:var(--fs-xs);color:var(--ink-3)}
+.pp-select{margin-left:auto;background:var(--rw-red);color:#fff;border:0;border-radius:var(--r-s);font-size:var(--fs-m);font-weight:600;padding:8px 16px;cursor:pointer;white-space:nowrap;transition:background .15s,transform .06s}
+.pp-select:active{transform:translateY(1px)}
+.pp-select:hover{background:var(--rw-red-dark)}
+.pp-select.is-on{background:var(--bark)}
+.pp-rules{margin-top:30px}
+.pp-rules summary{cursor:pointer;font-size:var(--fs-s);font-weight:600;color:var(--ink-3);list-style:none;display:inline-flex;gap:6px}
+.pp-rules summary::-webkit-details-marker{display:none}
+.pp-rules summary:hover{color:var(--ink)}
+.pp-rules .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:12px}
+.pp-rule{background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-m);padding:12px 14px}
+.pp-rule .t{font-weight:700;font-size:var(--fs-s);margin-bottom:2px}
+.pp-rule .d{font-size:var(--fs-s);color:var(--ink-3);line-height:1.45}
+.pp-more{margin-top:22px;text-align:center}
+
+/* ── Add-ons panel / milestones / switches / qty (shared) ── */
+.pp-autos{border:1px solid var(--border);border-radius:var(--r-m);padding:12px 14px;background:var(--surface-tint)}
+.pp-autos .head{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
+.pp-autos .head .n{font-weight:700;font-size:var(--fs-m)}
+.pp-autos .head .inc{font-size:var(--fs-s);color:var(--ink-3);margin-left:auto}
+.pp-token-row{display:flex;align-items:center;gap:12px;padding:7px 0}
+.pp-token-row + .pp-token-row{border-top:1px dashed var(--border)}
+.pp-token-row .lblwrap{flex:1;min-width:0}
+.pp-token-row .lbl{font-size:var(--fs-s);color:var(--ink-2);font-weight:600;display:block}
+.pp-token-row .note{font-size:var(--fs-xs);color:var(--ink-3);display:block}
+.pp-token-row .cost{font-size:var(--fs-s);font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap;flex:0 0 74px;text-align:right}
+.pp-token-row .cost.zero{color:var(--ink-3);font-weight:400}
+.pp-autos .foot{margin-top:6px;padding-top:8px;border-top:1px solid var(--border);font-size:var(--fs-s);color:var(--ink-3);display:flex;justify-content:flex-end}
+.pp-autos .foot b{color:var(--ink);font-variant-numeric:tabular-nums;margin-left:5px}
+.pp-qty{display:inline-flex;align-items:center;border:1px solid var(--border-strong);border-radius:var(--r-s);background:var(--surface-card);overflow:hidden;flex:0 0 auto}
+.pp-qty button{width:26px;height:26px;border:0;background:var(--surface-card);color:var(--ink-2);font-size:15px;font-weight:700;cursor:pointer;line-height:1;padding:0}
+.pp-qty button:hover{background:var(--dogwood);color:var(--ink)}
+.pp-qty input{width:44px;height:26px;border:0;border-left:1px solid var(--border);border-right:1px solid var(--border);text-align:center;font-family:var(--font-ui);font-size:var(--fs-m);font-weight:600;color:var(--ink);-moz-appearance:textfield}
+.pp-qty input::-webkit-outer-spin-button,.pp-qty input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.pp-qty input:focus{outline:none;background:var(--rw-red-soft)}
+.pp-switch{position:relative;width:32px;height:18px;flex:0 0 auto;cursor:pointer}
+.pp-switch input{opacity:0;width:0;height:0;position:absolute}
+.pp-switch .tr{position:absolute;inset:0;background:var(--border-strong);border-radius:var(--r-pill);transition:background .15s}
+.pp-switch .tr::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.pp-switch input:checked + .tr{background:var(--good)}
+.pp-switch input:checked + .tr::after{left:16px}
+.pp-miles{border:1px solid var(--border);border-radius:var(--r-m);overflow:hidden}
+.pp-miles summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:var(--fs-m);background:var(--surface-sunken);list-style:none;display:flex;align-items:center;gap:8px}
+.pp-miles summary::-webkit-details-marker{display:none}
+.pp-miles summary .chev{margin-left:auto;transition:transform .15s;color:var(--ink-3);font-size:11px}
+.pp-miles[open] summary .chev{transform:rotate(180deg)}
+.pp-mile{padding:10px 14px;border-top:1px solid var(--border)}
+.pp-mile .m-name{font-weight:700;font-size:var(--fs-s);color:var(--ink-2);display:flex;justify-content:space-between;gap:8px}
+.pp-mile .m-step{color:var(--ink-3);font-weight:600}
+.pp-mile ul{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:5px}
+.pp-mile li{font-size:var(--fs-m);color:var(--ink-2);display:flex;align-items:center;gap:8px}
+.pp-mile li .tick{color:var(--border-strong);font-size:11px}
+.pp-opt{display:flex;align-items:center;gap:8px;width:100%}
+.pp-opt .price{margin-left:auto;font-size:var(--fs-s);font-weight:600;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pp-opt.on .price{color:var(--good)}
+
+/* ── Builder ── */
+.dz-bar{position:sticky;top:56px;z-index:40;background:var(--hd-bg);backdrop-filter:blur(8px);display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--border);margin-bottom:22px}
+.dz-stat{display:inline-flex;align-items:center;gap:7px;font-size:var(--fs-m);color:var(--ink-2)}
+.dz-stat b{font-variant-numeric:tabular-nums;color:var(--ink)}
+.dz-stat .tok-ico{width:13px;height:13px;border-radius:50%;background:var(--gold-dot);border:1.5px solid var(--gold-ink);flex:0 0 auto}
+.dz-stat.over{color:var(--warn);font-weight:600}
+.dz-stat.over b{color:var(--warn)}
+.dz-bar .money{font-size:var(--fs-m);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dz-bar .money .mo{color:var(--ink-3);font-weight:400}
+.dz-bar .right{margin-left:auto;display:inline-flex;gap:9px;align-items:center}
+.dz-extra{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-s);color:var(--ink-2);padding:3px 4px 3px 10px;border:1px solid var(--border);border-radius:var(--r-pill);background:var(--surface-card)}
+.dz-extra.is-manual{border-color:var(--gold-line);background:var(--gold-wash)}
+.dz-extra .lbl{font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;font-size:var(--fs-xs)}
+.dz-extra .pp-qty{border-color:var(--border-strong)}
+.mini-reset{background:none;border:0;color:var(--ink-3);cursor:pointer;font-size:var(--fs-s);padding:0 4px;line-height:1}
+.mini-reset:hover{color:var(--rw-red)}
+/* Leads Inbox — special single-list element */
+.dz-lane.dz-inbox{border-style:dashed;border-color:var(--border-strong);background:var(--surface-tint)}
+.dz-inbox-badge{font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);background:var(--surface-card);border:1px solid var(--border-strong);border-radius:var(--r-pill);padding:2px 9px;flex:0 0 auto}
+.dz-addon-badge{font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gold-ink);background:var(--gold-wash);border:1px solid var(--gold-line);border-radius:var(--r-pill);padding:2px 9px;flex:0 0 auto;white-space:nowrap}
+.dz-inbox-note{font-size:var(--fs-s);color:var(--ink-3);font-style:italic;margin:2px 2px 10px}
+.dz-inbox-chips{display:flex;flex-wrap:wrap;gap:7px;align-items:flex-start}
+.dz-inbox-chips .dz-chip{width:auto;flex:0 1 auto}
+.dz-inbox-chips .dz-add-auto{width:auto}
+.dz-lane{background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-l);box-shadow:var(--sh-1);padding:14px 18px 16px}
+.dz-lane-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.dz-lane-head input.pl-name{font-family:var(--font-ui);font-size:var(--fs-l);font-weight:700;color:var(--ink);border:1px solid transparent;background:transparent;border-radius:var(--r-s);padding:2px 6px;min-width:120px;width:260px}
+.dz-lane-head input.pl-name:hover{border-color:var(--border)}
+.dz-lane-head input.pl-name:focus{border-color:var(--rw-red);outline:none;background:var(--surface-card)}
+.dz-lane-head .meta{font-size:var(--fs-s);color:var(--ink-3);white-space:nowrap}
+.dz-lane-head .pl-del{margin-left:auto;background:none;border:0;color:var(--border-strong);font-size:16px;cursor:pointer;padding:2px 6px;visibility:hidden}
+.dz-lane:hover .pl-del{visibility:visible}
+.dz-lane-head .pl-del:hover{color:var(--rw-red)}
+.dz-stages{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:2px 0 8px}
+.dz-stage{flex:1 0 195px;min-width:195px;max-width:280px;background:var(--surface-tint);border:1px solid var(--border-strong);border-radius:var(--r-m);padding:10px 12px;display:flex;flex-direction:column;gap:7px;position:relative}
+.dz-stage-head{display:flex;align-items:center;gap:4px}
+.dz-stage-head input.st-name{font-family:var(--font-ui);font-size:var(--fs-m);font-weight:700;color:var(--ink);border:1px solid transparent;background:transparent;border-radius:4px;padding:2px 4px;width:100%;min-width:0}
+.dz-stage-head input.st-name:hover{border-color:var(--border)}
+.dz-stage-head input.st-name:focus{border-color:var(--rw-red);outline:none;background:var(--surface-card)}
+.dz-stage-head .st-del{background:none;border:0;color:var(--border-strong);font-size:14px;cursor:pointer;padding:0 3px;visibility:hidden;flex:0 0 auto}
+.dz-stage:hover .st-del{visibility:visible}
+.dz-stage-head .st-del:hover{color:var(--rw-red)}
+textarea.st-note{font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--ink-3);background:transparent;border:1px solid transparent;border-radius:4px;padding:2px 4px;width:100%;resize:none;line-height:1.4;min-height:20px;overflow:hidden}
+textarea.st-note:hover{border-color:var(--border)}
+textarea.st-note:focus{border-color:var(--rw-red);outline:none;background:var(--surface-card);color:var(--ink-2)}
+.dz-autos{display:flex;flex-direction:column;gap:5px;flex:1}
+.dz-chip{display:flex;align-items:center;gap:7px;border-radius:var(--r-s);padding:5px 8px;font-size:var(--fs-s);font-weight:600;cursor:pointer;border:1px solid var(--gold-line);background:var(--gold-wash);color:var(--gold-ink);text-align:left;width:100%;transition:border-color .12s}
+.dz-chip .tok{width:12px;height:12px;border-radius:50%;background:var(--gold-dot);border:1.5px solid var(--gold-ink);flex:0 0 auto}
+.dz-chip .nm{flex:1;min-width:0;line-height:1.3}
+.dz-chip .x{color:var(--ink-3);font-size:13px;visibility:hidden;flex:0 0 auto;padding:0 1px}
+.dz-chip:hover .x{visibility:visible}
+.dz-chip .x:hover{color:var(--rw-red)}
+.dz-chip.off{background:var(--surface-card);border:1px dashed var(--border-strong);color:var(--ink-3);font-weight:400}
+.dz-chip.off .tok{background:transparent;border:1.5px dashed var(--border-strong)}
+.dz-chip:hover{border-color:var(--deerskin)}
+.dz-add-auto{background:none;border:1px dashed var(--border-strong);color:var(--ink-3);font-size:var(--fs-xs);font-weight:600;border-radius:var(--r-s);padding:4px 8px;cursor:pointer;width:100%;text-align:left}
+.dz-add-auto:hover{color:var(--ink);border-color:var(--deerskin)}
+.dz-arrow{align-self:center;color:var(--border-strong);font-size:20px;padding:0 5px;flex:0 0 auto;user-select:none}
+.dz-stage-add{flex:0 0 44px;min-width:44px;border:1px dashed var(--border-strong);border-radius:var(--r-m);background:none;color:var(--ink-3);font-size:18px;cursor:pointer;align-self:stretch}
+.dz-stage-add:hover{color:var(--ink);border-color:var(--deerskin)}
+.dz-inflow{display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 0;color:var(--ink-3);font-size:var(--fs-s)}
+.dz-inflow .ar{font-size:16px;color:var(--border-strong)}
+.dz-inflow input{font-family:var(--font-ui);font-size:var(--fs-s);font-style:italic;color:var(--ink-3);background:transparent;border:1px solid transparent;border-radius:4px;padding:2px 6px;width:min(480px,80%);text-align:center}
+.dz-inflow input:hover{border-color:var(--border)}
+.dz-inflow input:focus{border-color:var(--rw-red);outline:none;background:var(--surface-card);font-style:normal;color:var(--ink)}
+.dz-inflow .txt{font-style:italic}
+.dz-pl-add{display:block;margin:16px auto 0;background:none;border:1px dashed var(--border-strong);color:var(--ink-3);font-size:var(--fs-s);font-weight:600;border-radius:var(--r-s);padding:7px 16px;cursor:pointer}
+.dz-pl-add:hover{color:var(--ink);border-color:var(--deerskin)}
+.dz-incl{background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-m);box-shadow:var(--sh-2);padding:16px 18px;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:800px){.dz-incl{grid-template-columns:1fr}}
+
+.hint-callout{display:flex;gap:12px;align-items:flex-start;background:var(--gold-wash);border:1px solid var(--gold-line);border-radius:var(--r-m);padding:12px 16px;font-size:var(--fs-s);color:var(--gold-ink);margin-bottom:16px;line-height:1.5}
+.hint-callout b{color:inherit}
+.hint-callout .ok{margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--gold-line);border-radius:var(--r-s);color:var(--gold-ink);font-size:var(--fs-xs);font-weight:700;padding:4px 12px;cursor:pointer}
+.hint-callout .ok:hover{background:var(--surface-card)}
+
+/* ── Automation picker modal ── */
+.dz-scrim{position:fixed;inset:0;z-index:95;background:rgba(41,31,29,.28)}
+.dz-modal{position:fixed;z-index:96;top:12vh;left:50%;transform:translateX(-50%);width:390px;max-width:92vw;background:var(--surface-card);border-radius:var(--r-m);box-shadow:var(--sh-3);max-height:68vh;display:flex;flex-direction:column;overflow:hidden}
+.dz-modal .hd2{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.dz-modal .hd2 .t{font-weight:700;font-size:var(--fs-body)}
+.dz-modal .hd2 .close{margin-left:auto;background:none;border:0;color:var(--ink-3);font-size:18px;cursor:pointer;padding:0 4px}
+.dz-modal .hd2 .close:hover{color:var(--ink)}
+.dz-modal .bd{overflow:auto;padding:6px 0 10px}
+.dz-modal .grp{font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);padding:10px 16px 4px}
+.dz-modal .it{display:flex;align-items:flex-start;gap:9px;width:100%;text-align:left;background:none;border:0;padding:8px 16px;cursor:pointer}
+.dz-modal .it:hover{background:var(--dogwood)}
+.dz-modal .it .tok{width:12px;height:12px;border-radius:50%;background:var(--gold-dot);border:1.5px solid var(--gold-ink);flex:0 0 auto;margin-top:3px}
+.dz-modal .it .nm{font-size:var(--fs-m);font-weight:600;color:var(--ink);display:block}
+.dz-modal .it .d{font-size:var(--fs-xs);color:var(--ink-3);display:block;line-height:1.4}
+.dz-modal .it.added{opacity:.45;cursor:default}
+.dz-modal .it.added:hover{background:none}
+.dz-modal .it .got{margin-left:auto;font-size:var(--fs-xs);font-weight:700;color:var(--good);flex:0 0 auto;margin-top:3px}
+
+/* ── Blueprint ── */
+.bp-wrap{min-height:calc(100vh - 56px);background-color:var(--surface-page);background-image:radial-gradient(var(--border-strong) 1px,transparent 1px);background-size:26px 26px;padding:44px 34px 90px}
+.bp-actions{position:fixed;top:70px;right:24px;z-index:45;display:flex;gap:9px}
+.bp-head{text-align:center;margin:0 auto 44px;max-width:760px}
+.bp-head .eyebrow{font-size:var(--fs-s);font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3)}
+.bp-head h1{font-family:var(--font-serif);font-size:44px;font-weight:400;letter-spacing:-.01em;margin:8px 0 4px}
+.bp-head .sys{font-size:var(--fs-l);color:var(--ink-2)}
+.bp-head .facts{display:flex;justify-content:center;gap:0;margin-top:26px;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-m);box-shadow:var(--sh-1);overflow:hidden;flex-wrap:wrap}
+.bp-fact{padding:14px 26px;min-width:140px;border-right:1px solid var(--border);flex:1}
+.bp-fact:last-child{border-right:0}
+.bp-fact label{display:block;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3)}
+.bp-fact b{font-size:var(--fs-xl);font-weight:700;font-variant-numeric:tabular-nums}
+.bp-fact .sub{font-size:var(--fs-xs);color:var(--ink-3)}
+.bp-lanes{max-width:1380px;margin:0 auto;display:flex;flex-direction:column}
+.bp-inflow{display:flex;align-items:center;justify-content:center;gap:9px;padding:20px 0;color:var(--ink-3);font-size:var(--fs-s);font-style:italic}
+.bp-inflow .ln{width:1px;height:22px;background:var(--border-strong)}
+.bp-lane-title{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.bp-lane-title .t{font-size:var(--fs-s);font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-2);white-space:nowrap}
+.bp-lane-title .rule{flex:1;height:1px;background:var(--border-strong)}
+.bp-lane-title .ct{font-size:var(--fs-xs);color:var(--ink-3);white-space:nowrap}
+.bp-stages{display:flex;align-items:stretch;overflow-x:auto;padding:4px 2px 10px}
+.bp-stage{flex:1 0 205px;min-width:205px;max-width:290px;background:var(--surface-card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh-2);padding:15px 16px;display:flex;flex-direction:column;gap:9px}
+.bp-stage .idx{font-size:var(--fs-xs);font-weight:700;color:var(--ink-3);letter-spacing:.05em}
+.bp-stage .nm{font-size:var(--fs-body);font-weight:700;line-height:1.3}
+.bp-stage .note{font-size:var(--fs-xs);color:var(--ink-3);line-height:1.45;font-style:italic}
+.bp-autos{display:flex;flex-direction:column;gap:5px;margin-top:2px;padding-top:9px;border-top:1px dashed var(--border)}
+.bp-auto{display:flex;align-items:center;gap:7px;font-size:var(--fs-s);color:var(--gold-ink);font-weight:600;line-height:1.3}
+.bp-auto .tok{width:11px;height:11px;border-radius:50%;background:var(--gold-dot);border:1.5px solid var(--gold-ink);flex:0 0 auto}
+.bp-conn{display:flex;align-items:center;flex:0 0 34px;position:relative}
+.bp-conn::before{content:"";height:1.5px;background:var(--border-strong);flex:1}
+.bp-conn::after{content:"";width:7px;height:7px;border-top:1.5px solid var(--border-strong);border-right:1.5px solid var(--border-strong);transform:rotate(45deg);margin-left:-7px}
+.bp-legend{display:flex;justify-content:center;gap:26px;margin-top:40px;font-size:var(--fs-s);color:var(--ink-3);flex-wrap:wrap}
+.bp-legend span{display:inline-flex;align-items:center;gap:7px}
+.bp-legend .tok{width:11px;height:11px;border-radius:50%;background:var(--gold-dot);border:1.5px solid var(--gold-ink)}
+.bp-legend .node{width:14px;height:11px;border-radius:3px;background:var(--surface-card);border:1px solid var(--border-strong)}
+/* ── Report (print-ready document) ── */
+.rpt-screen{background:var(--surface-page);min-height:calc(100vh - 56px);padding:28px 20px 90px}
+.rpt-toolbar{max-width:840px;margin:0 auto 22px;display:flex;gap:10px;align-items:center}
+.rpt-toolbar .spacer{margin-left:auto}
+.rpt-toolbar .note{font-size:var(--fs-s);color:var(--ink-3)}
+.rpt{max-width:840px;margin:0 auto;background:var(--surface-card);border:1px solid var(--border);box-shadow:var(--sh-2);border-radius:var(--r-m);overflow:hidden;color:var(--ink)}
+.rpt-sec{padding:34px 54px}
+.rpt-sec + .rpt-sec{border-top:1px solid var(--border)}
+.rpt-h{display:flex;align-items:baseline;gap:12px;margin-bottom:18px}
+.rpt-h .no{font-size:var(--fs-s);font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.rpt-h .tt{font-size:var(--fs-xl);font-weight:700;letter-spacing:-.01em}
+.rpt-h .rule{flex:1;height:1px;background:var(--border)}
+.rpt-h .aside{font-size:var(--fs-s);color:var(--ink-3)}
+
+/* cover */
+.rpt-cover{padding:52px 54px 34px;background:var(--stump);color:var(--birch);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rpt-cover .mark{font-family:var(--font-serif);font-style:italic;font-size:24px;color:var(--birch)}
+.rpt-cover .mark .accent{color:var(--rw-red)}
+.rpt-cover .kicker{font-size:var(--fs-s);font-weight:700;text-transform:uppercase;letter-spacing:.16em;color:var(--deerskin);margin:34px 0 10px}
+.rpt-cover h1{font-family:var(--font-serif);font-size:42px;font-weight:400;color:#fff;line-height:1.05;letter-spacing:-.01em}
+.rpt-cover .sys{font-size:var(--fs-l);color:var(--birch);margin-top:8px}
+.rpt-cover .meta{display:flex;flex-wrap:wrap;gap:26px 44px;margin-top:34px;padding-top:24px;border-top:1px solid rgba(228,224,213,.22)}
+.rpt-cover .meta .m{min-width:120px}
+.rpt-cover .meta label{display:block;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--deerskin);margin-bottom:3px}
+.rpt-cover .meta .v{font-size:var(--fs-body);color:#fff}
+.rpt-cover .meta .v.dim{color:var(--birch)}
+
+/* facts */
+.rpt-facts{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border);border-radius:var(--r-m);overflow:hidden}
+.rpt-fact{padding:16px 20px;border-right:1px solid var(--border)}
+.rpt-fact:last-child{border-right:0}
+.rpt-fact label{display:block;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin-bottom:4px}
+.rpt-fact b{font-size:var(--fs-2xl);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.rpt-fact .sub{font-size:var(--fs-xs);color:var(--ink-3);margin-top:2px}
+@media(max-width:640px){.rpt-facts{grid-template-columns:repeat(2,1fr)}.rpt-fact:nth-child(2){border-right:0}}
+
+/* tables */
+.rpt-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-m)}
+.rpt-tbl th{text-align:left;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);padding:6px 10px;border-bottom:1.5px solid var(--border-strong)}
+.rpt-tbl th.num{text-align:right}
+.rpt-tbl td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.rpt-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rpt-tbl .mrow td{background:var(--surface-tint);-webkit-print-color-adjust:exact;print-color-adjust:exact;font-weight:700;color:var(--ink);padding-top:11px;border-bottom:1px solid var(--border-strong)}
+.rpt-tbl tr.off td{color:var(--ink-3)}
+.rpt-tbl .tag{display:inline-block;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);border:1px solid var(--border-strong);border-radius:var(--r-pill);padding:0 7px;margin-left:6px;white-space:nowrap}
+.rpt-tbl .tag.off{color:var(--ink-3);border-style:dashed}
+.rpt-tbl tfoot td{font-weight:700;font-size:var(--fs-body);padding-top:11px;border-top:1.5px solid var(--border-strong);border-bottom:0}
+.rpt-scope td{border-bottom:0;padding:4px 10px}
+.rpt-scope .mrow td{padding-top:13px}
+.rpt-scope tbody tr:not(.mrow) td{padding-left:22px;color:var(--ink-2)}
+.rpt-scope tfoot td{border-top:2px solid var(--stump);padding-top:13px;font-size:var(--fs-l);font-weight:700}
+.rpt-scope tfoot td.num{text-align:right;font-variant-numeric:tabular-nums}
+.rpt-total{display:flex;justify-content:flex-end;gap:34px;margin-top:20px;padding-top:16px;border-top:2px solid var(--stump)}
+.rpt-total .lbl{font-size:var(--fs-m);color:var(--ink-2);align-self:center}
+.rpt-total .amt{font-size:var(--fs-2xl);font-weight:700;font-variant-numeric:tabular-nums}
+.rpt-note{font-size:var(--fs-s);color:var(--ink-3);margin-top:12px;line-height:1.5}
+
+/* system architecture (vertical flow — never clipped) */
+.rpt-pipe + .rpt-pipe{margin-top:28px}
+.rpt-pipe-h{display:flex;align-items:baseline;gap:10px}
+.rpt-pipe-nm{font-size:var(--fs-l);font-weight:700}
+.rpt-pipe-meta{font-size:var(--fs-xs);color:var(--ink-3);margin-left:auto;white-space:nowrap}
+.rpt-pipe-inflow{font-size:var(--fs-s);color:var(--ink-3);font-style:italic;margin:3px 0 12px;padding-left:12px;border-left:2px solid var(--gold-line)}
+.rpt-flow{display:flex;flex-direction:column;gap:0}
+.rpt-stage{border:1px solid var(--border);border-radius:var(--r-m);padding:12px 15px;background:var(--surface-card)}
+.rpt-stage-h{display:flex;align-items:baseline;gap:9px}
+.rpt-stage-idx{font-size:var(--fs-xs);font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+.rpt-stage-nm{font-size:var(--fs-body);font-weight:700}
+.rpt-stage-note{font-size:var(--fs-s);color:var(--ink-2);font-style:italic;margin-top:4px}
+.rpt-stage-autos{list-style:none;margin:9px 0 0;padding:0;display:flex;flex-direction:column;gap:5px}
+.rpt-stage-autos li{font-size:var(--fs-s);color:var(--ink-2);line-height:1.45;padding-left:18px;position:relative}
+.rpt-stage-autos li::before{content:"";position:absolute;left:2px;top:6px;width:8px;height:8px;border-radius:50%;background:var(--gold-dot);border:1.5px solid var(--gold-ink);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rpt-stage-autos li b{color:var(--ink);font-weight:700}
+.rpt-stage-empty{font-size:var(--fs-s);color:var(--ink-3);margin-top:7px}
+.rpt-flow-conn{width:2px;height:16px;background:var(--border-strong);margin-left:22px}
+
+/* glossary */
+.rpt-gloss{display:grid;grid-template-columns:1fr 1fr;gap:14px 30px}
+@media(max-width:640px){.rpt-gloss{grid-template-columns:1fr}}
+.rpt-gloss-item{display:flex;gap:9px;font-size:var(--fs-s);line-height:1.45}
+.rpt-gloss-tok{width:9px;height:9px;border-radius:50%;background:var(--gold-dot);border:1.5px solid var(--gold-ink);flex:0 0 auto;margin-top:5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rpt-gloss-item b{display:block;color:var(--ink);font-weight:700}
+.rpt-gloss-item span{color:var(--ink-3)}
+
+/* terms */
+.rpt-terms{display:flex;flex-direction:column;gap:12px}
+.rpt-term{display:flex;gap:12px;font-size:var(--fs-s);line-height:1.5}
+.rpt-term .t{font-weight:700;color:var(--ink);flex:0 0 190px}
+.rpt-term .d{color:var(--ink-2)}
+.rpt-foot{padding:24px 54px 34px;border-top:1px solid var(--border);font-size:var(--fs-s);color:var(--ink-3);display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}
+.rpt-foot .mark{font-family:var(--font-serif);font-style:italic;font-size:16px;color:var(--ink-2)}
+.rpt-foot .mark .accent{color:var(--rw-red)}
+.rpt-foot .spacer{margin-left:auto}
+
+@media print{
+  @page{margin:14mm}
+  /* Always print light, even if the app is in dark mode. */
+  :root{--surface-page:#FFFFFF;--surface-card:#FFFFFF;--surface-sunken:#F1EEE3;--surface-tint:#FCFAF4;--dogwood:#F1EEE3;--ink:#493B32;--ink-2:#5D4D41;--ink-3:#8A7B6C;--border:#E9E4D8;--border-strong:#D5CDBB;--gold-wash:#F7F2E2;--gold-ink:#6E5B2F;--gold-line:#D8C48C;--gold-dot:#BFA45E}
+  .hd,.bp-actions,.rpt-toolbar,.backdrop,.drawer,.toast,.qz-progress{display:none!important}
+  body{background:#fff}
+  #page.anim>*{animation:none!important}
+  .rpt-screen{padding:0;min-height:0}
+  .rpt{max-width:none;margin:0;border:0;box-shadow:none;border-radius:0}
+  .rpt-cover{padding:36px 40px 30px;border-radius:var(--r-m)}
+  .rpt-sec{padding:22px 4px}
+  .rpt-foot{padding:16px 0 0}
+  .rpt-break{break-before:page}
+  .rpt-sec,.rpt-stage,.rpt-gloss-item,.rpt-term,.rpt-pipe-h,.rpt-facts{break-inside:avoid}
+  .rpt-tbl tr,.rpt-tbl tbody{break-inside:avoid}
+  .rpt-h{break-after:avoid}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* legacy blueprint fallback */
+  .bp-wrap{padding:10px;background-image:none}
+  .bp-stage{box-shadow:none}
+}
+
+/* ── Client drawer ── */
+.backdrop{position:fixed;inset:0;background:rgba(41,31,29,.45);z-index:90;display:none}
+.backdrop.is-open{display:block}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:420px;max-width:94vw;background:var(--surface-page);z-index:100;box-shadow:var(--sh-3);transform:translateX(105%);transition:transform .22s ease;display:flex;flex-direction:column}
+.drawer.is-open{transform:translateX(0)}
+.drawer-head{display:flex;align-items:center;gap:8px;padding:16px 20px;border-bottom:1px solid var(--border);background:var(--surface-card)}
+.drawer-head .t{font-weight:700;font-size:var(--fs-l)}
+.drawer-head .close{margin-left:auto;background:none;border:0;cursor:pointer;color:var(--ink-3);font-size:20px;padding:2px 6px}
+.drawer-head .close:hover{color:var(--ink)}
+.drawer-body{flex:1;overflow:auto;padding:20px}
+.drawer-body .grp{margin-bottom:24px}
+.drawer-body .grp > .sec-label{display:block;margin-bottom:10px}
+.drawer-body .fields{display:flex;flex-direction:column;gap:12px}
+.cd-plan-row{display:flex;align-items:center;gap:10px;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-m);padding:12px 14px}
+.cd-plan-row .nm{font-weight:700}
+.cd-plan-row .amt{font-size:var(--fs-s);color:var(--ink-3);font-variant-numeric:tabular-nums}
+.cd-extra{margin-top:10px;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-m);padding:11px 14px}
+.cd-extra-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cd-extra-top .lbl{font-size:var(--fs-m);font-weight:600;color:var(--ink)}
+.cd-extra-note{font-size:var(--fs-xs);color:var(--ink-3);margin-top:6px}
+.cd-extra-note b{color:var(--ink);font-variant-numeric:tabular-nums}
+.cd-quiz-row{display:flex;flex-direction:column;gap:3px;padding:9px 0;border-bottom:1px dashed var(--border)}
+.cd-quiz-row:last-child{border-bottom:0}
+.cd-quiz-row label{font-size:var(--fs-xs);font-weight:600;color:var(--ink-3)}
+.cd-quiz-row select{font-family:var(--font-ui);font-size:var(--fs-m);color:var(--ink);background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-s);padding:6px 8px;cursor:pointer}
+.cd-quiz-row select:hover{border-color:var(--border-strong)}
+.cd-quiz-row select:focus{outline:none;border-color:var(--rw-red)}
+.drawer-foot{border-top:1px solid var(--border);background:var(--surface-card);padding:14px 20px;display:flex;gap:10px;align-items:center}
+
+/* ── Templates (admin edit) ── */
+.pp-settings{background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-m);box-shadow:var(--sh-1);padding:14px 18px;display:flex;gap:22px;align-items:flex-end;flex-wrap:wrap;margin-bottom:22px}
+.pp-settings .hint{font-size:var(--fs-xs);color:var(--ink-3);max-width:340px}
+.pp-edit-card{background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-m);box-shadow:var(--sh-1);margin-bottom:22px;overflow:hidden}
+.pp-edit-head{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface-sunken)}
+.pp-edit-head h2{font-size:var(--fs-xl);font-weight:700}
+.pp-edit-head .sub{font-size:var(--fs-s);color:var(--ink-3)}
+.pp-edit-head .tot{margin-left:auto;font-size:var(--fs-m);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pp-edit-body{padding:6px 20px 18px}
+table.pp-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-m)}
+.pp-tbl th{text-align:left;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);padding:8px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+.pp-tbl td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.pp-tbl tr.mile-row td{background:var(--surface-tint);font-weight:700;color:var(--ink-2);padding-top:10px}
+.pp-tbl tr.mile-row .m-input{font-weight:700}
+.pp-tbl .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pp-tbl th.num{text-align:right}
+.pp-tbl input.t-name{width:100%;border:1px solid transparent;background:transparent;font-family:var(--font-ui);font-size:var(--fs-m);color:var(--ink);padding:5px 6px;border-radius:4px}
+.pp-tbl input.t-name:hover{border-color:var(--border)}
+.pp-tbl input.t-name:focus{border-color:var(--rw-red);outline:none;background:var(--surface-card)}
+.pp-tbl input.t-clabel{display:block;width:100%;margin-top:2px;border:1px solid transparent;background:transparent;font-family:var(--font-ui);font-size:var(--fs-xs);color:var(--ink-3);padding:2px 6px;border-radius:4px}
+.pp-tbl input.t-clabel::placeholder{color:var(--ink-3);font-style:italic;opacity:.7}
+.pp-tbl input.t-clabel:hover{border-color:var(--border)}
+.pp-tbl input.t-clabel:focus{border-color:var(--rw-red);outline:none;background:var(--surface-card);color:var(--ink-2)}
+.pp-tbl tr.cust-off .t-name{color:var(--ink-3)}
+.pp-tbl tr.cust-off td{opacity:.72}
+.pp-tbl input.t-hrs{width:64px;text-align:right;border:1px solid var(--border);background:var(--surface-card);font-family:var(--font-ui);font-size:var(--fs-m);padding:5px 6px;border-radius:4px}
+.pp-tbl input.t-hrs:focus{border-color:var(--rw-red);outline:none}
+.pp-tbl .opt-cell{white-space:nowrap;font-size:var(--fs-xs);color:var(--ink-3)}
+.pp-tbl .del{background:none;border:0;color:var(--border-strong);font-size:15px;cursor:pointer;padding:2px 6px;line-height:1}
+.pp-tbl .del:hover{color:var(--rw-red)}
+.pp-tbl tr.opt-off td{color:var(--ink-3)}
+.pp-tbl tr.opt-off input.t-name{color:var(--ink-3)}
+.pp-add-row{background:none;border:1px dashed var(--border-strong);color:var(--ink-3);font-size:var(--fs-s);font-weight:600;border-radius:var(--r-s);padding:5px 12px;cursor:pointer;margin:8px 0 2px}
+.pp-add-row:hover{color:var(--ink);border-color:var(--deerskin)}
+.pp-tbl tfoot td{font-weight:700;background:var(--surface-sunken);border-bottom:0}
+.pp-ret-title{font-size:var(--fs-s);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:18px 0 2px}
+.pp-auto-chip{display:inline-flex;align-items:center;font-size:var(--fs-xs);font-weight:700;color:var(--gold-ink);background:var(--surface-card);border:1px solid var(--gold-line);border-radius:var(--r-pill);padding:0 8px;margin-left:6px}
+.pp-formula-note{font-size:var(--fs-xs);color:var(--ink-3);margin-top:6px}
+
+/* ── Package settings (progressive) ── */
+.set-rates{display:flex;gap:26px;align-items:flex-end;flex-wrap:wrap;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-m);box-shadow:var(--sh-1);padding:14px 18px;margin-bottom:26px}
+.set-rates .hint{font-size:var(--fs-xs);color:var(--ink-3)}
+.set-rates .link{margin-left:auto;align-self:center}
+.set-sec-label{font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);display:flex;align-items:center;gap:8px;margin:0 2px 10px}
+.set-sec-label .n{font-weight:600;color:var(--ink-3);background:var(--dogwood);border-radius:var(--r-pill);padding:0 8px;font-size:var(--fs-xs)}
+.tpl-list{display:flex;flex-direction:column;gap:10px;margin-bottom:26px}
+.tpl-item{background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-m);box-shadow:var(--sh-1);overflow:hidden;transition:box-shadow .15s,border-color .15s}
+.tpl-item:hover{box-shadow:var(--sh-2)}
+.tpl-item.is-open{border-color:var(--border-strong);box-shadow:var(--sh-2)}
+.tpl-hd{display:flex;align-items:center;gap:16px;width:100%;background:none;border:0;cursor:pointer;padding:15px 18px;text-align:left;font-family:var(--font-ui)}
+.tpl-item.is-open .tpl-hd{border-bottom:1px solid var(--border);background:var(--surface-sunken)}
+.tpl-nm{font-size:var(--fs-l);font-weight:700;color:var(--ink);flex:0 0 auto;min-width:96px}
+.tpl-sum{display:flex;gap:22px;flex-wrap:wrap;margin-left:auto;color:var(--ink);font-size:var(--fs-m);font-weight:700;font-variant-numeric:tabular-nums}
+.tpl-sum span{display:inline-flex;align-items:baseline;gap:5px}
+.tpl-sum em{font-style:normal;font-size:var(--fs-xs);font-weight:400;color:var(--ink-3)}
+.tpl-chev{flex:0 0 auto;color:var(--ink-3);font-size:12px;margin-left:16px}
+.tpl-body{padding:2px 18px 12px}
+.tpl-body .pp-edit-embed{background:none}
+.pp-edit-embed .pp-edit-head{padding:12px 0;border:0;background:none}
+.pp-edit-embed .pp-edit-body{padding:0}
+.tpl-acc{background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-m);box-shadow:var(--sh-1);overflow:hidden}
+.tpl-acc.is-open{border-color:var(--border-strong);box-shadow:var(--sh-2)}
+.tpl-acc-hd{display:flex;align-items:center;gap:14px;width:100%;background:none;border:0;cursor:pointer;padding:15px 18px;text-align:left;font-family:var(--font-ui)}
+.tpl-acc.is-open .tpl-acc-hd{border-bottom:1px solid var(--border);background:var(--surface-sunken)}
+.tpl-acc-meta{margin-left:auto;font-size:var(--fs-s);color:var(--ink-3)}
+.lib-body{padding:16px 18px 18px}
+.lib-top{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.lib-hint{font-size:var(--fs-xs);color:var(--ink-3);font-weight:400}
+.lib-top .lib-hint{flex:1}
+.lib-group + .lib-group{margin-top:18px}
+.lib-group-h{font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin-bottom:6px}
+.lib-item{display:flex;align-items:center;gap:12px;width:100%;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-s);padding:9px 12px;cursor:pointer;text-align:left;font-family:var(--font-ui);transition:border-color .12s,background .12s}
+.lib-item + .lib-item{margin-top:6px}
+.lib-item:hover{border-color:var(--border-strong);background:var(--surface-tint)}
+.lib-tok{width:11px;height:11px;border-radius:50%;background:var(--gold-dot);border:1.5px solid var(--gold-ink);flex:0 0 auto}
+.lib-item-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.lib-nm{font-size:var(--fs-m);font-weight:700;color:var(--ink)}
+.lib-d{font-size:var(--fs-xs);color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lib-d em{font-style:italic}
+.lib-tags{display:flex;gap:4px;flex:0 0 auto;flex-wrap:wrap;justify-content:flex-end;max-width:230px}
+.lib-chev{flex:0 0 auto;color:var(--border-strong);font-size:13px}
+.lib-item:hover .lib-chev{color:var(--ink-3)}
+.lib-item-edit{background:var(--surface-tint);border:1px solid var(--border-strong);border-radius:var(--r-m);padding:15px 16px;margin:6px 0;display:flex;flex-direction:column;gap:13px}
+.lib-roles{display:flex;flex-wrap:wrap;gap:6px}
+.lib-role{font-size:var(--fs-xs);font-weight:600;color:var(--ink-3);background:var(--surface-card);border:1px solid var(--border-strong);border-radius:var(--r-pill);padding:4px 11px;cursor:pointer;transition:all .12s}
+.lib-role:hover{border-color:var(--mushroom);color:var(--ink-2)}
+.lib-role.on{background:var(--gold-wash);border-color:var(--gold-line);color:var(--gold-ink)}
+.lib-edit-foot{display:flex;align-items:center;gap:8px;padding-top:4px;border-top:1px dashed var(--border);margin-top:2px;padding-top:12px}
+.lib-empty{text-align:center;color:var(--ink-3);font-size:var(--fs-m);padding:24px}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:26px;left:50%;transform:translate(-50%,16px);background:var(--stump);color:var(--birch);font-size:var(--fs-m);font-weight:600;border-radius:var(--r-m);padding:10px 20px;z-index:200;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;box-shadow:var(--sh-3)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media(max-width:760px){
+  .hd{padding:0 14px;gap:8px}
+  .hd-crumb{display:none}
+  .page{padding:20px 14px 60px}
+  .pp-total{flex-wrap:wrap}
+  .pp-select{margin-left:0;width:100%}
+  .pp-edit-body{padding:6px 10px 14px;overflow-x:auto}
+  .dz-bar{position:static}
+  .bp-wrap{padding:24px 12px 60px}
+  .bp-head h1{font-size:30px}
+  .bp-actions{position:static;justify-content:center;margin-bottom:16px}
+  .qz{padding-top:6vh}
+  .qz h2{font-size:24px}
+  .cl-table th:nth-child(3),.cl-table td:nth-child(3){display:none}
+}
+</style>
+</head>
+<body>
+
+<header class="hd">
+  <button class="hd-logo" id="logoBtn" title="Back to the start screen">Rosewood<span class="accent">.</span></button>
+  <div class="hd-crumb" id="crumb"></div>
+  <div class="spacer"></div>
+  <div class="theme-seg" id="themeSeg" role="group" aria-label="Theme">
+    <button type="button" data-act="theme-set" data-theme="light" title="Light" aria-label="Light theme"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+    <button type="button" data-act="theme-set" data-theme="dark" title="Dark" aria-label="Dark theme"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+    <button type="button" data-act="theme-set" data-theme="auto" title="Match your system" aria-label="Auto theme"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button>
+  </div>
+  <div id="hdActions" style="display:flex;align-items:center;gap:10px"></div>
+</header>
+
+<main id="page"></main>
+
+<div class="backdrop" id="backdrop"></div>
+<aside class="drawer" id="drawer" aria-label="Panel">
+  <div class="drawer-head"><span class="t" id="drawerTitle"></span>
+    <button class="close" id="drawerClose" type="button" aria-label="Close">×</button></div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot" id="drawerFoot" style="display:none"></div>
+</aside>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ════════ AUTOMATION CATALOG ════════ */
+const ROLES = {
+  intake:'Lead intake', vetting:'Vetting', quote:'Quoting & Response', followup:'Follow-up',
+  won:'Won / accepted', nurture:'Nurture', dnd:'Do not disturb', lost:'Lost', projects:'Production',
+};
+/* Bump CATALOG_VER when the default library changes — load() re-seeds S.catalog to match. */
+const CATALOG_VER = 3;
+/* Bump PKG_VER when the default package templates change — load() re-seeds S.packages
+   (client builds are separate and never touched). */
+const PKG_VER = 6;
+const CATALOG_DEFAULT = [
+  { id:'webform-auto',   n:'Web form → auto-reply',         d:'When a web form comes in, Pipedrive emails the person a confirmation automatically.', roles:['intake'] },
+  { id:'welcome-email',  n:'Welcome email',                 d:'Sends your intro email shortly after first contact.', roles:['intake'] },
+  { id:'intake-checklist',n:'New-deal checklist task',      d:'Creates a checklist activity so the rep captures the right details up front.', roles:['intake','vetting'] },
+  { id:'lead-route',     n:'Assign owner',                  d:'Routes the new deal or lead to the right rep (sets the owner).', roles:['intake'] },
+  { id:'qual-task',      n:'Qualification task',            d:'Creates an activity prompting the rep with the questions that decide fit and budget.', roles:['vetting'] },
+  { id:'bad-fit',        n:'Disqualify / mark lost',        d:'Marks a clearly unqualified deal as Lost with a polite email.', roles:['vetting','lost'] },
+  { id:'vet-rot',        n:'Stalled-deal alert',            d:'Date-based check that flags a deal sitting too long with no activity.', roles:['vetting','intake'] },
+  { id:'quote-task',     n:'Quote prep task',               d:'Creates the quote activity with a due date the moment a deal reaches this stage.', roles:['quote'] },
+  { id:'quote-velocity', n:'Quote-stuck alert',             d:'Warns the team when a quote sits in prep too long.', roles:['quote'] },
+  { id:'quote-sent-log', n:'Quote sent email + date stamp', d:'Emails the customer their quote and stamps the send date on the deal.', roles:['quote'] },
+  { id:'info-sent-log',  n:'Info sent email + date stamp',  d:'For inquiries that don’t need a formal quote — emails the person what they asked for and stamps the send date on the deal.', roles:['quote'] },
+  { id:'response-task',  n:'Response prep task',            d:'Creates the response activity the moment a deal reaches this stage — quote, info, or consultation details, whatever fits.', roles:['quote'] },
+  { id:'fu-2day',        n:'2-day follow-up email',         d:'A personalized follow-up goes out automatically 2 days after the quote.', roles:['followup'] },
+  { id:'fu-5day',        n:'Day-5 call reminder',           d:'Puts a phone follow-up activity on the rep’s list at day 5.', roles:['followup'] },
+  { id:'rot-alert',      n:'Stagnant deal alert',           d:'Date-based check that flags any deal gone cold and tells the team who to chase.', roles:['followup','quote'] },
+  { id:'nurture-move',   n:'Move quiet deal to Long-Term',  d:'Shifts an unresponsive deal into the long-term pipeline instead of losing it.', roles:['followup','nurture'] },
+  { id:'add-to-sequence',n:'Enroll in email sequence',      d:'Adds the person to an automated Pipedrive email sequence.', roles:['followup','nurture'] },
+  { id:'add-label',      n:'Add label / tag',               d:'Tags the deal or contact (hot, cold, priority…) for easy segmenting.', roles:['intake','vetting','followup','nurture'] },
+  { id:'notify-owner',   n:'Notify owner',                  d:'Pings the deal’s owner (follower or direct message) when it needs attention.', roles:['followup','quote','won'] },
+  { id:'convert-lead',   n:'Convert lead → deal',           d:'Pops a qualified lead out of the Leads Inbox as a live deal. (Advanced — uses the Leads module.)', roles:['vetting','intake'] },
+  { id:'won-handoff',    n:'Won → project hand-off',        d:'Creates the project or fulfillment card the moment a deal is won.', roles:['won','projects'] },
+  { id:'kickoff-email',  n:'Kickoff email',                 d:'Sends next steps and what to expect right after they say yes.', roles:['won'] },
+  { id:'won-notify',     n:'Team win notification',         d:'Posts to Slack or Teams when a deal is won.', roles:['won'] },
+  { id:'lt-reminders',   n:'Long-term check-in reminders',  d:'Scheduled check-in activities at 30, 60, and 90 days.', roles:['nurture'] },
+  { id:'campaign-sub',   n:'Add to Campaigns list',         d:'Adds the person to a Pipedrive Campaigns marketing list.', roles:['nurture','lost'] },
+  { id:'quarterly',      n:'Quarterly check-in task',       d:'A reminder activity to touch base every quarter.', roles:['nurture','dnd'] },
+  { id:'dnd-stop',       n:'Pause marketing emails',        d:'Unsubscribes the contact and removes them from active sequences and lists.', roles:['dnd'] },
+  { id:'order-verify',   n:'Order verification task',       d:'Creates a checklist to confirm specs, payment, and paperwork before work starts.', roles:['projects'] },
+  { id:'sched-task',     n:'Scheduling task',               d:'Creates the scheduling to-do and calendar activity.', roles:['projects'] },
+  { id:'prod-updates',   n:'Progress update emails',        d:'Emails the customer at key project milestones.', roles:['projects'] },
+  { id:'review-req',     n:'Review request',                d:'Asks for a review the moment the job wraps.', roles:['projects','won'] },
+];
+/* Live catalog — mirrors S.catalog (editable in Package Settings). Kept as reassignable
+   module bindings so every render/picker reads the current library. */
+let CATALOG = CATALOG_DEFAULT.map(a => ({ ...a, roles: a.roles.slice() }));
+let CAT = Object.fromEntries(CATALOG.map(a => [a.id, a]));
+function refreshCatalog() {
+  CATALOG = (typeof S !== 'undefined' && S && S.catalog) ? S.catalog : CATALOG_DEFAULT;
+  CAT = Object.fromEntries(CATALOG.map(a => [a.id, a]));
+}
+function autoUsage(id) {
+  let n = 0;
+  const scan = pkgs => pkgs.forEach(p => (p.pipelines || []).forEach(pl => pl.stages.forEach(st => (st.autos || []).forEach(a => { if (a.id === id) n++; }))));
+  scan(S.packages);
+  scan(S.clients.map(c => c.pkg).filter(Boolean));
+  return n;
+}
+
+/* ════════ DEFAULT PACKAGE DATA ════════
+   All prices are computed: hours × rate, plus credits. Nothing hard-coded.
+   Credits: extra automation ×1 · app connection ×5 · custom web form ×5.
+   External integrations (Custom only) = 10 hrs × rate apiece.
+   Extra automations derive from the system map (enabled beyond the allotment). */
+
+/* Standard = Deals module only. Every "lead" is just a Deal that isn't Won until the
+   quote is accepted. 15 automations on by default (matches the 15 included). */
+const PIPES_STANDARD = [
+  { name:'Sales Pipeline',
+    inflow:'New enquiries arrive here as deals — web form, calls, referrals',
+    stages:[
+      { name:'Intake', role:'intake', note:'', autos:[
+        { id:'webform-auto', on:true }, { id:'welcome-email', on:true },
+        { id:'lead-route', on:true }, { id:'intake-checklist', on:true }, { id:'add-label', on:false } ]},
+      { name:'Response Sent', role:'quote', note:'', autos:[
+        { id:'quote-task', on:true }, { id:'quote-sent-log', on:true }, { id:'quote-velocity', on:true },
+        { id:'response-task', on:false }, { id:'info-sent-log', on:false } ]},
+      { name:'Waiting on Customer', role:'followup', note:'', autos:[
+        { id:'fu-2day', on:true }, { id:'fu-5day', on:true } ]},
+      { name:'Follow-Up / Revisions', role:'followup', note:'', autos:[
+        { id:'rot-alert', on:true }, { id:'nurture-move', on:true } ]},
+      { name:'Sold', role:'won', note:'', autos:[
+        { id:'kickoff-email', on:true }, { id:'won-notify', on:false }, { id:'review-req', on:false } ]},
+    ]},
+  { name:'Long-Term Leads',
+    inflow:'Deals that go quiet move here for low-effort, scheduled touches',
+    stages:[
+      { name:'Long-Term Follow Up', role:'nurture', note:'', autos:[
+        { id:'lt-reminders', on:true }, { id:'add-to-sequence', on:true } ]},
+      { name:'Cold Leads', role:'nurture', note:'', autos:[
+        { id:'campaign-sub', on:true }, { id:'quarterly', on:false }, { id:'dnd-stop', on:false } ]},
+    ]},
+];
+
+/* Advanced = Standard's Deals structure + the Leads Inbox (a special single-list element,
+   kind:'inbox' — leads are a flat list, not a stage pipeline) and a generic Projects Board
+   (kind:'projects') for post-sale delivery. */
+const PIPES_ADVANCED = [
+  { name:'Leads Inbox', kind:'inbox',
+    inflow:'Every raw inquiry lands here as a lead — a flat list, not a pipeline — until it’s qualified and converted',
+    stages:[
+      { name:'Leads', role:'intake', note:'', autos:[
+        { id:'webform-auto', on:true }, { id:'lead-route', on:true },
+        { id:'add-label', on:false }, { id:'convert-lead', on:true } ]},
+    ]},
+  { name:'Sales Pipeline',
+    inflow:'Converted leads land here as deals — web form, calls, referrals',
+    stages:[
+      { name:'Intake', role:'intake', note:'', autos:[
+        { id:'intake-checklist', on:true }, { id:'add-label', on:false } ]},
+      { name:'Response Sent', role:'quote', note:'', autos:[
+        { id:'quote-task', on:true }, { id:'quote-sent-log', on:true }, { id:'quote-velocity', on:true },
+        { id:'response-task', on:false }, { id:'info-sent-log', on:false } ]},
+      { name:'Waiting on Customer', role:'followup', note:'', autos:[
+        { id:'fu-2day', on:true }, { id:'fu-5day', on:true } ]},
+      { name:'Follow-Up / Revisions', role:'followup', note:'', autos:[
+        { id:'rot-alert', on:true }, { id:'nurture-move', on:true } ]},
+      { name:'Sold', role:'won', note:'', autos:[
+        { id:'kickoff-email', on:true }, { id:'won-handoff', on:true },
+        { id:'won-notify', on:false }, { id:'review-req', on:false } ]},
+    ]},
+  { name:'Long-Term Leads',
+    inflow:'Deals that go quiet move here for low-effort, scheduled touches',
+    stages:[
+      { name:'Long-Term Follow Up', role:'nurture', note:'', autos:[
+        { id:'lt-reminders', on:true }, { id:'add-to-sequence', on:true } ]},
+      { name:'Cold Leads', role:'nurture', note:'', autos:[
+        { id:'campaign-sub', on:true }, { id:'quarterly', on:false }, { id:'dnd-stop', on:false } ]},
+    ]},
+  { name:'Projects Board', kind:'projects',
+    inflow:'When a deal is Sold, a project is created here for delivery',
+    stages:[
+      { name:'Kickoff', role:'projects', note:'', autos:[
+        { id:'order-verify', on:true }, { id:'sched-task', on:true } ]},
+      { name:'In Progress', role:'projects', note:'', autos:[ { id:'prod-updates', on:true } ]},
+      { name:'Client Sign-off', role:'projects', note:'', autos:[] },
+      { name:'Delivered', role:'projects', note:'', autos:[ { id:'review-req', on:true } ]},
+    ]},
+];
+
+/* Custom prices Leads Inbox and Projects Board configuration as OPTIONAL add-ons (see
+   "Configure Lead Inbox" / "Configure Projects Board" in its Configuration/Build milestone —
+   both opt:true, inc:false there, unlike Advanced where they're included). The map must
+   match that: Custom starts these two elements with no automations switched on, so the
+   build/allowance/blueprint never shows them as already paid for. The pipeline shape stays
+   as a starting scaffold the guide reshapes once the client actually buys that module. */
+function zeroAutos(pipelines, kinds) {
+  return pipelines.map(pl => kinds.includes(pl.kind)
+    ? { ...pl, stages: pl.stages.map(st => ({ ...st, autos: (st.autos || []).map(a => ({ ...a, on: false })) })) }
+    : pl);
+}
+
+const DEFAULTS = {
+  ver: 7,
+  rate: 170,
+  credit: 250,
+  screen: 'home',
+  theme: 'light',
+  hints: {},
+  seq: 1,
+  clients: [],
+  activeClient: null,
+  designCtx: null,
+  catalog: CATALOG_DEFAULT,
+  catalogVer: CATALOG_VER,
+  pkgVer: PKG_VER,
+  packages: [
+    {
+      id:'excel', name:'Excel CRM', autosIncluded:0, hidden:true, noAutos:true,
+      extraAutos:0, integrations:0, customForm:false,
+      pipelines:[
+        { name:'Excel Pipeline Board',
+          inflow:'Leads logged by hand or imported from your existing lists',
+          stages:[
+            { name:'Leads', role:'intake', note:'', autos:[] },
+            { name:'Quoted', role:'quote', note:'', autos:[] },
+            { name:'Follow Up', role:'followup', note:'', autos:[] },
+            { name:'Won', role:'won', note:'', autos:[] },
+            { name:'Lost', role:'lost', note:'', autos:[] },
+          ]},
+      ],
+      milestones:[
+        { name:'Milestone 1: Discovery & Mapping', tasks:[
+          { name:'Discovery Meeting', hours:1, opt:false, inc:true },
+          { name:'Mapping & Requirements Gathering', hours:1, opt:false, inc:true },
+          { name:'Client Communication Bucket', hours:1, opt:false, inc:true, cust:false },
+        ]},
+        { name:'Milestone 2: Configuration', tasks:[
+          { name:'Implementation - Customize Stages', hours:2, opt:false, inc:true },
+          { name:'Client Communication Bucket', hours:1, opt:false, inc:true, cust:false },
+        ]},
+        { name:'Milestone 3: Deployment', tasks:[
+          { name:'Adjustment Allowance', hours:1, opt:false, inc:true },
+          { name:'Deployment - Demo', hours:1, opt:false, inc:true },
+          { name:'Client Communication Bucket', hours:1, opt:false, inc:true, cust:false },
+        ]},
+      ],
+      retainer:[],
+    },
+    {
+      id:'standard', name:'Standard', autosIncluded:15,
+      extraAutos:0, integrations:0, customForm:false,
+      pipelines: PIPES_STANDARD,
+      milestones:[
+        { name:'Milestone 1: Discovery & Mapping', tasks:[
+          { name:'Discovery Meeting', hours:2, opt:false, inc:true },
+          { name:'Mapping & Requirements Gathering', hours:3, opt:false, inc:true },
+          { name:'Client Communication Bucket', hours:1, opt:false, inc:true, cust:false },
+        ]},
+        { name:'Milestone 2: Configuration / Build', tasks:[
+          { name:'Technical Build - Pipelines & Stages', hours:1, opt:false, inc:true },
+          { name:'Technical Build - Custom Fields', hours:2, opt:false, inc:true },
+          { name:'Technical Build - Automations (up to 15)', hours:5, opt:false, inc:true },
+          { name:'Technical Build - User Accounts Setup', hours:1, opt:false, inc:true },
+          { name:'Technical Build - Configure Web Form', hours:2, opt:false, inc:true },
+          { name:'Technical Build - Configure Campaigns', hours:2, opt:true, inc:false },
+          { name:'Client Communication Bucket', hours:1, opt:false, inc:true, cust:false },
+        ]},
+        { name:'Milestone 3: Deployment', tasks:[
+          { name:'Deployment - Demo', hours:2, opt:false, inc:true },
+          { name:'Deployment - Adjustments', hours:3, opt:false, inc:true },
+          { name:'Deployment - Prepare QRG', hours:2, opt:false, inc:true },
+          { name:'Client Communication Bucket', hours:1, opt:false, inc:true, cust:false },
+        ]},
+        { name:'Milestone 4: Client Support', tasks:[
+          { name:'Bi-Weekly Follow-up (2)', hours:3, opt:false, inc:true },
+        ]},
+      ],
+      retainer:[
+        { name:'Monthly Check-in', hours:1 },
+        { name:'Bug Fixes, Adjustments', hours:1 },
+      ],
+    },
+    {
+      id:'advanced', name:'Advanced', autosIncluded:20,
+      extraAutos:0, integrations:0, customForm:false,
+      pipelines: PIPES_ADVANCED,
+      milestones:[
+        { name:'Milestone 1: Discovery & Mapping', tasks:[
+          { name:'Discovery Meeting', hours:2, opt:false, inc:true },
+          { name:'Mapping & Requirements Gathering', hours:6, opt:false, inc:true },
+          { name:'Client Communication Bucket', hours:2, opt:false, inc:true, cust:false },
+        ]},
+        { name:'Milestone 2: Configuration / Build', tasks:[
+          { name:'Technical Build - Pipelines & Stages', hours:3, opt:false, inc:true },
+          { name:'Technical Build - Custom Fields', hours:6, opt:false, inc:true },
+          { name:'Technical Build - Automations (up to 20)', hours:8, opt:false, inc:true },
+          { name:'Technical Build - User Accounts Setup', hours:2, opt:false, inc:true },
+          { name:'Technical Build - Configure Lead Inbox', hours:1, opt:false, inc:true },
+          { name:'Technical Build - Configure Projects Board', hours:2, opt:false, inc:true },
+          { name:'Technical Build - Configure Web Form', hours:2, opt:false, inc:true },
+          { name:'Technical Build - Configure Lead Assignment', hours:2, opt:true, inc:false },
+          { name:'Technical Build - Configure Products', hours:1, opt:true, inc:false },
+          { name:'Technical Build - Configure Live Chat', hours:3, opt:true, inc:false },
+          { name:'Technical Build - Configure Campaigns', hours:2, opt:true, inc:false },
+          { name:'Technical Build - Configure Pipedrive MCP (AI access)', hours:3, opt:true, inc:false },
+          { name:'Client Communication Bucket', hours:3, opt:false, inc:true, cust:false },
+        ]},
+        { name:'Milestone 3: Deployment', tasks:[
+          { name:'Deployment - Demo', hours:2, opt:false, inc:true },
+          { name:'Deployment - Adjustments', hours:5, opt:false, inc:true },
+          { name:'Deployment - Prepare QRG', hours:4, opt:false, inc:true },
+          { name:'Client Communication Bucket', hours:2, opt:false, inc:true, cust:false },
+        ]},
+        { name:'Milestone 4: Client Support', tasks:[
+          { name:'Bi-Weekly Follow-up (2)', hours:3, opt:false, inc:true },
+        ]},
+      ],
+      retainer:[
+        { name:'Monthly Check-in', hours:1 },
+        { name:'Bug Fixes, Adjustments', hours:2 },
+      ],
+    },
+    {
+      id:'custom', name:'Custom', autosIncluded:20,
+      extraAutos:0, integrations:0, customForm:false, extInteg:0,
+      pipelines: zeroAutos(JSON.parse(JSON.stringify(PIPES_ADVANCED)), ['inbox', 'projects']),
+      milestones:[
+        { name:'Milestone 1: Discovery & Requirements Intake', tasks:[
+          { name:'Discovery Meeting', hours:2, opt:false, inc:true },
+          { name:'Document Current Processes', hours:8, opt:false, inc:true },
+          { name:'Requirements Gathering', hours:12, opt:false, inc:true },
+          { name:'Client Communication Bucket', hours:2, opt:false, inc:true, cust:false },
+        ]},
+        { name:'Milestone 2: Mapping & Development Plan', tasks:[
+          { name:'Process Mapping - Visual Map', hours:10, opt:false, inc:true },
+          { name:'Review Map with Client', hours:2, opt:false, inc:true },
+          { name:'Developing Automation Plan', hours:10, opt:false, inc:true },
+          { name:'Client Communication Bucket', hours:4, opt:false, inc:true, cust:false },
+        ]},
+        { name:'Milestone 3: Configuration / Build', tasks:[
+          { name:'Technical Build - Pipelines & Stages', hours:4, opt:false, inc:true },
+          { name:'Technical Build - Custom Fields', hours:8, opt:false, inc:true },
+          { name:'Technical Build - Automations (up to 20)', hours:8, opt:false, inc:true },
+          { name:'Technical Build - User Accounts Setup', hours:2, opt:false, inc:true },
+          { name:'Technical Build - Configure Lead Inbox', hours:1, opt:true, inc:false },
+          { name:'Technical Build - Configure Lead Assignment', hours:2, opt:true, inc:false },
+          { name:'Technical Build - Configure Projects Board', hours:2, opt:true, inc:false },
+          { name:'Technical Build - Configure Products', hours:1, opt:true, inc:false },
+          { name:'Technical Build - Configure Live Chat', hours:3, opt:true, inc:false },
+          { name:'Technical Build - Configure Campaigns', hours:2, opt:true, inc:false },
+          { name:'Technical Build - Configure Web Form', hours:2, opt:true, inc:false },
+          { name:'Technical Build - Configure Pipedrive MCP (AI access)', hours:3, opt:true, inc:false },
+          { name:'Client Communication Bucket', hours:6, opt:false, inc:true, cust:false },
+        ]},
+        { name:'Milestone 4: Deployment', tasks:[
+          { name:'Deployment - Demo', hours:2, opt:false, inc:true },
+          { name:'Deployment - Adjustments', hours:6, opt:false, inc:true },
+          { name:'Deployment - Prepare QRG', hours:4, opt:false, inc:true },
+          { name:'Client Communication Bucket', hours:2, opt:false, inc:true, cust:false },
+        ]},
+        { name:'Milestone 5: Client Support', tasks:[
+          { name:'Bi-Weekly Follow-up (2)', hours:3, opt:false, inc:true },
+        ]},
+      ],
+      retainer:[
+        { name:'Monthly Check-in', hours:2 },
+        { name:'Bug Fixes, Adjustments', hours:2 },
+        { name:'Custom Add-Ons', hours:0 },
+      ],
+    },
+  ],
+};
+
+/* Plan copy — short, factual. Feature lists stay; sales prose is gone. */
+const COPY = {
+  excel: {
+    flag:'Budget option', tag:'A spreadsheet CRM. Flat fee, no monthly cost.',
+    bullets:[
+      '<b>Visual pipeline board</b> in Excel',
+      '<b>Task logging & follow-up reminders</b> built in',
+      '<b>One consultation</b> and a live demo',
+      '<b>You own the file</b> — guide included inside',
+    ],
+    weeks:'', weeksShort:'—',
+    mapNote:'Reminders and follow-ups are built into the workbook — no automation tokens needed.',
+  },
+  standard: {
+    flag:'Starter', tag:'Response tracking, automatic follow-up, and clean hand-offs.',
+    bullets:[
+      '<b>2 pipelines</b> — sales plus long-term leads',
+      '<b>Up to 15 automations</b> — reminders, follow-ups, hand-offs',
+      '<b>Website form</b> feeds the pipeline directly',
+      '<b>Stale-deal alerts</b> on every stage',
+    ],
+    weeks:'≈ 4 weeks to launch', weeksShort:'~4 weeks', mapNote:'',
+  },
+  advanced: {
+    flag:'Complete', tag:'Separate spaces for raw leads, active sales, and production.',
+    bullets:[
+      '<b>Leads Inbox</b> keeps raw inquiries out of the pipeline',
+      '<b>Projects Board</b> for won deals in production',
+      '<b>Up to 20 automations</b> with multi-branch logic',
+      '<b>Round-robin routing</b> across the team',
+    ],
+    weeks:'≈ 6–8 weeks to launch', weeksShort:'~6–8 weeks', mapNote:'',
+  },
+  custom: {
+    flag:'Built to order', tag:'Mapped to your operation, connected to your software.',
+    bullets:[
+      '<b>Pipelines mirror your process</b>, not a template',
+      '<b>Process mapping</b> before anything is built',
+      '<b>External integrations</b> — accounting, inventory, ERP',
+      '<b>Up to 20 automations</b> plus custom webhooks',
+    ],
+    weeks:'12+ weeks, scoped', weeksShort:'12+ weeks',
+    mapNote:'This map is the starting architecture — a Custom build reshapes every pipeline around your operation.',
+  },
+};
+
+const RULES = [
+  { t:'Discovery call is free', d:'The first meeting costs nothing — that’s where the plan gets picked.' },
+  { t:'Extra automations', d:'Beyond the package allotment, each automation is one credit.' },
+  { t:'App connections', d:'Slack, Mailchimp, Zoom, Teams and other native apps: 1 credit per platform.' },
+  { t:'Web forms included', d:'Pipedrive’s own form is free in every package. A custom form plugin costs 5 credits.' },
+  { t:'Your data, your file', d:'We hand you the import template and help with the final import.' },
+];
+
+/* ════════ DISCOVERY QUIZ ════════
+   Each answer adds weight toward a package; highest total wins. */
+const QUIZ = [
+  { id:'team', q:'How many people will work in the CRM?',
+    why:'Team size decides how much routing and structure the system needs.',
+    opts:[
+      { t:'Just me', w:{ excel:2, standard:1 } },
+      { t:'2–5', w:{ standard:2 } },
+      { t:'6–15', w:{ advanced:2 } },
+      { t:'16 or more', w:{ advanced:1, custom:2 } },
+    ]},
+  { id:'volume', q:'How many new leads come in each month?',
+    why:'Higher volume needs an intake buffer so the pipeline stays clean.',
+    opts:[
+      { t:'Under 10', w:{ excel:2, standard:1 } },
+      { t:'10 – 50', w:{ standard:2 } },
+      { t:'50 – 200', w:{ advanced:2 } },
+      { t:'200+', w:{ advanced:1, custom:1 } },
+    ]},
+  { id:'production', q:'Does work continue after the sale?',
+    d:'', why:'Fulfillment, installs, or projects after a won deal call for a dedicated production board.',
+    opts:[
+      { t:'No — a sale is the finish line', w:{ standard:2, excel:1 } },
+      { t:'Yes, light fulfillment', w:{ standard:1, advanced:1 } },
+      { t:'Yes — real production or projects', w:{ advanced:2, custom:1 } },
+    ]},
+  { id:'software', q:'Does other software need to talk to the CRM?',
+    why:'Native app connections are simple add-ons; deep integrations mean a Custom build.',
+    opts:[
+      { t:'No', w:{ standard:1, excel:1 } },
+      { t:'A couple of everyday apps', d:'Slack, Mailchimp, Zoom…', w:{ standard:1, advanced:1 } },
+      { t:'Accounting, inventory, or ERP', w:{ custom:3 } },
+    ]},
+  { id:'budget', q:'Where does the budget sit?',
+    why:'This keeps the recommendation honest — no point pitching a system that doesn’t fit.',
+    opts:[
+      { t:'As lean as possible', w:{ excel:3, standard:1 } },
+      { t:'Solid mid-range', w:{ standard:2, advanced:1 } },
+      { t:'Whatever the right system costs', w:{ advanced:1, custom:1 } },
+    ]},
+];
+
+/* ════════ STATE ════════ */
+const LS_KEY = 'rw-build-studio';
+let S;
+function load() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) { const s = JSON.parse(raw); if (s.ver === DEFAULTS.ver) { S = s; if (!S.hints) S.hints = {};
+      if (!S.catalog || S.catalogVer !== CATALOG_VER) {
+        S.catalog = clone(CATALOG_DEFAULT); S.catalogVer = CATALOG_VER;
+        // One-time: strip references to automations dropped in this library version
+        // so existing client builds never show a raw id for a removed automation.
+        const known = new Set(S.catalog.map(a => a.id));
+        (S.clients || []).forEach(cl => (cl.pkg && cl.pkg.pipelines || []).forEach(pl =>
+          pl.stages.forEach(st => { if (st.autos) st.autos = st.autos.filter(a => known.has(a.id)); })));
+      }
+      if (S.pkgVer !== PKG_VER) {
+        S.packages = clone(DEFAULTS.packages); S.pkgVer = PKG_VER;
+        // Stamp internal lines on existing client builds so their proposals hide them too.
+        (S.clients || []).forEach(cl => (cl.pkg && cl.pkg.milestones || []).forEach(m =>
+          m.tasks.forEach(t => { if (/client communication bucket/i.test(t.name)) t.cust = false; })));
+      }
+      if (!S.theme) S.theme = 'light';
+      return; } }
+  } catch (e) {}
+  S = clone(DEFAULTS);
+}
+function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }
+
+/* Transient (not saved) */
+let QZ = { step: 0, draft: {} };   // intake wizard position + info fields before client exists
+let addPop = null;                 // automation picker {pi, si}
+let INCL_OPEN = false;             // builder "what's included" panel
+let TPL = { open: null, showLib: false, editAuto: null };  // Package Settings accordion state
+let HOME_Q = '';                   // opening-screen search query (type-to-open)
+let SCOPE = 'tpl';                 // 'tpl' = package templates, 'client' = active client's copy
+let LAST_SCREEN = null;            // fade screens in on navigation only, not on every re-render
+
+/* ════════ MATH — everything derives from here ════════ */
+const isAddonRetLine = r => /custom add-ons/i.test(r.name || '');
+function autosEnabled(p) {
+  let n = 0;
+  (p.pipelines || []).forEach(pl => pl.stages.forEach(st => (st.autos || []).forEach(a => { if (a.on) n++; })));
+  return n;
+}
+function extraAutosOf(p) {
+  if ((p.pipelines || []).length && !p.noAutos) {
+    // Billed extra = the greater of what was quoted (extraManual, set outside the builder)
+    // and what's actually built on the map. Building past the allowance is billed & flagged.
+    const bought = Math.max(0, p.extraManual || 0);
+    const built = Math.max(0, autosEnabled(p) - (p.autosIncluded || 0));
+    return Math.max(bought, built);
+  }
+  return p.extraAutos || 0;
+}
+/* Total automation allowance quoted to the client = included + bought extra. */
+function allowanceOf(p) { return (p.autosIncluded || 0) + Math.max(0, p.extraManual || 0); }
+const extraOver = p => (p.pipelines || []).length && !p.noAutos && autosEnabled(p) > allowanceOf(p);
+function creditsOf(p) { return extraAutosOf(p) + 1 * (p.integrations || 0) + (p.customForm ? 5 : 0); }
+function addonRetHoursOf(p) {
+  if (!(p.retainer || []).some(isAddonRetLine)) return 0;
+  const credits = (p.autosIncluded || 0) + creditsOf(p);
+  return (p.extInteg || 0) * 0.5 + (credits > 25 ? credits / 5 * 0.2 : 0);
+}
+function pkgCalc(p) {
+  let billedHours = 0, optOffHours = 0;
+  p.milestones.forEach(m => m.tasks.forEach(t => {
+    if (!t.opt || t.inc) billedHours += +t.hours || 0; else optOffHours += +t.hours || 0;
+  }));
+  const setupBase = billedHours * S.rate;
+  const enabled = autosEnabled(p);
+  const extraAutos = extraAutosOf(p);
+  const credits = creditsOf(p);
+  const extIntegCost = (p.extInteg || 0) * 10 * S.rate;
+  const addOns = credits * S.credit + extIntegCost;
+  const addonRetHours = addonRetHoursOf(p);
+  const retHours = (p.retainer || []).reduce((a, r) => a + (isAddonRetLine(r) ? 0 : +r.hours || 0), 0) + addonRetHours;
+  return {
+    billedHours, optOffHours, setupBase, enabled, extraAutos, credits, addOns, extIntegCost, addonRetHours,
+    setupTotal: setupBase + addOns,
+    monthly: retHours * S.rate, retHours,
+  };
+}
+const tokensTotal = p => (p.autosIncluded || 0) + extraAutosOf(p);
+
+/* ════════ HELPERS ════════ */
+const $ = sel => document.querySelector(sel);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function money(n, cents) {
+  const opts = cents ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 };
+  return '$' + n.toLocaleString('en-US', opts);
+}
+function fmtHrs(h) { return (+h).toLocaleString('en-US', { maximumFractionDigits: 1 }); }
+function pkg(id) { return S.packages.find(p => p.id === id); }
+function client(id) { return S.clients.find(c => c.id === id); }
+function activeClient() { return client(S.activeClient); }
+function scopedPkg(el) {
+  if (el.dataset.scope === 'client') { const c = activeClient(); return c ? c.pkg : null; }
+  return pkg(el.dataset.pkg);
+}
+function initials(name) {
+  return name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+}
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function today() { return new Date().toISOString().slice(0, 10); }
+let toastTimer = null;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* Inline SVG line icons — no emoji in UI (DESIGN-GUIDELINES §9) */
+const ICONS = {
+  warn: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  pencil: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
+  printer: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+};
+/* Token-usage micro chart: gold within allotment, amber when over. */
+function tokenDonut(used, total) {
+  const over = used > total;
+  const pct = total ? Math.min(1, used / total) : 0;
+  const C = 2 * Math.PI * 8.5;
+  return `<svg class="dz-donut" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+    <circle cx="11" cy="11" r="8.5" fill="none" stroke="var(--border)" stroke-width="3.5"/>
+    <circle cx="11" cy="11" r="8.5" fill="none" stroke="${over ? 'var(--warn)' : 'var(--gold-dot)'}" stroke-width="3.5"
+      stroke-dasharray="${(pct * C).toFixed(1)} ${C.toFixed(1)}" stroke-linecap="round"/>
+  </svg>`;
+}
+
+/* Quiz scoring: sum answer weights, highest package wins (later = ties break upward). */
+function quizRec(answers) {
+  const score = { excel: 0, standard: 0, advanced: 0, custom: 0 };
+  QUIZ.forEach(q => {
+    const o = q.opts[answers[q.id]];
+    if (o) Object.entries(o.w).forEach(([k, v]) => score[k] += v);
+  });
+  let best = 'standard', bestV = -1;
+  ['excel', 'standard', 'advanced', 'custom'].forEach(k => { if (score[k] >= bestV) { best = k; bestV = score[k]; } });
+  return best;
+}
+function quizWhy(answers, rec) {
+  const bits = [];
+  QUIZ.forEach(q => {
+    const o = q.opts[answers[q.id]];
+    if (o && o.w[rec]) bits.push(o.t.toLowerCase());
+  });
+  return bits.length ? 'Based on: ' + bits.slice(0, 3).join(' · ') : '';
+}
+function clientStatus(cl) {
+  if (cl.finalized) return { t: 'Finalized', cls: 'good' };
+  if (cl.pkg) return { t: 'In build', cls: 'gold' };
+  if (cl.quiz && cl.quiz.done) return { t: 'Quiz done', cls: 'plain' };
+  return { t: 'New', cls: 'plain' };
+}
+/* Where a client picks up when opened from the list. */
+function clientHomeScreen(cl) { return cl.pkg ? 'builder' : 'plans'; }
+function openClient(cl, screen) {
+  S.activeClient = cl.id;
+  S.screen = screen || clientHomeScreen(cl);
+}
+
+/* ════════ SHARED PARTIALS ════════ */
+function qtyRow(pid, kind, label, note, count, unitCost) {
+  const cost = count * unitCost;
+  return `<div class="pp-token-row">
+    <span class="lblwrap"><span class="lbl">${label}</span>${note ? `<span class="note">${note}</span>` : ''}</span>
+    <span class="pp-qty">
+      <button type="button" data-act="qty-step" data-pkg="${pid}" data-scope="${SCOPE}" data-kind="${kind}" data-d="-1" aria-label="Fewer">−</button>
+      <input type="number" min="0" step="1" inputmode="numeric" data-act="qty" data-pkg="${pid}" data-scope="${SCOPE}" data-kind="${kind}" value="${count}" aria-label="${label}">
+      <button type="button" data-act="qty-step" data-pkg="${pid}" data-scope="${SCOPE}" data-kind="${kind}" data-d="1" aria-label="More">+</button>
+    </span>
+    <span class="cost ${cost ? '' : 'zero'}">${cost ? '+' + money(cost) : money(0)}</span>
+  </div>`;
+}
+
+function autosPanel(p, c) {
+  const formCost = 5 * S.credit;
+  const mapDriven = (p.pipelines || []).length && !p.noAutos;
+  const bought = Math.max(0, p.extraManual || 0);
+  const over = extraOver(p);
+  const autoRow = mapDriven
+    ? `<div class="pp-token-row">
+        <span class="lblwrap"><span class="lbl">Extra automations</span>
+        <span class="note">${c.enabled} of ${allowanceOf(p)} allowance in use${over ? ` · <span style="color:var(--warn)">${c.enabled - allowanceOf(p)} over</span>` : ''} · set in the client menu</span></span>
+        <span class="cost ${c.extraAutos ? '' : 'zero'}">${c.extraAutos ? '+' + money(c.extraAutos * S.credit) : money(0)}</span>
+      </div>`
+    : qtyRow(p.id, 'auto', 'Extra automations', money(S.credit) + ' each', p.extraAutos, S.credit);
+  return `<div class="pp-autos">
+    <div class="head"><span class="n">Add-ons</span>
+      <span class="inc">${p.autosIncluded ? `up to ${p.autosIncluded} automations included` : ''}</span></div>
+    ${autoRow}
+    ${qtyRow(p.id, 'integ', 'App connections', `Slack, Mailchimp, Zoom… · ${money(1 * S.credit)} each`, p.integrations, 1 * S.credit)}
+    ${p.id === 'custom' ? qtyRow(p.id, 'ext', 'External integrations', `accounting, inventory, ERP · ${money(10 * S.rate)} each`, p.extInteg || 0, 10 * S.rate) : ''}
+    <div class="pp-token-row">
+      <span class="lblwrap"><span class="lbl">Custom web form</span><span class="note">only if you keep your own form plugin</span></span>
+      <label class="pp-switch"><input type="checkbox" data-act="form-toggle" data-pkg="${p.id}" data-scope="${SCOPE}" ${p.customForm ? 'checked' : ''}><span class="tr"></span></label>
+      <span class="cost ${p.customForm ? '' : 'zero'}">${p.customForm ? '+' + money(formCost) : money(0)}</span>
+    </div>
+    <div class="foot">Add-ons total: <b>${money(c.addOns)}</b></div>
+  </div>`;
+}
+
+/* ════════ CLIENT-FACING NAMING ════════
+   Line items keep their internal task-tracking names; the client sees a friendlier
+   label. Order of preference: per-task override (t.clabel) → known map → prefix-cleaned. */
+const CLIENT_LABELS = {
+  'Mapping & Requirements Gathering': 'Process mapping & requirements',
+  'Document Current Processes': 'Current-process documentation',
+  'Requirements Gathering': 'Requirements gathering',
+  'Process Mapping - Visual Map': 'Visual process map',
+  'Review Map with Client': 'Process-map review',
+  'Developing Automation Plan': 'Automation plan',
+  'Technical Build - Pipelines & Stages': 'Pipeline & stage setup',
+  'Technical Build - Custom Fields': 'Custom fields',
+  'Technical Build - Automations (up to 15)': 'Automation build (up to 15)',
+  'Technical Build - Automations (up to 20)': 'Automation build (up to 20)',
+  'Technical Build - User Accounts Setup': 'User accounts',
+  'Technical Build - Configure Web Form': 'Website form setup',
+  'Technical Build - Configure Campaigns': 'Email campaigns',
+  'Technical Build - Configure Lead Inbox': 'Leads Inbox setup',
+  'Technical Build - Configure Lead Assignment': 'Lead assignment rules',
+  'Technical Build - Configure Projects Board': 'Projects Board setup',
+  'Technical Build - Configure Products': 'Product catalog setup',
+  'Technical Build - Configure Live Chat': 'Live chat setup',
+  'Technical Build - Configure Pipedrive MCP (AI access)': 'AI access (Pipedrive MCP)',
+  'Deployment - Demo': 'Live demo & walkthrough',
+  'Deployment - Adjustments': 'Revisions & adjustments',
+  'Deployment - Prepare QRG': 'Quick-reference guide',
+  'Implementation - Customize Stages': 'Stage customization',
+  'Adjustment Allowance': 'Adjustments',
+  'Bi-Weekly Follow-up (2)': 'Two post-launch check-ins',
+};
+function clientLabel(t) {
+  if (t.clabel && t.clabel.trim()) return t.clabel.trim();
+  if (CLIENT_LABELS[t.name]) return CLIENT_LABELS[t.name];
+  return t.name.replace(/^(Technical Build|Deployment|Process Mapping|Implementation) - /, '');
+}
+/* A task the client should see: included (or non-optional) and not flagged internal. */
+const isClientTask = t => (!t.opt || t.inc) && t.cust !== false;
+
+function milesPanel(p, open) {
+  const mils = p.milestones.map((m, mi) => {
+    const items = m.tasks.map((t, ti) => {
+      if (t.cust === false) return '';
+      if (!t.opt) return `<li><span class="tick">●</span>${esc(clientLabel(t))}</li>`;
+      const price = (+t.hours || 0) * S.rate;
+      return `<li><span class="pp-opt ${t.inc ? 'on' : ''}">
+        <label class="pp-switch" title="${t.inc ? 'Included — switch off to remove' : 'Optional — switch on to include'}"><input type="checkbox" data-act="opt-toggle" data-pkg="${p.id}" data-scope="${SCOPE}" data-mi="${mi}" data-ti="${ti}" ${t.inc ? 'checked' : ''}><span class="tr"></span></label>
+        <span>${esc(clientLabel(t))}</span>
+        <span class="price">${t.inc ? 'included · ' + money(price) : '+' + money(price)}</span>
+      </span></li>`;
+    }).join('');
+    const label = m.name.replace(/^Milestone \d+:\s*/, '');
+    return `<div class="pp-mile">
+      <div class="m-name"><span>${esc(label)}</span><span class="m-step">Step ${mi + 1}</span></div>
+      <ul>${items}</ul></div>`;
+  }).join('');
+  return `<details class="pp-miles" ${open ? 'open' : ''}><summary>What the work includes <span class="chev">▼</span></summary>${mils}</details>`;
+}
+
+/* ════════ HOME ════════ */
+/* Type-to-open: the roster is never shown unprompted (privacy in front of a client). */
+function homeResultsHTML() {
+  const raw = (HOME_Q || '').trim();
+  const q = raw.toLowerCase();
+  if (!q) {
+    return `<div class="home-hint">${S.clients.length
+      ? `Type a client’s name to open their build.<span class="dim"> ${S.clients.length} build${S.clients.length === 1 ? '' : 's'} saved.</span>`
+      : 'No client builds yet — start a new project above.'}</div>`;
+  }
+  const matches = S.clients.filter(cl => (cl.name + ' ' + (cl.company || '')).toLowerCase().includes(q));
+  if (!matches.length) {
+    return `<div class="home-hint">No client matches “${esc(raw)}”. <button class="link" data-act="new-project">Start a new project →</button></div>`;
+  }
+  const rows = matches.map(cl => {
+    const st = clientStatus(cl);
+    const c = cl.pkg ? pkgCalc(cl.pkg) : null;
+    return `<tr data-act="client-open" data-client="${cl.id}" title="Open ${esc(cl.name)}">
+      <td><span class="nm">${esc(cl.name)}</span>${cl.company ? `<div class="co">${esc(cl.company)}</div>` : ''}</td>
+      <td>${cl.pkg ? `<span class="chip neutral">${esc(cl.pkg.name)}</span>` : '<span style="color:var(--ink-3)">—</span>'}</td>
+      <td class="num">${c ? money(c.setupTotal) : '<span class="dim">—</span>'}</td>
+      <td><span class="chip ${st.cls}">${st.t}</span></td>
+      <td class="num" style="width:40px"><span class="go">→</span></td>
+    </tr>`;
+  }).join('');
+  return `<table class="cl-table">
+    <thead><tr><th>Client</th><th>Plan</th><th class="num">Setup</th><th>Status</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+function updateHomeResults() {
+  const el = document.getElementById('homeResults');
+  if (el) el.innerHTML = homeResultsHTML();
+}
+function renderHome() {
+  SCOPE = 'tpl';
+  return `<div class="home">
+    <div class="home-hero">
+      <div class="mark">Rosewood<span class="accent">.</span></div>
+      <div class="sub">CRM Build Studio</div>
+      <div class="cta"><button class="btn btn-primary btn-lg" data-act="new-project">+ New project</button></div>
+    </div>
+    <div class="home-open">
+      <div class="home-search">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="homeSearch" type="text" autocomplete="off" spellcheck="false" placeholder="Open a client by name…" value="${esc(HOME_Q)}" aria-label="Search client builds">
+        <button class="home-clear" data-act="home-lock" title="Clear / hide" aria-label="Clear">×</button>
+      </div>
+      <div id="homeResults" class="home-results">${homeResultsHTML()}</div>
+    </div>
+    <div class="home-foot"><button class="link" data-act="goto-templates">Package settings</button></div>
+  </div>`;
+}
+
+/* ════════ INTAKE (info + quiz) ════════ */
+function renderIntake() {
+  const cl = activeClient();
+  const total = QUIZ.length + 2; // info + questions + result
+  const pct = Math.min(100, (QZ.step / (total - 1)) * 100);
+  let body = '';
+
+  if (QZ.step === 0) {
+    const d = cl || QZ.draft;
+    body = `
+      <div class="eyebrow">New project</div>
+      <h2>Who is this build for?</h2>
+      <p class="why">Just enough to keep the build organized — everything can be edited later.</p>
+      <div class="qz-fields">
+        <div class="fld"><label for="qzName">Client / business name <span style="color:var(--rw-red)">*</span></label>
+          <input class="in" id="qzName" type="text" value="${esc(d.name || '')}" placeholder="e.g. Hilltop Ag" autocomplete="off"></div>
+        <div class="fld"><label for="qzContact">Contact person</label>
+          <input class="in" id="qzContact" type="text" value="${esc(d.contact || '')}" placeholder="optional"></div>
+        <div class="fld"><label for="qzEmail">Email</label>
+          <input class="in" id="qzEmail" type="email" value="${esc(d.email || '')}" placeholder="optional"></div>
+      </div>
+      <div class="qz-nav">
+        <button class="btn btn-ghost" data-act="qz-cancel">Cancel</button>
+        <span class="spacer"></span>
+        <button class="link" data-act="qz-skip" title="Skip the quiz and go straight to the plans">Skip quiz →</button>
+        <button class="btn btn-primary" data-act="qz-next">Start the quiz</button>
+      </div>
+      <div class="qz-hint">5 quick questions point to the right plan. You can skip and browse the plans directly.</div>`;
+  } else if (QZ.step <= QUIZ.length) {
+    const q = QUIZ[QZ.step - 1];
+    const picked = cl.quiz.answers[q.id];
+    const opts = q.opts.map((o, i) => `
+      <button type="button" class="qz-opt ${picked === i ? 'sel' : ''}" data-act="qz-pick" data-q="${q.id}" data-i="${i}">
+        <span class="k">${String.fromCharCode(65 + i)}</span>
+        <span><b>${esc(o.t)}</b>${o.d ? `<span class="d">${esc(o.d)}</span>` : ''}</span>
+      </button>`).join('');
+    body = `
+      <div class="eyebrow">Question ${QZ.step} of ${QUIZ.length}</div>
+      <h2>${esc(q.q)}</h2>
+      <p class="why">${esc(q.why)}</p>
+      <div class="qz-opts">${opts}</div>
+      <div class="qz-nav">
+        <button class="btn btn-ghost" data-act="qz-back">← Back</button>
+        <span class="spacer"></span>
+        <button class="link" data-act="qz-skip">Skip to plans →</button>
+        ${picked != null ? `<button class="btn btn-primary" data-act="qz-next">Next</button>` : ''}
+      </div>`;
+  } else {
+    const rec = quizRec(cl.quiz.answers);
+    cl.quiz.rec = rec; cl.quiz.done = true;
+    const p = pkg(rec);
+    const c = pkgCalc(p);
+    body = `
+      <div class="qz-result">
+        <div class="eyebrow">Our recommendation for ${esc(cl.name)}</div>
+        <div class="pkg-name">${esc(p.name)}</div>
+        <span class="chip gold">${COPY[rec].flag}</span>
+        <div class="because">${esc(COPY[rec].tag)}<br>
+          <span style="color:var(--ink-3);font-size:12px">${esc(quizWhy(cl.quiz.answers, rec))}</span></div>
+        <div style="margin-top:18px;font-size:15px">from <b style="font-size:20px">${money(c.setupTotal)}</b>${c.monthly ? ` · then ${money(c.monthly)}/mo` : ''}</div>
+        <div class="acts">
+          <button class="btn btn-ghost" data-act="qz-back">← Back</button>
+          <button class="btn btn-primary btn-lg" data-act="qz-finish">See the plans</button>
+        </div>
+      </div>`;
+  }
+  return `<div class="qz-progress"><div class="fill" style="width:${pct}%"></div></div>
+    <div class="qz">${body}</div>`;
+}
+
+/* ════════ PLANS ════════ */
+function planCard(p, cl) {
+  const c = pkgCalc(p);
+  const copy = COPY[p.id];
+  const isCustom = p.id === 'custom';
+  const isSel = cl && cl.planId === p.id;
+  const isRec = cl && cl.quiz && cl.quiz.done && cl.quiz.rec === p.id;
+  const priceBlock = isCustom
+    ? `<div class="pp-price"><span class="from">Custom quote — from</span>
+       <div class="amt">${money(c.setupTotal)}</div>
+       <div class="per">then <b>${money(c.monthly)}+/mo</b> support</div>
+       <div class="weeks">${copy.weeks}</div></div>`
+    : `<div class="pp-price"><span class="from">${p.id === 'excel' ? 'Flat fee' : 'Starting at'}</span>
+       <div class="amt">${money(c.setupBase)}</div>
+       ${c.monthly ? `<div class="per">then <b>${money(c.monthly)}/mo</b> support</div>` : '<div class="per">No monthly fees</div>'}
+       ${copy.weeks ? `<div class="weeks">${copy.weeks}</div>` : ''}</div>`;
+  const addonNote = c.addOns ? `<div class="addon-note">${money(c.setupBase)} base + ${money(c.addOns)} add-ons</div>` : '';
+  return `<article class="pp-card ${isSel ? 'is-selected' : ''}">
+    <div class="pp-flag ${isRec ? 'rec' : ''}">${isRec ? '★ Recommended' : copy.flag}</div>
+    <div class="pp-card-body">
+      <div><h2>${esc(p.name)}</h2><div class="pp-tag">${esc(copy.tag)}</div></div>
+      ${priceBlock}
+      <ul class="pp-bullets">${copy.bullets.map(b => `<li><span>${b}</span></li>`).join('')}</ul>
+      ${p.id !== 'excel' ? autosPanel(p, c) : ''}
+      ${milesPanel(p)}
+    </div>
+    <div class="pp-total">
+      <div>
+        <div class="setup">${isCustom ? 'From ' : ''}${money(c.setupTotal)}</div>
+        <div class="mo">${c.monthly ? `then ${money(c.monthly)}${isCustom ? '+' : ''}/mo` : 'one-time, as-is'}</div>
+        ${addonNote}
+      </div>
+      ${cl ? `<button class="pp-select ${isSel ? 'is-on' : ''}" data-act="plan-select" data-pkg="${p.id}" title="${isSel ? 'This is the selected plan — click to open the builder' : 'Set this as ' + esc(cl.name) + '’s plan'}">${isSel ? '✓ Selected' : 'Select this plan'}</button>` : ''}
+    </div>
+  </article>`;
+}
+
+function renderPlans() {
+  SCOPE = 'tpl';
+  const cl = activeClient();
+  const rules = RULES.map(r => `<div class="pp-rule"><div class="t">${r.t}</div><div class="d">${r.d}</div></div>`).join('');
+  const recNote = cl && cl.quiz && cl.quiz.done
+    ? `Based on the quiz, <b>${esc(pkg(cl.quiz.rec).name)}</b> is the closest fit — but any plan can be picked here.`
+    : 'Pick the plan together during the discovery meeting. Every price is computed from hours and add-ons.';
+  return `<div class="page">
+    <div class="intro">
+      <h1>${cl ? `Plans for ${esc(cl.name)}` : 'Plans'}</h1>
+      <p>${recNote}</p>
+    </div>
+    <div class="pp-grid">
+      ${planCard(pkg('standard'), cl)}
+      ${planCard(pkg('advanced'), cl)}
+      ${planCard(pkg('custom'), cl)}
+    </div>
+    <div class="pp-more"><button class="link" data-act="open-excel">Working with a tighter budget? There’s one more option →</button></div>
+    <details class="pp-rules"><summary>Ground rules ▾</summary><div class="grid">${rules}</div></details>
+  </div>`;
+}
+
+/* ════════ BUILDER (system map) ════════ */
+function laneStage(p, pi, si) {
+  const st = p.pipelines[pi].stages[si];
+  const chips = (st.autos || []).map((a, ai) => {
+    const cat = CAT[a.id] || { n: a.id, d: '' };
+    return `<button type="button" class="dz-chip ${a.on ? '' : 'off'}" data-act="chip-toggle" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" data-si="${si}" data-ai="${ai}"
+      title="${esc(cat.d)} ${a.on ? '— on (uses 1 token). Click to switch off.' : '— off. Click to switch on (uses 1 token).'}">
+      <span class="tok"></span><span class="nm">${esc(cat.n)}</span>
+      <span class="x" data-act="chip-del" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" data-si="${si}" data-ai="${ai}" title="Remove from this stage">×</span>
+    </button>`;
+  }).join('');
+  const addBtn = p.noAutos ? '' :
+    `<button type="button" class="dz-add-auto" data-act="pop-open" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" data-si="${si}" title="Pick from the automation menu for this stage">+ automation</button>`;
+  return `<div class="dz-stage">
+    <div class="dz-stage-head">
+      <input class="st-name" data-act="st-name" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" data-si="${si}" value="${esc(st.name)}" title="Click to rename this stage">
+      <button type="button" class="st-del" data-act="st-del" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" data-si="${si}" title="Delete this stage">×</button>
+    </div>
+    <textarea class="st-note" rows="1" data-act="st-note" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" data-si="${si}" placeholder="Add a note…" title="Free-text note — appears on the final blueprint">${esc(st.note || '')}</textarea>
+    <div class="dz-autos">${chips}</div>${addBtn}</div>`;
+}
+
+/* The Leads Inbox is a special element — a single flat list, not a stage pipeline. */
+function inboxLane(p, pi) {
+  const pl = p.pipelines[pi];
+  const st = pl.stages[0] || { autos: [] };
+  const si = 0;
+  const onCount = (st.autos || []).filter(x => x.on).length;
+  const chips = (st.autos || []).map((a, ai) => {
+    const cat = CAT[a.id] || { n: a.id, d: '' };
+    return `<button type="button" class="dz-chip ${a.on ? '' : 'off'}" data-act="chip-toggle" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" data-si="${si}" data-ai="${ai}"
+      title="${esc(cat.d)} ${a.on ? '— on (uses 1 token). Click to switch off.' : '— off. Click to switch on (uses 1 token).'}">
+      <span class="tok"></span><span class="nm">${esc(cat.n)}</span>
+      <span class="x" data-act="chip-del" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" data-si="${si}" data-ai="${ai}" title="Remove">×</span>
+    </button>`;
+  }).join('');
+  const addBtn = `<button type="button" class="dz-add-auto" data-act="pop-open" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" data-si="${si}" title="Add a lead automation">+ automation</button>`;
+  const addon = p.id === 'custom';
+  const addonBadge = addon ? `<span class="dz-addon-badge" title="Priced as an optional add-on for Custom — see “Configure Lead Inbox” in Package Settings">Optional add-on</span>` : '';
+  const note = addon
+    ? 'Leads sit here as a single list — no stages. Optional for Custom: this element is quoted separately and starts with nothing switched on until the client buys it.'
+    : 'Leads sit here as a single list — no stages. These automations assign, tag, and convert them into deals.';
+  return `<div class="dz-inflow"><span class="ar">${pi === 0 ? '⇢' : '⤷'}</span>
+      <input data-act="pl-inflow" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" value="${esc(pl.inflow || '')}" placeholder="Describe how leads arrive…"></div>
+    <div class="dz-lane dz-inbox">
+      <div class="dz-lane-head">
+        <span class="dz-inbox-badge">List</span>
+        <input class="pl-name" data-act="pl-name" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" value="${esc(pl.name)}" title="Rename">
+        ${addonBadge}
+        <span class="meta">${onCount} lead automation${onCount === 1 ? '' : 's'} on</span>
+        <button type="button" class="pl-del" data-act="pl-del" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" title="Delete this element">×</button>
+      </div>
+      <div class="dz-inbox-note">${note}</div>
+      <div class="dz-inbox-chips">${chips}${addBtn}</div>
+    </div>`;
+}
+
+function lanesHTML(p) {
+  return (p.pipelines || []).map((pl, pi) => {
+    if (pl.kind === 'inbox') return inboxLane(p, pi);
+    const onCount = pl.stages.reduce((a, st) => a + (st.autos || []).filter(x => x.on).length, 0);
+    const stages = pl.stages.map((st, si) => laneStage(p, pi, si)).join('<div class="dz-arrow" aria-hidden="true">→</div>');
+    const meta = `${pl.stages.length} stages${p.noAutos ? '' : ` · ${onCount} automation${onCount === 1 ? '' : 's'} on`}`;
+    const addonBadge = (pl.kind === 'projects' && p.id === 'custom')
+      ? `<span class="dz-addon-badge" title="Priced as an optional add-on for Custom — see “Configure Projects Board” in Package Settings. Starts with nothing switched on until the client buys it.">Optional add-on</span>` : '';
+    return `<div class="dz-inflow"><span class="ar">${pi === 0 ? '⇢' : '⤷'}</span>
+        <input data-act="pl-inflow" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" value="${esc(pl.inflow || '')}" placeholder="Describe how deals arrive in this pipeline…" title="Shown as the connector label on the blueprint"></div>
+      <div class="dz-lane">
+      <div class="dz-lane-head">
+        <input class="pl-name" data-act="pl-name" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" value="${esc(pl.name)}" title="Click to rename this pipeline">
+        ${addonBadge}
+        <span class="meta">${meta}</span>
+        <button type="button" class="pl-del" data-act="pl-del" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" title="Delete this pipeline">×</button>
+      </div>
+      <div class="dz-stages">${stages}<div class="dz-arrow" aria-hidden="true">→</div>
+        <button type="button" class="dz-stage-add" data-act="st-add" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${pi}" title="Add a stage to this pipeline">+</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function autoPickerModal(p) {
+  if (!addPop) return '';
+  const pl = p.pipelines[addPop.pi]; if (!pl) { addPop = null; return ''; }
+  const st = pl.stages[addPop.si]; if (!st) { addPop = null; return ''; }
+  const have = new Set((st.autos || []).map(a => a.id));
+  const rec = st.role ? CATALOG.filter(a => a.roles.includes(st.role)) : [];
+  const rest = CATALOG.filter(a => !rec.includes(a));
+  const item = a => `<button type="button" class="it ${have.has(a.id) ? 'added' : ''}" ${have.has(a.id) ? '' : `data-act="pop-add" data-scope="${SCOPE}" data-pkg="${p.id}" data-pi="${addPop.pi}" data-si="${addPop.si}" data-cid="${a.id}"`}>
+    <span class="tok"></span><span><span class="nm">${esc(a.n)}</span><span class="d">${esc(a.d)}</span></span>
+    ${have.has(a.id) ? '<span class="got">added ✓</span>' : ''}
+  </button>`;
+  return `<div class="dz-scrim" data-act="pop-close"></div>
+  <div class="dz-modal" role="dialog" aria-label="Add automation">
+    <div class="hd2"><span class="t">Add automation — ${esc(st.name)}</span>
+      <button type="button" class="close" data-act="pop-close" aria-label="Close">×</button></div>
+    <div class="bd">
+      ${rec.length ? `<div class="grp">Suggested for this stage</div>${rec.map(item).join('')}<div class="grp">Everything else</div>` : `<div class="grp">All automations</div>`}
+      ${rest.map(item).join('')}
+    </div>
+  </div>`;
+}
+
+function renderBuilder() {
+  const cl = activeClient();
+  const p = cl.pkg;
+  SCOPE = 'client';
+  const c = pkgCalc(p);
+  const copy = COPY[p.id] || {};
+  const allow = allowanceOf(p);
+  const bought = Math.max(0, p.extraManual || 0);
+  const over = c.enabled > allow;
+  const overN = c.enabled - allow;
+  const stats = p.noAutos
+    ? `<span class="dz-stat">${esc(copy.mapNote || '')}</span>`
+    : `<span class="dz-stat" title="Automations switched on across the map, against this client’s allowance (${p.autosIncluded} included${bought ? ` + ${bought} extra` : ''})">${tokenDonut(c.enabled, allow)}<b>${c.enabled}</b> of <b>${allow}</b> automations</span>
+       <span class="dz-stat ${over ? 'over' : ''}" title="${over ? 'Building past the allowance is allowed — it’s flagged and billed at ' + money(S.credit) + ' each' : 'Within the quoted allowance'}">
+         ${over ? `${ICONS.warn} <b>${overN}</b> over allowance · +${money(overN * S.credit)}` : (bought ? `<b>${bought}</b> extra quoted` : 'within allowance')}</span>`;
+  const inclPanel = !INCL_OPEN ? '' : `<div class="dz-incl">
+    <div><span class="sec-label" style="display:block;margin-bottom:8px">${esc(p.name)} plan — what’s included</span>
+      <ul class="pp-bullets">${(copy.bullets || []).map(b => `<li><span>${b}</span></li>`).join('')}</ul></div>
+    <div><span class="sec-label" style="display:block;margin-bottom:8px">Add-ons</span>${autosPanel(p, c)}</div>
+  </div>`;
+  const html = `<div class="page wide">
+    <div class="dz-bar">
+      ${stats}
+      <span class="money">${money(c.setupTotal)} <span class="mo">setup${c.monthly ? ` · ${money(c.monthly)}/mo` : ''}</span></span>
+      <span class="right">
+        <button class="btn btn-ghost btn-sm ${INCL_OPEN ? '' : ''}" data-act="incl-toggle" title="Plan features and add-ons">${INCL_OPEN ? 'Hide' : 'What’s included'} ${INCL_OPEN ? '▴' : '▾'}</button>
+        <button class="btn btn-secondary btn-sm" data-act="goto-plans" title="Compare or swap the selected plan">Change plan</button>
+        <button class="btn btn-primary btn-sm" data-act="finalize" title="Lock the map and open the presentation blueprint">Finalize build ▸</button>
+      </span>
+    </div>
+    ${inclPanel}
+    ${(p.noAutos || (S.hints || {}).builder) ? '' : `<div class="hint-callout">
+      <span><b>First time in the builder?</b> Click any text to rename it. Gold chips are automations that are on — click one to switch it off; dashed chips are available but unbuilt. Building past this client’s allowance is allowed — it’s flagged and billed at ${money(S.credit)} each. Set the extra allowance from the client menu (top-right).</span>
+      <button class="ok" data-act="hint-dismiss" data-k="builder">Got it</button>
+    </div>`}
+    ${lanesHTML(p)}
+    <button type="button" class="dz-pl-add" data-act="pl-add" data-scope="client" data-pkg="${p.id}">+ Add pipeline</button>
+    ${autoPickerModal(p)}
+  </div>`;
+  SCOPE = 'tpl';
+  return html;
+}
+
+/* ════════ BLUEPRINT ════════ */
+function renderBlueprint() {
+  const cl = activeClient();
+  const p = cl.pkg;
+  const c = pkgCalc(p);
+  const copy = COPY[p.id] || {};
+  const lanes = (p.pipelines || []).map((pl, pi) => {
+    const onCount = pl.stages.reduce((a, st) => a + (st.autos || []).filter(x => x.on).length, 0);
+    const stages = pl.stages.map((st, si) => {
+      const autos = (st.autos || []).filter(a => a.on)
+        .map(a => `<div class="bp-auto" title="${esc((CAT[a.id] || {}).d || '')}"><span class="tok"></span>${esc((CAT[a.id] || { n: a.id }).n)}</div>`).join('');
+      return `<div class="bp-stage">
+        <span class="idx">${String(si + 1).padStart(2, '0')}</span>
+        <span class="nm">${esc(st.name)}</span>
+        ${st.note ? `<span class="note">${esc(st.note)}</span>` : ''}
+        ${autos ? `<div class="bp-autos">${autos}</div>` : ''}
+      </div>`;
+    }).join('<div class="bp-conn" aria-hidden="true"></div>');
+    return `${pl.inflow ? `<div class="bp-inflow"><span class="ln"></span>${esc(pl.inflow)}</div>` : '<div style="height:20px"></div>'}
+      <div>
+        <div class="bp-lane-title"><span class="t">${esc(pl.name)}</span><span class="rule"></span>
+          <span class="ct">${pl.kind === 'inbox' ? 'List' : pl.stages.length + ' stages'}${onCount ? ` · ${onCount} automations` : ''}</span></div>
+        <div class="bp-stages">${stages}</div>
+      </div>`;
+  }).join('');
+  return `<div class="bp-wrap">
+    <div class="bp-actions">
+      <button class="btn btn-secondary btn-sm" data-act="goto-builder" title="Reopen the editable builder">${ICONS.pencil} Edit build</button>
+      <button class="btn btn-primary btn-sm" data-act="goto-report" title="Open the full print-ready proposal report">${ICONS.printer} Full report</button>
+    </div>
+    <div class="bp-head">
+      <div class="eyebrow">System blueprint · prepared ${fmtDate(today())}</div>
+      <h1>${esc(cl.name)}</h1>
+      <div class="sys">${esc(p.name)} Sales &amp; Marketing System</div>
+      <div class="facts">
+        <div class="bp-fact"><label>Setup</label><b>${money(c.setupTotal)}</b>${c.addOns ? `<div class="sub">${money(c.setupBase)} base + ${money(c.addOns)} add-ons</div>` : ''}</div>
+        <div class="bp-fact"><label>Monthly support</label><b>${c.monthly ? money(c.monthly) : '—'}</b><div class="sub">${c.monthly ? 'starts 30 days after launch' : 'delivered as-is'}</div></div>
+        <div class="bp-fact"><label>Automations</label><b>${c.enabled}</b><div class="sub">${p.noAutos ? 'built into the workbook' : 'of ' + tokensTotal(p) + ' available'}</div></div>
+        <div class="bp-fact"><label>Timeline</label><b>${copy.weeksShort}</b><div class="sub">kickoff to launch</div></div>
+      </div>
+    </div>
+    <div class="bp-lanes">${lanes}</div>
+    <div class="bp-legend">
+      <span><span class="node"></span> pipeline stage</span>
+      <span><span class="tok"></span> automated step — runs without anyone remembering it</span>
+    </div>
+  </div>`;
+}
+
+/* ════════ REPORT (print-ready proposal document) ════════ */
+function renderReport() {
+  const cl = activeClient();
+  const p = cl.pkg;
+  const c = pkgCalc(p);
+  const copy = COPY[p.id] || {};
+  const tt = tokensTotal(p);
+
+  /* Which optional sections exist — needed before numbering */
+  const addonLines = [];
+  if (c.extraAutos) addonLines.push([`Extra automations <span class="tag">beyond the ${p.autosIncluded} included</span>`, `${c.extraAutos} × ${money(S.credit)}`, c.extraAutos * S.credit]);
+  if (p.integrations) addonLines.push(['App connections', `${p.integrations} × ${money(1 * S.credit)}`, p.integrations * 1 * S.credit]);
+  if (p.extInteg) addonLines.push(['External integrations', `${p.extInteg} × ${money(10 * S.rate)}`, p.extInteg * 10 * S.rate]);
+  if (p.customForm) addonLines.push(['Custom web-form connection', money(5 * S.credit), 5 * S.credit]);
+  const hasRet = (p.retainer || []).length > 0;
+  const activeIds = [];
+  (p.pipelines || []).forEach(pl => pl.stages.forEach(st => (st.autos || []).forEach(a => { if (a.on && !activeIds.includes(a.id)) activeIds.push(a.id); })));
+
+  /* Sequential section numbers, computed once in document order */
+  let seqN = 0;
+  const NO = () => String(++seqN).padStart(2, '0');
+  const investNo = NO();
+  const scopeNo = NO();
+  const addonNo = addonLines.length ? NO() : null;
+  const retNo = hasRet ? NO() : null;
+  const archNo = NO();
+  const refNo = activeIds.length ? NO() : null;
+  const termsNo = NO();
+
+  /* Cover meta */
+  const metaItems = [
+    ['Prepared for', esc(cl.name), false],
+    cl.contact ? ['Contact', esc(cl.contact), false] : null,
+    (cl.email || cl.phone) ? ['Reach', esc([cl.email, cl.phone].filter(Boolean).join('  ·  ')), true] : null,
+    ['Date', fmtDate(today()), true],
+    ['Plan', esc(p.name), false],
+  ].filter(Boolean);
+  const meta = metaItems.map(([l, v, dim]) =>
+    `<div class="m"><label>${l}</label><div class="v ${dim ? 'dim' : ''}">${v}</div></div>`).join('');
+
+  /* Scope of work — client-facing: internal & not-included lines hidden, friendly labels,
+     no per-milestone pricing (only the final setup total shows). */
+  const scope = p.milestones.map(m => {
+    const label = m.name.replace(/^Milestone \d+:\s*/, '');
+    const rows = m.tasks.filter(isClientTask).map(t =>
+      `<tr><td>${esc(clientLabel(t))}</td></tr>`).join('');
+    if (!rows) return '';
+    return `<tbody><tr class="mrow"><td>${esc(label)}</td></tr>${rows}</tbody>`;
+  }).join('');
+
+  const addonsSec = addonLines.length ? `
+    <section class="rpt-sec"><div class="rpt-h"><span class="no">${addonNo}</span><span class="tt">Add-ons &amp; credits</span><span class="rule"></span></div>
+      <table class="rpt-tbl"><thead><tr><th>Item</th><th class="num">Detail</th><th class="num">Amount</th></tr></thead>
+        <tbody>${addonLines.map(([nm, d, amt]) => `<tr><td>${nm}</td><td class="num">${d}</td><td class="num">${money(amt)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td>Add-ons total</td><td></td><td class="num">${money(c.addOns)}</td></tr></tfoot>
+      </table>
+      <div class="rpt-note">Credit values: one credit per extra automation (${money(S.credit)}), one per app connection, and five for a custom web-form plugin${p.id === 'custom' ? `. External software integrations are quoted at ${money(10 * S.rate)} each` : ''}.</div>
+    </section>` : '';
+
+  const retSec = hasRet ? (() => {
+    const rows = p.retainer.map(r => {
+      if (isAddonRetLine(r)) return `<tr><td>${esc(r.name)} <span class="tag">scales with add-ons</span></td><td class="num">${money(c.addonRetHours * S.rate)}</td></tr>`;
+      const h = +r.hours || 0;
+      return `<tr><td>${esc(r.name)}</td><td class="num">${money(h * S.rate)}</td></tr>`;
+    }).join('');
+    return `<section class="rpt-sec"><div class="rpt-h"><span class="no">${retNo}</span><span class="tt">Monthly support retainer</span><span class="rule"></span><span class="aside">begins 30 days after launch</span></div>
+      <table class="rpt-tbl"><thead><tr><th>Line item</th><th class="num">Per month</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td>Monthly total</td><td class="num">${money(c.monthly)}</td></tr></tfoot>
+      </table></section>`;
+  })() : '';
+
+  /* System architecture — vertical, paginate-safe */
+  const flow = (p.pipelines || []).map(pl => {
+    const onCount = pl.stages.reduce((a, st) => a + (st.autos || []).filter(x => x.on).length, 0);
+    const stages = pl.stages.map((st, si) => {
+      const autos = (st.autos || []).filter(a => a.on).map(a => {
+        const cat = CAT[a.id] || { n: a.id, d: '' };
+        return `<li><b>${esc(cat.n)}</b>${cat.d ? ` — ${esc(cat.d)}` : ''}</li>`;
+      }).join('');
+      return `<div class="rpt-stage">
+        <div class="rpt-stage-h"><span class="rpt-stage-idx">${String(si + 1).padStart(2, '0')}</span><span class="rpt-stage-nm">${esc(st.name)}</span></div>
+        ${st.note ? `<div class="rpt-stage-note">${esc(st.note)}</div>` : ''}
+        ${autos ? `<ul class="rpt-stage-autos">${autos}</ul>` : `<div class="rpt-stage-empty">${p.noAutos ? 'Handled manually in the workbook.' : 'No automated steps on this stage.'}</div>`}
+      </div>`;
+    }).join('<div class="rpt-flow-conn" aria-hidden="true"></div>');
+    return `<div class="rpt-pipe">
+      <div class="rpt-pipe-h"><span class="rpt-pipe-nm">${esc(pl.name)}</span><span class="rpt-pipe-meta">${pl.kind === 'inbox' ? 'List' : pl.stages.length + ' stages'}${p.noAutos ? '' : ` · ${onCount} automations`}</span></div>
+      ${pl.inflow ? `<div class="rpt-pipe-inflow">${esc(pl.inflow)}</div>` : ''}
+      <div class="rpt-flow">${stages}</div>
+    </div>`;
+  }).join('');
+
+  const glossSec = activeIds.length ? `
+    <section class="rpt-sec rpt-break"><div class="rpt-h"><span class="no">${refNo}</span><span class="tt">Automation reference</span><span class="rule"></span><span class="aside">${activeIds.length} automated steps</span></div>
+      <div class="rpt-gloss">${activeIds.map(id => { const cat = CAT[id] || { n: id, d: '' }; return `<div class="rpt-gloss-item"><span class="rpt-gloss-tok"></span><div><b>${esc(cat.n)}</b><span>${esc(cat.d)}</span></div></div>`; }).join('')}</div>
+    </section>` : '';
+
+  const termsSec = `
+    <section class="rpt-sec"><div class="rpt-h"><span class="no">${termsNo}</span><span class="tt">Terms &amp; notes</span><span class="rule"></span></div>
+      <div class="rpt-terms">
+        ${RULES.map(r => `<div class="rpt-term"><span class="t">${esc(r.t)}</span><span class="d">${esc(r.d)}</span></div>`).join('')}
+        <div class="rpt-term"><span class="t">Pricing basis</span><span class="d">Figures in this proposal reflect the build as configured above. Any changes are re-scoped and quoted with the same clear unit pricing.</span></div>
+        <div class="rpt-term"><span class="t">${c.monthly ? 'Monthly support' : 'Ownership'}</span><span class="d">${c.monthly ? 'Support begins 30 days after launch and covers check-ins, bug fixes, and small adjustments. Larger changes are scoped separately.' : 'Your Excel CRM is a one-time purchase delivered as-is; you own the file and the guide lives inside the workbook.'}</span></div>
+      </div>
+    </section>`;
+
+  return `<div class="rpt-screen">
+    <div class="rpt-toolbar">
+      <button class="btn btn-secondary btn-sm" data-act="goto-blueprint" title="Back to the on-screen blueprint">← Blueprint</button>
+      <button class="btn btn-secondary btn-sm" data-act="goto-builder" title="Reopen the editable builder">${ICONS.pencil} Edit build</button>
+      <span class="spacer"></span>
+      <span class="note">A full, print-ready proposal — save as PDF from the print dialog.</span>
+      <button class="btn btn-primary btn-sm" data-act="print" title="Open the print dialog — choose “Save as PDF” as the destination">${ICONS.printer} Print / Save as PDF</button>
+    </div>
+    <div class="rpt">
+      <div class="rpt-cover">
+        <div class="mark">Rosewood<span class="accent">.</span></div>
+        <div class="kicker">CRM Proposal &amp; System Blueprint</div>
+        <h1>${esc(cl.name)}</h1>
+        <div class="sys">${esc(p.name)} Sales &amp; Marketing System</div>
+        <div class="meta">${meta}</div>
+      </div>
+
+      <section class="rpt-sec"><div class="rpt-h"><span class="no">${investNo}</span><span class="tt">Investment summary</span><span class="rule"></span></div>
+        <div class="rpt-facts">
+          <div class="rpt-fact"><label>Setup</label><b>${money(c.setupTotal)}</b>${c.addOns ? `<div class="sub">${money(c.setupBase)} base + ${money(c.addOns)} add-ons</div>` : '<div class="sub">one-time</div>'}</div>
+          <div class="rpt-fact"><label>Monthly</label><b>${c.monthly ? money(c.monthly) : 'None'}</b><div class="sub">${c.monthly ? 'support & maintenance' : 'delivered as-is'}</div></div>
+          <div class="rpt-fact"><label>Automations</label><b>${c.enabled}</b><div class="sub">${p.noAutos ? 'built into workbook' : 'of ' + tt + ' available'}</div></div>
+          <div class="rpt-fact"><label>Timeline</label><b>${copy.weeksShort || '—'}</b><div class="sub">kickoff to launch</div></div>
+        </div>
+        <div class="rpt-note">${esc(copy.tag || '')} This proposal covers the ${esc(p.name)} package as configured in the build below${c.optOffHours ? '. Optional modules currently switched off are listed but not included in the totals' : ''}.</div>
+      </section>
+
+      <section class="rpt-sec"><div class="rpt-h"><span class="no">${scopeNo}</span><span class="tt">Scope of work</span><span class="rule"></span></div>
+        <table class="rpt-tbl rpt-scope">
+          ${scope}
+          <tfoot><tr><td>Setup investment</td><td class="num">${money(c.setupBase)}</td></tr></tfoot>
+        </table>
+      </section>
+
+      ${addonsSec}
+      ${retSec}
+
+      <section class="rpt-sec rpt-break"><div class="rpt-h"><span class="no">${archNo}</span><span class="tt">System architecture</span><span class="rule"></span><span class="aside">${(p.pipelines || []).length} pipelines</span></div>
+        ${flow || '<div class="rpt-note">No pipelines configured.</div>'}
+      </section>
+
+      ${glossSec}
+      ${termsSec}
+
+      <div class="rpt-foot">
+        <span class="mark">Rosewood<span class="accent">.</span></span>
+        <span>CRM Build Studio</span>
+        <span class="spacer"></span>
+        <span>Prepared ${fmtDate(today())} · ${esc(p.name)} package</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ════════ TEMPLATES (admin) ════════ */
+function editTable(p, embedded) {
+  const c = pkgCalc(p);
+  let rows = '';
+  p.milestones.forEach((m, mi) => {
+    rows += `<tr class="mile-row">
+      <td colspan="2"><input class="t-name m-input" data-act="mile-name" data-pkg="${p.id}" data-scope="${SCOPE}" data-mi="${mi}" value="${esc(m.name)}"></td>
+      <td class="num"></td><td></td>
+      <td class="num"><button class="del" data-act="mile-del" data-pkg="${p.id}" data-scope="${SCOPE}" data-mi="${mi}" title="Delete milestone and its tasks">×</button></td>
+    </tr>`;
+    m.tasks.forEach((t, ti) => {
+      const off = t.opt && !t.inc;
+      const line = (!t.opt || t.inc) ? (+t.hours || 0) * S.rate : 0;
+      const hidden = t.cust === false;
+      rows += `<tr class="${off ? 'opt-off' : ''} ${hidden ? 'cust-off' : ''}">
+        <td><input class="t-name" data-act="task-name" data-pkg="${p.id}" data-scope="${SCOPE}" data-mi="${mi}" data-ti="${ti}" value="${esc(t.name)}" title="Internal task name (your tracking)">
+          <input class="t-clabel" data-act="task-clabel" data-pkg="${p.id}" data-scope="${SCOPE}" data-mi="${mi}" data-ti="${ti}" value="${esc(t.clabel || '')}" placeholder="${hidden ? 'hidden from client' : esc(clientLabel({ name: t.name }))}" title="Client-facing label shown on the proposal (leave blank to use the default)" ${hidden ? 'disabled' : ''}></td>
+        <td class="num"><input class="t-hrs" type="number" min="0" step="0.5" data-act="task-hrs" data-pkg="${p.id}" data-scope="${SCOPE}" data-mi="${mi}" data-ti="${ti}" value="${t.hours}"></td>
+        <td class="num">${money(line, true)}</td>
+        <td class="opt-cell">
+          <label title="Show this line on the client proposal"><input type="checkbox" data-act="task-cust" data-pkg="${p.id}" data-scope="${SCOPE}" data-mi="${mi}" data-ti="${ti}" ${hidden ? '' : 'checked'}> client</label>
+          <label style="margin-left:8px" title="Optional module — can be switched on or off per client"><input type="checkbox" data-act="task-opt" data-pkg="${p.id}" data-scope="${SCOPE}" data-mi="${mi}" data-ti="${ti}" ${t.opt ? 'checked' : ''}> optional</label>
+          ${t.opt ? `<label style="margin-left:8px" title="Included in the price right now?"><input type="checkbox" data-act="task-inc" data-pkg="${p.id}" data-scope="${SCOPE}" data-mi="${mi}" data-ti="${ti}" ${t.inc ? 'checked' : ''}> included</label>` : ''}
+        </td>
+        <td class="num"><button class="del" data-act="task-del" data-pkg="${p.id}" data-scope="${SCOPE}" data-mi="${mi}" data-ti="${ti}" title="Delete line">×</button></td>
+      </tr>`;
+    });
+    rows += `<tr><td colspan="5" style="border-bottom:0;padding-top:2px">
+      <button class="pp-add-row" data-act="task-add" data-pkg="${p.id}" data-scope="${SCOPE}" data-mi="${mi}">+ Add line</button>
+    </td></tr>`;
+  });
+  let retRows = '';
+  (p.retainer || []).forEach((r, ri) => {
+    if (isAddonRetLine(r)) {
+      retRows += `<tr>
+        <td>${esc(r.name)}<span class="pp-auto-chip" title="Hours computed from this package’s add-ons">auto</span></td>
+        <td class="num">${fmtHrs(c.addonRetHours)}</td>
+        <td class="num">${money(c.addonRetHours * S.rate, true)}</td><td></td>
+        <td class="num"><button class="del" data-act="ret-del" data-pkg="${p.id}" data-scope="${SCOPE}" data-ri="${ri}" title="Delete line">×</button></td>
+      </tr>`;
+      return;
+    }
+    retRows += `<tr>
+      <td><input class="t-name" data-act="ret-name" data-pkg="${p.id}" data-scope="${SCOPE}" data-ri="${ri}" value="${esc(r.name)}"></td>
+      <td class="num"><input class="t-hrs" type="number" min="0" step="0.5" data-act="ret-hrs" data-pkg="${p.id}" data-scope="${SCOPE}" data-ri="${ri}" value="${r.hours}"></td>
+      <td class="num">${money((+r.hours || 0) * S.rate, true)}</td><td></td>
+      <td class="num"><button class="del" data-act="ret-del" data-pkg="${p.id}" data-scope="${SCOPE}" data-ri="${ri}" title="Delete line">×</button></td>
+    </tr>`;
+  });
+  const hasAddonRet = (p.retainer || []).some(isAddonRetLine);
+  const optNote = c.optOffHours ? ` <span class="sub">(+${fmtHrs(c.optOffHours)} hrs optional, off)</span>` : '';
+  return `<section class="${embedded ? 'pp-edit-embed' : 'pp-edit-card'}">
+    <div class="pp-edit-head">
+      ${embedded ? '' : `<h2>${esc(p.name)}</h2>`}
+      <span class="sub">${fmtHrs(c.billedHours)} billed hrs${optNote}</span>
+      <button type="button" class="btn btn-secondary btn-sm" data-act="design-open" data-scope="${SCOPE}" data-pkg="${p.id}" title="Edit this template’s pipelines, stages, and automations">System map ▸</button>
+      <span class="tot">Setup ${money(c.setupTotal, true)}${c.monthly ? ` · ${money(c.monthly, true)}/mo` : ''}</span>
+    </div>
+    <div class="pp-edit-body">
+      <table class="pp-tbl">
+        <thead><tr><th>Task item</th><th class="num">Hours</th><th class="num">Line total</th><th>Module</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr>
+          <td>Setup total</td>
+          <td class="num">${fmtHrs(c.billedHours)}</td>
+          <td class="num">${money(c.setupBase, true)}</td>
+          <td colspan="2">${c.addOns ? `+ ${money(c.addOns, true)} add-ons = <b>${money(c.setupTotal, true)}</b>` : ''}</td>
+        </tr></tfoot>
+      </table>
+      <button class="pp-add-row" data-act="mile-add" data-pkg="${p.id}" data-scope="${SCOPE}">+ Add milestone</button>
+      ${p.id !== 'excel' ? `
+      <div class="pp-ret-title">Monthly retainer</div>
+      <table class="pp-tbl">
+        <thead><tr><th>Line</th><th class="num">Hours / mo</th><th class="num">Line total</th><th></th><th></th></tr></thead>
+        <tbody>${retRows}</tbody>
+        <tfoot><tr><td>Monthly total</td><td class="num">${fmtHrs(c.retHours)}</td><td class="num">${money(c.monthly, true)}</td><td colspan="2"></td></tr></tfoot>
+      </table>
+      ${hasAddonRet ? `<div class="pp-formula-note">Custom Add-Ons hours = external integrations × 0.5 + (credits ÷ 5 × 0.2 when credits &gt; 25). Credits = ${p.autosIncluded} base + 1 per extra automation + 1 per app connection + 5 for a custom web form.</div>` : ''}
+      <button class="pp-add-row" data-act="ret-add" data-pkg="${p.id}" data-scope="${SCOPE}">+ Add retainer line</button>` : ''}
+    </div>
+  </section>`;
+}
+
+function tplRow(p) {
+  const isOpen = TPL.open === p.id;
+  const c = pkgCalc(p);
+  const summary = isOpen ? '' : `<span class="tpl-sum">
+      <span>${money(c.setupTotal)}<em>setup</em></span>
+      <span>${c.monthly ? money(c.monthly) + '<em>/mo</em>' : '<em>no monthly</em>'}</span>
+      <span>${p.milestones.length}<em>milestones</em></span>
+      ${p.noAutos ? '<span><em>workbook automation</em></span>' : `<span>${p.autosIncluded}<em>automations incl.</em></span>`}
+    </span>`;
+  return `<div class="tpl-item ${isOpen ? 'is-open' : ''}">
+    <button type="button" class="tpl-hd" data-act="tpl-toggle" data-pkg="${p.id}" title="${isOpen ? 'Collapse' : 'Expand to edit milestones, tasks, and pricing'}">
+      <span class="tpl-nm">${esc(p.name)}</span>
+      ${summary}
+      <span class="tpl-chev">${isOpen ? '▴' : '▾'}</span>
+    </button>
+    ${isOpen ? `<div class="tpl-body">${editTable(p, true)}</div>` : ''}
+  </div>`;
+}
+
+function libItem(a) {
+  const open = TPL.editAuto === a.id;
+  if (!open) {
+    const tags = (a.roles || []).map(r => `<span class="chip neutral">${esc(ROLES[r] || r)}</span>`).join('');
+    return `<button type="button" class="lib-item" data-act="auto-edit" data-cid="${a.id}" title="Edit this automation">
+      <span class="lib-tok"></span>
+      <span class="lib-item-main"><span class="lib-nm">${esc(a.n)}</span><span class="lib-d">${esc(a.d) || '<em>No description yet</em>'}</span></span>
+      <span class="lib-tags">${tags}</span>
+      <span class="lib-chev">✎</span>
+    </button>`;
+  }
+  const uses = autoUsage(a.id);
+  const roleChips = Object.entries(ROLES).map(([k, v]) =>
+    `<button type="button" class="lib-role ${(a.roles || []).includes(k) ? 'on' : ''}" data-act="auto-role" data-cid="${a.id}" data-role="${k}">${esc(v)}</button>`).join('');
+  return `<div class="lib-item-edit">
+    <div class="fld"><label>Name</label><input class="in" data-act="auto-name" data-cid="${a.id}" value="${esc(a.n)}" placeholder="Automation name"></div>
+    <div class="fld"><label>What it does</label><textarea class="in" rows="2" data-act="auto-desc" data-cid="${a.id}" placeholder="Plain-English description — shows in the picker and the client report">${esc(a.d)}</textarea></div>
+    <div class="fld"><label>Suggested for stage types <span class="lib-hint">appears under “suggested” in the stage picker</span></label>
+      <div class="lib-roles">${roleChips}</div></div>
+    <div class="lib-edit-foot">
+      <span class="lib-hint">${uses ? `In use in ${uses} place${uses === 1 ? '' : 's'}` : 'Not used in any build yet'}</span>
+      <span style="margin-left:auto"></span>
+      <button type="button" class="btn btn-ghost danger btn-sm" data-act="auto-del" data-cid="${a.id}">Delete</button>
+      <button type="button" class="btn btn-secondary btn-sm" data-act="auto-edit" data-cid="${a.id}">Done</button>
+    </div>
+  </div>`;
+}
+
+function libraryBody() {
+  const groups = {};
+  S.catalog.forEach(a => { const k = (a.roles && a.roles[0]) || '_other'; (groups[k] = groups[k] || []).push(a); });
+  const order = [...Object.keys(ROLES), '_other'];
+  const body = order.filter(k => groups[k]).map(k => {
+    const label = k === '_other' ? 'Unassigned' : ROLES[k];
+    return `<div class="lib-group"><div class="lib-group-h">${esc(label)}</div>${groups[k].map(libItem).join('')}</div>`;
+  }).join('');
+  return `<div class="lib-body">
+    <div class="lib-top">
+      <span class="lib-hint">Automations you can attach to any stage. Renaming or re-describing one updates it everywhere it’s used.</span>
+      <button type="button" class="btn btn-secondary btn-sm" data-act="auto-add">+ Add automation</button>
+    </div>
+    ${body || '<div class="lib-empty">No automations yet — add one to get started.</div>'}
+  </div>`;
+}
+
+function renderTemplates() {
+  SCOPE = 'tpl';
+  const pkgIds = ['standard', 'advanced', 'custom', 'excel'];
+  return `<div class="page">
+    <button class="crumb-back" data-act="goto-home">← Start screen</button>
+    <div class="intro">
+      <h1>Package settings</h1>
+      <p>The templates every new client build starts from. Adjust rates, edit a package’s scope, or manage the automation library — prices recalculate everywhere.</p>
+    </div>
+
+    <div class="set-rates">
+      <div class="fld"><label for="setRate">Hourly rate</label>
+        <input class="in money" id="setRate" type="number" min="0" step="5" data-act="set-rate" value="${S.rate}">
+        <span class="hint">applies to every line item</span></div>
+      <div class="fld"><label for="setCredit">Automation credit</label>
+        <input class="in money" id="setCredit" type="number" min="0" step="5" data-act="set-credit" value="${S.credit}">
+        <span class="hint">per extra automation · ×5 per app / custom form</span></div>
+      <button class="link" data-act="reset-defaults" title="Restore packages and prices to defaults. Client builds and the automation library are kept.">Reset packages to defaults</button>
+    </div>
+
+    <div class="set-sec-label">Packages <span class="n">${pkgIds.length}</span></div>
+    <div class="tpl-list">${pkgIds.map(id => tplRow(pkg(id))).join('')}</div>
+
+    <div class="tpl-acc ${TPL.showLib ? 'is-open' : ''}">
+      <button type="button" class="tpl-acc-hd" data-act="lib-toggle" title="${TPL.showLib ? 'Collapse the automation library' : 'Manage the global automation library'}">
+        <span class="tpl-nm">Automation library</span>
+        <span class="tpl-acc-meta">${S.catalog.length} automations</span>
+        <span class="tpl-chev">${TPL.showLib ? '▴' : '▾'}</span>
+      </button>
+      ${TPL.showLib ? libraryBody() : ''}
+    </div>
+  </div>`;
+}
+
+function renderDesign() {
+  const p = pkg(S.designCtx.pkgId);
+  SCOPE = 'tpl';
+  const c = pkgCalc(p);
+  const over = c.extraAutos > 0;
+  const stats = p.noAutos
+    ? `<span class="dz-stat">${esc((COPY[p.id] || {}).mapNote || '')}</span>`
+    : `<span class="dz-stat">${tokenDonut(c.enabled, p.autosIncluded)}<b>${c.enabled}</b> of <b>${p.autosIncluded}</b> automations</span>
+       <span class="dz-stat ${over ? 'over' : ''}">${over ? `${ICONS.warn} <b>${c.extraAutos}</b> extra · +${money(c.extraAutos * S.credit)}` : 'within allotment'}</span>`;
+  return `<div class="page wide">
+    <button class="crumb-back" data-act="goto-templates">← Package settings</button>
+    <div class="intro">
+      <h1>${esc(p.name)} — template map</h1>
+      <p>This is what new ${esc(p.name)} client builds start from. Changes here don’t touch existing clients.</p>
+    </div>
+    <div class="dz-bar">${stats}
+      <span class="money">${money(c.setupTotal)} <span class="mo">setup${c.monthly ? ` · ${money(c.monthly)}/mo` : ''}</span></span>
+    </div>
+    ${lanesHTML(p)}
+    <button type="button" class="dz-pl-add" data-act="pl-add" data-scope="tpl" data-pkg="${p.id}">+ Add pipeline</button>
+    ${autoPickerModal(p)}
+  </div>`;
+}
+
+/* ════════ CLIENT DRAWER ════════ */
+let DRAWER = null; // 'client' | 'excel'
+function renderClientDrawer(cl) {
+  const quizRows = QUIZ.map(q => {
+    const cur = cl.quiz.answers[q.id];
+    return `<div class="cd-quiz-row">
+      <label>${esc(q.q)}</label>
+      <select data-act="cd-quiz" data-q="${q.id}">
+        <option value="" ${cur == null ? 'selected' : ''}>— not answered —</option>
+        ${q.opts.map((o, i) => `<option value="${i}" ${cur === i ? 'selected' : ''}>${esc(o.t)}</option>`).join('')}
+      </select>
+    </div>`;
+  }).join('');
+  const rec = cl.quiz.done ? pkg(quizRec(cl.quiz.answers)) : null;
+  const planRow = cl.pkg
+    ? (() => { const c = pkgCalc(cl.pkg); return `<div class="cd-plan-row">
+        <span class="nm">${esc(cl.pkg.name)}</span>
+        <span class="amt">${money(c.setupTotal)}${c.monthly ? ` · ${money(c.monthly)}/mo` : ''}</span>
+        <button class="btn btn-secondary btn-sm" style="margin-left:auto" data-act="goto-plans" title="Compare plans or swap">Change plan</button>
+      </div>` })()
+    : `<div class="cd-plan-row"><span style="color:var(--ink-3);font-size:13px">No plan selected yet</span>
+        <button class="btn btn-secondary btn-sm" style="margin-left:auto" data-act="goto-plans">Pick a plan</button></div>`;
+  $('#drawerTitle').textContent = 'Client details';
+  $('#drawerBody').innerHTML = `
+    <div class="grp"><span class="sec-label">Info</span>
+      <div class="fields">
+        <div class="fld"><label>Client / business name</label><input class="in" data-act="cd-name" value="${esc(cl.name)}"></div>
+        <div class="fld"><label>Contact person</label><input class="in" data-act="cd-contact" value="${esc(cl.contact || '')}" placeholder="—"></div>
+        <div class="fld"><label>Email</label><input class="in" data-act="cd-email" type="email" value="${esc(cl.email || '')}" placeholder="—"></div>
+        <div class="fld"><label>Phone</label><input class="in" data-act="cd-phone" value="${esc(cl.phone || '')}" placeholder="—"></div>
+      </div>
+    </div>
+    <div class="grp"><span class="sec-label">Plan</span>${planRow}
+      ${cl.pkg && !cl.pkg.noAutos ? (() => {
+        const p = cl.pkg, bought = Math.max(0, p.extraManual || 0), en = autosEnabled(p), allow = allowanceOf(p), over = en > allow;
+        return `<div class="cd-extra">
+          <div class="cd-extra-top"><span class="lbl">Extra automations</span>
+            <span class="pp-qty">
+              <button type="button" data-act="extra-step" data-scope="client" data-pkg="${p.id}" data-d="-1" aria-label="Fewer">−</button>
+              <input type="number" min="0" step="1" inputmode="numeric" data-act="extra-set" data-scope="client" data-pkg="${p.id}" value="${bought}" aria-label="Extra automations quoted">
+              <button type="button" data-act="extra-step" data-scope="client" data-pkg="${p.id}" data-d="1" aria-label="More">+</button>
+            </span></div>
+          <div class="cd-extra-note">${p.autosIncluded} included + ${bought} extra = <b>${allow}</b> allowance${over ? ` · <span style="color:var(--warn);font-weight:600">${en - allow} built over</span>` : ''} · +${money(extraAutosOf(p) * S.credit)}</div>
+        </div>`;
+      })() : ''}
+      ${cl.finalized ? `<div style="margin-top:8px"><span class="chip good">Finalized</span> <button class="link" data-act="goto-blueprint">view blueprint</button></div>` : ''}
+    </div>
+    <div class="grp"><span class="sec-label">Quiz answers</span>
+      ${cl.quiz.done || Object.keys(cl.quiz.answers).length
+        ? `${quizRows}${rec ? `<div style="margin-top:10px;font-size:12px;color:var(--ink-3)">Current answers point to <b style="color:var(--ink)">${esc(rec.name)}</b></div>` : ''}`
+        : `<div style="font-size:13px;color:var(--ink-3)">Quiz not taken.</div>
+           <button class="btn btn-secondary btn-sm" style="margin-top:10px" data-act="cd-run-quiz">Run the quiz</button>`}
+    </div>
+    <div class="grp"><span class="sec-label">Added</span>
+      <div style="font-size:13px;color:var(--ink-3)">${fmtDate(cl.created)}</div>
+    </div>`;
+  const foot = $('#drawerFoot');
+  foot.style.display = 'flex';
+  foot.innerHTML = `
+    <button class="btn btn-secondary" data-act="client-exit" title="Close this client’s account and return to the start screen">Exit client</button>
+    <span style="margin-left:auto"></span>
+    <button class="btn btn-ghost danger" data-act="client-del" data-client="${cl.id}">Remove client</button>`;
+}
+function renderExcelDrawer() {
+  SCOPE = 'tpl';
+  $('#drawerTitle').textContent = 'One more option';
+  $('#drawerBody').innerHTML = planCard(pkg('excel'), activeClient());
+  $('#drawerFoot').style.display = 'none';
+}
+function openDrawer(kind) {
+  DRAWER = kind;
+  if (kind === 'client') renderClientDrawer(activeClient());
+  else renderExcelDrawer();
+  $('#drawer').classList.add('is-open'); $('#backdrop').classList.add('is-open');
+}
+function closeDrawer() {
+  DRAWER = null;
+  $('#drawer').classList.remove('is-open'); $('#backdrop').classList.remove('is-open');
+}
+
+/* ════════ CHROME (header) ════════ */
+function setChrome() {
+  const cl = activeClient();
+  let crumb = '';
+  if (S.screen === 'intake') crumb = '<b>New project</b>';
+  else if (S.screen === 'templates') crumb = '<b>Package settings</b>';
+  else if (S.screen === 'design' && S.designCtx) crumb = `Package settings <span class="sep">›</span> <b>${esc(pkg(S.designCtx.pkgId).name)} map</b>`;
+  else if (cl) {
+    const leaf = { plans: 'Plans', builder: 'Builder', blueprint: 'Blueprint', report: 'Report' }[S.screen] || '';
+    crumb = `${esc(cl.name)}${leaf ? ` <span class="sep">›</span> <b>${leaf}</b>` : ''}`;
+  }
+  $('#crumb').innerHTML = crumb;
+  const showChip = cl && ['plans', 'builder', 'blueprint', 'report', 'intake'].includes(S.screen);
+  $('#hdActions').innerHTML = showChip
+    ? `<button class="hd-client" data-act="open-client-drawer" title="Client details — info, quiz answers, and plan. Exit the client from here.">
+        <span class="av">${esc(initials(cl.name))}</span>${esc(cl.name)}
+        ${cl.pkg ? `<span class="pl">${esc(cl.pkg.name)}</span>` : ''}<span class="chev">▾</span>
+      </button>`
+    : '';
+}
+
+/* ════════ RENDER ════════ */
+function applyTheme() {
+  const t = S.theme || 'light';
+  document.documentElement.setAttribute('data-theme', t);
+  document.querySelectorAll('#themeSeg button').forEach(b => b.classList.toggle('is-active', b.dataset.theme === t));
+}
+function render() {
+  refreshCatalog();
+  applyTheme();
+  const openMiles = new Set();
+  document.querySelectorAll('.pp-miles[open]').forEach(d => {
+    const card = d.closest('.pp-card, .pp-edit-card, .dz-incl');
+    if (card) openMiles.add(card.querySelector('h2')?.textContent || 'panel');
+  });
+  const rulesOpen = !!document.querySelector('.pp-rules[open]');
+  let html;
+  switch (S.screen) {
+    case 'intake':    html = activeClient() || QZ.step === 0 ? renderIntake() : renderHome(); break;
+    case 'plans':     html = activeClient() ? renderPlans() : renderHome(); break;
+    case 'builder':   html = activeClient()?.pkg ? renderBuilder() : renderHome(); break;
+    case 'blueprint': html = activeClient()?.pkg ? renderBlueprint() : renderHome(); break;
+    case 'report':    html = activeClient()?.pkg ? renderReport() : renderHome(); break;
+    case 'templates': html = renderTemplates(); break;
+    case 'design':    html = S.designCtx ? renderDesign() : renderTemplates(); break;
+    default:          S.screen = 'home'; html = renderHome();
+  }
+  $('#page').innerHTML = html;
+  $('#page').classList.toggle('anim', LAST_SCREEN !== S.screen);
+  LAST_SCREEN = S.screen;
+  setChrome();
+  document.querySelectorAll('.pp-card, .pp-edit-card, .dz-incl').forEach(card => {
+    const name = card.querySelector('h2')?.textContent || '';
+    if (openMiles.has(name)) card.querySelector('.pp-miles')?.setAttribute('open', '');
+  });
+  if (rulesOpen) document.querySelector('.pp-rules')?.setAttribute('open', '');
+  document.querySelectorAll('textarea.st-note').forEach(autosize);
+  if (DRAWER === 'client' && activeClient()) renderClientDrawer(activeClient());
+  else if (DRAWER === 'excel') renderExcelDrawer();
+  else if (DRAWER) closeDrawer();
+  save();
+}
+function autosize(t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }
+
+/* ════════ EVENTS ════════ */
+function makeClient(d) {
+  const id = 'c' + (S.seq++);
+  const cl = { id, name: d.name, contact: d.contact || '', email: d.email || '', phone: '',
+    quiz: { answers: {}, done: false, rec: null }, planId: null, pkg: null, finalized: false, created: today() };
+  S.clients.push(cl);
+  return cl;
+}
+function readIntakeInfo() {
+  const f = $('#qzName');
+  const name = (f?.value || '').trim();
+  if (!name) {
+    if (f) {
+      f.classList.remove('error'); void f.offsetWidth; f.classList.add('error');
+      if (!f.parentElement.querySelector('.err')) {
+        const m = document.createElement('span'); m.className = 'err';
+        m.textContent = 'A client name is needed to save the build.';
+        f.parentElement.appendChild(m);
+      }
+      f.focus();
+    }
+    return null;
+  }
+  const d = { name, contact: ($('#qzContact')?.value || '').trim(), email: ($('#qzEmail')?.value || '').trim() };
+  let cl = activeClient();
+  if (cl) Object.assign(cl, d); else { cl = makeClient(d); S.activeClient = cl.id; }
+  return cl;
+}
+
+function handle(el) {
+  const act = el.dataset.act;
+  const p = (el.dataset.pkg || el.dataset.scope) ? scopedPkg(el) : null;
+  const cl = el.dataset.client ? client(el.dataset.client) : activeClient();
+  const mi = +el.dataset.mi, ti = +el.dataset.ti, ri = +el.dataset.ri;
+  const pi = +el.dataset.pi, si = +el.dataset.si, ai = +el.dataset.ai;
+  switch (act) {
+    /* navigation */
+    case 'goto-home': S.activeClient = null; S.screen = 'home'; HOME_Q = ''; closeDrawer(); break;
+    case 'home-lock': HOME_Q = ''; break;
+    case 'goto-templates': S.screen = 'templates'; S.designCtx = null; addPop = null; break;
+    case 'goto-plans': S.screen = 'plans'; closeDrawer(); break;
+    case 'goto-builder': S.screen = 'builder'; INCL_OPEN = false; closeDrawer(); break;
+    case 'goto-blueprint': S.screen = 'blueprint'; closeDrawer(); break;
+    case 'goto-report': S.screen = 'report'; closeDrawer(); break;
+    case 'print': window.print(); return;
+    case 'open-excel': openDrawer('excel'); return;
+    case 'open-client-drawer': openDrawer('client'); return;
+    case 'incl-toggle': INCL_OPEN = !INCL_OPEN; break;
+    case 'hint-dismiss': (S.hints || (S.hints = {}))[el.dataset.k] = true; break;
+    case 'theme-set': S.theme = el.dataset.theme; break;
+
+    /* home / clients */
+    case 'new-project': S.activeClient = null; HOME_Q = ''; QZ = { step: 0, draft: {} }; S.screen = 'intake'; break;
+    case 'client-open': openClient(cl); break;
+    case 'client-exit':
+      toast(`Closed ${cl.name} — pick them from the list to continue later`);
+      S.activeClient = null; S.screen = 'home'; closeDrawer();
+      break;
+    case 'client-del':
+      if (confirm(`Remove ${cl.name}? Their tailored build will be lost.`)) {
+        S.clients = S.clients.filter(x => x.id !== cl.id);
+        if (S.activeClient === cl.id) { S.activeClient = null; S.screen = 'home'; }
+        closeDrawer();
+      }
+      break;
+
+    /* intake / quiz */
+    case 'qz-cancel':
+      if (cl && cl.pkg) S.screen = 'builder';
+      else { S.activeClient = null; S.screen = 'home'; }
+      break;
+    case 'qz-next':
+      if (QZ.step === 0) { if (!readIntakeInfo()) return; QZ.step = 1; }
+      else QZ.step++;
+      break;
+    case 'qz-back': QZ.step = Math.max(0, QZ.step - 1); break;
+    case 'qz-skip':
+      if (QZ.step === 0 && !readIntakeInfo()) return;
+      S.screen = 'plans';
+      break;
+    case 'qz-pick': cl.quiz.answers[el.dataset.q] = +el.dataset.i; break;
+    case 'qz-finish': S.screen = 'plans'; break;
+    case 'cd-run-quiz': QZ = { step: 1, draft: {} }; S.screen = 'intake'; closeDrawer(); break;
+
+    /* plan selection */
+    case 'plan-select': {
+      const id = el.dataset.pkg;
+      if (cl.planId === id && cl.pkg) { S.screen = 'builder'; break; }
+      if (cl.pkg && !confirm(`Swap ${cl.name} to the ${pkg(id).name} plan? Their current build will start fresh from the ${pkg(id).name} template.`)) return;
+      cl.planId = id; cl.pkg = clone(pkg(id)); cl.finalized = false;
+      S.screen = 'builder'; INCL_OPEN = false; closeDrawer();
+      toast(`${pkg(id).name} plan selected for ${cl.name}`);
+      break;
+    }
+    case 'finalize':
+      cl.finalized = true; S.screen = 'blueprint';
+      toast('Build finalized — this is the presentation blueprint');
+      break;
+
+    /* client drawer fields */
+    case 'cd-name': cl.name = el.value.trim() || cl.name; break;
+    case 'cd-contact': cl.contact = el.value; break;
+    case 'cd-email': cl.email = el.value; break;
+    case 'cd-phone': cl.phone = el.value; break;
+    case 'cd-quiz': {
+      if (el.value === '') delete cl.quiz.answers[el.dataset.q];
+      else cl.quiz.answers[el.dataset.q] = +el.value;
+      if (Object.keys(cl.quiz.answers).length === QUIZ.length) { cl.quiz.done = true; cl.quiz.rec = quizRec(cl.quiz.answers); }
+      break;
+    }
+
+    /* add-ons & modules */
+    case 'qty': case 'qty-step': {
+      const key = { auto: 'extraAutos', integ: 'integrations', ext: 'extInteg' }[el.dataset.kind];
+      const cur = p[key] || 0;
+      const val = act === 'qty' ? Math.round(+el.value || 0) : cur + +el.dataset.d;
+      p[key] = Math.max(0, val);
+      break;
+    }
+    /* Manual "extra automations" quote — overrides the map-derived count until reset to auto. */
+    case 'extra-set': p.extraManual = Math.max(0, Math.round(+el.value || 0)); break;
+    case 'extra-step': p.extraManual = Math.max(0, (p.extraManual || 0) + (+el.dataset.d || 0)); break;
+    case 'form-toggle': p.customForm = el.checked; break;
+    case 'opt-toggle': p.milestones[mi].tasks[ti].inc = el.checked; break;
+
+    /* templates admin */
+    case 'set-rate': S.rate = Math.max(0, +el.value || 0); break;
+    case 'set-credit': S.credit = Math.max(0, +el.value || 0); break;
+    /* package settings — progressive accordion + automation library */
+    case 'tpl-toggle': TPL.open = (TPL.open === el.dataset.pkg) ? null : el.dataset.pkg; break;
+    case 'lib-toggle': TPL.showLib = !TPL.showLib; break;
+    case 'auto-edit': TPL.editAuto = (TPL.editAuto === el.dataset.cid) ? null : el.dataset.cid; break;
+    case 'auto-add': {
+      let i = 1, id; do { id = 'auto-' + i++; } while (S.catalog.some(a => a.id === id));
+      S.catalog.push({ id, n: 'New automation', d: '', roles: [] });
+      TPL.showLib = true; TPL.editAuto = id;
+      break;
+    }
+    case 'auto-name': { const a = S.catalog.find(x => x.id === el.dataset.cid); if (a) a.n = el.value; break; }
+    case 'auto-desc': { const a = S.catalog.find(x => x.id === el.dataset.cid); if (a) a.d = el.value; break; }
+    case 'auto-role': {
+      const a = S.catalog.find(x => x.id === el.dataset.cid); if (!a) break;
+      a.roles = a.roles || [];
+      const r = el.dataset.role, i = a.roles.indexOf(r);
+      if (i < 0) a.roles.push(r); else a.roles.splice(i, 1);
+      break;
+    }
+    case 'auto-del': {
+      const id = el.dataset.cid;
+      const a = S.catalog.find(x => x.id === id); if (!a) break;
+      const uses = autoUsage(id);
+      const msg = uses
+        ? `Delete “${a.n}”? It’s attached in ${uses} place${uses === 1 ? '' : 's'} — those stages keep the step, but it leaves the picker and library.`
+        : `Delete “${a.n}” from the library?`;
+      if (!confirm(msg)) return;
+      S.catalog = S.catalog.filter(x => x.id !== id);
+      if (TPL.editAuto === id) TPL.editAuto = null;
+      break;
+    }
+    case 'reset-defaults':
+      if (confirm('Restore package templates and prices to defaults? Client builds are kept as-is.')) {
+        const keep = { clients: S.clients, seq: S.seq, activeClient: S.activeClient, screen: S.screen, catalog: S.catalog };
+        S = clone(DEFAULTS); Object.assign(S, keep);
+      } else return;
+      break;
+    case 'mile-name': p.milestones[mi].name = el.value; break;
+    case 'mile-del': if (confirm('Delete this milestone and all its lines?')) p.milestones.splice(mi, 1); else return; break;
+    case 'mile-add': p.milestones.push({ name: 'New milestone', tasks: [] }); break;
+    case 'task-name': p.milestones[mi].tasks[ti].name = el.value; break;
+    case 'task-hrs': p.milestones[mi].tasks[ti].hours = Math.max(0, +el.value || 0); break;
+    case 'task-opt': { const t = p.milestones[mi].tasks[ti]; t.opt = el.checked; if (!t.opt) t.inc = true; break; }
+    case 'task-inc': p.milestones[mi].tasks[ti].inc = el.checked; break;
+    case 'task-cust': p.milestones[mi].tasks[ti].cust = el.checked ? undefined : false; break;
+    case 'task-clabel': p.milestones[mi].tasks[ti].clabel = el.value; break;
+    case 'task-del': p.milestones[mi].tasks.splice(ti, 1); break;
+    case 'task-add': p.milestones[mi].tasks.push({ name: 'New task', hours: 1, opt: false, inc: true }); break;
+    case 'ret-name': p.retainer[ri].name = el.value; break;
+    case 'ret-hrs': p.retainer[ri].hours = Math.max(0, +el.value || 0); break;
+    case 'ret-del': p.retainer.splice(ri, 1); break;
+    case 'ret-add': p.retainer.push({ name: 'New line', hours: 1 }); break;
+    case 'design-open': S.designCtx = { pkgId: el.dataset.pkg }; S.screen = 'design'; addPop = null; closeDrawer(); break;
+
+    /* builder */
+    case 'pl-name': p.pipelines[pi].name = el.value; break;
+    case 'pl-inflow': p.pipelines[pi].inflow = el.value; break;
+    case 'pl-del':
+      if (confirm(`Delete the "${p.pipelines[pi].name}" pipeline and its stages?`)) { p.pipelines.splice(pi, 1); addPop = null; } else return;
+      break;
+    case 'pl-add': p.pipelines.push({ name: 'New pipeline', inflow: '', stages: [{ name: 'New stage', role: 'intake', note: '', autos: [] }] }); break;
+    case 'st-name': p.pipelines[pi].stages[si].name = el.value; break;
+    case 'st-note': p.pipelines[pi].stages[si].note = el.value; break;
+    case 'st-del': {
+      const st = p.pipelines[pi].stages[si];
+      if (!(st.autos || []).length || confirm(`Delete the "${st.name}" stage and its automations?`)) {
+        p.pipelines[pi].stages.splice(si, 1); addPop = null;
+      } else return;
+      break;
+    }
+    case 'st-add': p.pipelines[pi].stages.push({ name: 'New stage', role: 'followup', note: '', autos: [] }); break;
+    case 'chip-toggle': { const a = p.pipelines[pi].stages[si].autos[ai]; a.on = !a.on; break; }
+    case 'chip-del': p.pipelines[pi].stages[si].autos.splice(ai, 1); break;
+    case 'pop-open': addPop = { pi, si }; break;
+    case 'pop-close': addPop = null; break;
+    case 'pop-add': {
+      const st = p.pipelines[pi].stages[si];
+      if (!(st.autos || []).some(a => a.id === el.dataset.cid)) st.autos.push({ id: el.dataset.cid, on: true });
+      break;
+    }
+    default: return;
+  }
+  render();
+}
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const tag = el.tagName;
+  if ((tag === 'INPUT' && el.type !== 'checkbox') || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  handle(el);
+});
+document.addEventListener('change', e => {
+  const el = e.target.closest('[data-act]');
+  if (el && ['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName)) handle(el);
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'homeSearch') { HOME_Q = e.target.value; updateHomeResults(); return; }
+  if (e.target.classList?.contains('st-note')) autosize(e.target);
+  if (e.target.id === 'qzName' && e.target.classList.contains('error')) {
+    e.target.classList.remove('error');
+    e.target.parentElement.querySelector('.err')?.remove();
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (addPop) { addPop = null; render(); }
+    else if (DRAWER) closeDrawer();
+    else if (S.screen === 'home' && HOME_Q) { HOME_Q = ''; render(); }
+  }
+  if (e.key === 'Enter' && ['qzName', 'qzContact', 'qzEmail'].includes(e.target.id)) {
+    e.preventDefault();
+    handle(document.querySelector('[data-act="qz-next"]'));
+    return;
+  }
+  // Quiz question steps: A–D / 1–4 select an option, Enter moves on
+  if (S.screen === 'intake' && document.querySelector('.qz-opts') && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) {
+    const opts = [...document.querySelectorAll('.qz-opt')];
+    const byLetter = 'abcdefgh'.indexOf(e.key.toLowerCase());
+    const byNum = parseInt(e.key, 10);
+    const pick = byLetter >= 0 && byLetter < opts.length ? byLetter
+      : (byNum >= 1 && byNum <= opts.length ? byNum - 1 : -1);
+    if (pick >= 0) { e.preventDefault(); opts[pick].click(); return; }
+    if (e.key === 'Enter') { const nx = document.querySelector('.qz-nav [data-act="qz-next"]'); if (nx) { e.preventDefault(); nx.click(); } }
+  }
+});
+$('#logoBtn').addEventListener('click', () => { S.activeClient = null; S.screen = 'home'; S.designCtx = null; addPop = null; HOME_Q = ''; closeDrawer(); render(); });
+$('#drawerClose').addEventListener('click', closeDrawer);
+$('#backdrop').addEventListener('click', closeDrawer);
+
+/* ════════ INIT (with migration from the v1 plan-picker) ════════ */
+function migrate() {
+  try {
+    const raw = localStorage.getItem('rw-plan-picker');
+    if (!raw) return;
+    const old = JSON.parse(raw);
+    (old.clients || []).forEach(oc => {
+      if (!oc.pkg) return;
+      (oc.pkg.pipelines || []).forEach(pl => pl.stages.forEach(st => { if (st.note == null) st.note = ''; }));
+      S.clients.push({
+        id: 'c' + (S.seq++), name: oc.name, contact: '', email: '', phone: '',
+        quiz: { answers: {}, done: false, rec: null },
+        planId: oc.pkg.id, pkg: oc.pkg, finalized: false, created: today(),
+      });
+    });
+    if (old.rate) S.rate = old.rate;
+    if (old.credit) S.credit = old.credit;
+    localStorage.removeItem('rw-plan-picker');
+  } catch (e) {}
+}
+load();
+if (!localStorage.getItem(LS_KEY)) migrate();
+render();
+</script>
+</body>
+</html>
